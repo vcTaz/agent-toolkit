@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "name": "failed_no_decomposition",
+  "description": "A run whose configuration supplies no task graph. The MVP has no decomposer, so the run cannot work at all: FAILED, not EXHAUSTED.",
+  "objective": "Establish the total of an integer list that no declared task investigates.",
+  "acceptance_criteria": [
+    {
+      "id": "c1",
+      "description": "the total of the list is correct",
+      "verifier_kind": "arithmetic",
+      "required": true
+    }
+  ],
+  "permissions": ["arithmetic"],
+  "groups": [],
+  "agents": [
+    {"id": "critic-1"},
+    {"id": "validator-1"}
+  ],
+  "tasks": [],
+  "provider": {"kind": "scripted"},
+  "expect": {
+    "terminal_state": "FAILED",
+    "exit_code": 2,
+    "no_result": true,
+    "result_versions": 0,
+    "validated_claims": [],
+    "stop_reason_contains": "NO_ADMITTED_WORK"
+  }
+}
