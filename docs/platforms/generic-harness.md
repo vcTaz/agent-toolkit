@@ -6,6 +6,11 @@ vendor, model, language or framework dependency.
 
 This page is how to map them onto a harness that is neither of the two with adapters here.
 
+Claims below about other harnesses (which read `AGENTS.md`, which implement Agent Skills,
+Zed's instruction-file precedence) were verified against those projects' documentation in
+September 2026 and are the most perishable content in this repository. Check them before
+relying on one.
+
 ## What you are adopting
 
 ```text
@@ -95,7 +100,7 @@ stop: either the canonical role is wrong and should be fixed, or you are forking
 
 ### Keeping the copy honest
 
-`tools/check.py` is ~230 lines of standard-library Python that verifies role structure, skill
+`tools/check.py` is ~250 lines of standard-library Python that verifies role structure, skill
 conformance, adapter coverage and — the important part — that every copied body still matches
 its canonical source by SHA-256. `--sync` regenerates the copies.
 

@@ -12,8 +12,8 @@ provides reusable agent roles, skills, workflows and reliability patterns, plus 
 for Claude Code and Codex.
 
 It contains **no runtime**. There is nothing to install, no framework, and no language
-dependency. Everything here is Markdown, except one standard-library Python script used to
-check structure.
+dependency. Everything here is Markdown, apart from seven TOML adapter files and one
+standard-library Python script used to check structure.
 
 ## Repository map
 
@@ -95,8 +95,8 @@ against. Anything not verified against official documentation must say so.
 dependencies, and checks role structure, Agent Skills conformance, adapter coverage and
 drift, symlink targets and link resolution. It fails closed on anything it cannot classify.
 
-- **Editing a role:** edit `roles/<id>.md`, then `tools/check.py --sync`, then
-  `tools/check.py`. Never edit inside a `canonical:begin` block or a TOML
+- **Editing a role:** edit `roles/<id>.md`, then `python3 tools/check.py --sync`, then
+  `python3 tools/check.py`. Never edit inside a `canonical:begin` block or a TOML
   `developer_instructions` string.
 - **Adding a role** requires a distinct epistemic posture, a distinct output contract **and**
   a distinct independence requirement. Two out of three means you have a *brief* for an

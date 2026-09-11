@@ -12,7 +12,9 @@ file is stale.
 | Skills | `.claude/skills` → `../skills` | project skills, discovered through the symlink |
 | Instructions | `CLAUDE.md` → imports `AGENTS.md` | project memory |
 
-Nothing needs installing. Open the repository with Claude Code and all three are discovered.
+Nothing needs installing. Open the repository with Claude Code and all three are
+discovered. On Windows, clone with `git clone -c core.symlinks=true`, or the skill
+symlink is checked out as a text file and skills are not found.
 
 ### Skills are a symlink, not a copy
 

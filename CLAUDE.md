@@ -9,7 +9,8 @@ Claude Code does not read it natively. Everything in it applies.
 
 - **Roles** are available as subagents in `.claude/agents/` — `explorer`, `specialist`,
   `implementer`, `critic`, `validator`, `synthesizer`, `final-reviewer`. The same definitions
-  work as Agent Teams teammate types.
+  work as Agent Teams teammate types, where enabled — Agent Teams is experimental and off by
+  default.
 - **Skills** are discovered through `.claude/skills`, a symlink to the canonical `skills/`.
 - **`docs/platforms/claude-code.md`** has the team compositions, the subagent-versus-teammate
   decision, and the honest limitations — including that `Bash` is not read-only-enforceable,
