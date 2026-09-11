@@ -1,8 +1,8 @@
 # Codex
 
-Verified against OpenAI Codex documentation, September 2026. Mechanisms change; if something
-here disagrees with the official documentation, the official documentation is right and this
-file is stale.
+Verified against OpenAI Codex documentation and codex-cli 0.153.4, September 2026.
+Mechanisms change; if something here disagrees with the official documentation, the official
+documentation is right and this file is stale.
 
 ## What this repository provides
 
@@ -13,6 +13,8 @@ file is stale.
 | Roles | `.codex/agents/*.toml` | project-scoped custom subagents |
 
 Nothing needs installing. Open the repository with Codex and all three are discovered.
+On Windows, clone with `git clone -c core.symlinks=true`, or the skill symlink is checked
+out as a text file and skills are not found.
 
 ## AGENTS.md
 

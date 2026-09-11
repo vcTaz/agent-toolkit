@@ -7,6 +7,11 @@ effective AI agent teams across Claude Code, Codex and other agentic systems.
 it and the roles and skills are discovered natively by both supported harnesses; read it and
 the ideas transfer to any other.
 
+> On Windows, clone with `git clone -c core.symlinks=true` — the skill directories are
+> symlinks, and without that flag git writes them as plain text files and skill discovery
+> fails silently. `python3 tools/check.py` detects it. See
+> [skills/README.md](skills/README.md).
+
 The thing this toolkit is actually about:
 
 > Multi-agent systems fail by producing confident, well-cited, internally consistent answers
@@ -22,7 +27,7 @@ The thing this toolkit is actually about:
 2  skills/           WHAT procedure it performs                  canonical
 3  workflows/        HOW roles and skills cooperate              canonical
 4  docs/concepts/    WHY it is shaped this way                   reliability principles
-5  .claude/ .codex/  platform adapters                           mechanics only
+5  .claude/ .codex/  platform adapters, and the guides to them   mechanics only
 ```
 
 ### 1 · Roles
@@ -80,6 +85,9 @@ breaks when you ignore it.
 
 ### 5 · Platform adapters
 
+The adapters live in `.claude/agents/` and `.codex/agents/`; these are the guides to using
+them. `docs/authority.md` explains why they are separate layers.
+
 [Claude Code](docs/platforms/claude-code.md) ·
 [Codex](docs/platforms/codex.md) ·
 [any other harness](docs/platforms/generic-harness.md)
@@ -97,9 +105,10 @@ Use the critic agent to attack the change in src/auth/.
 Give it the diff and the requirement, not my reasoning about the fix.
 ```
 
-The same definitions work as Agent Teams teammate types — which is the officially supported
-way to define reusable teammate roles, since Claude Code does not read a project-level team
-config file. Compositions per workflow are in
+The same definitions work as Agent Teams teammate types — the officially supported way to
+define reusable teammate roles, since Claude Code does not read a project-level team config
+file. Agent Teams is experimental and off by default; nothing here depends on it.
+Compositions per workflow are in
 [docs/platforms/claude-code.md](docs/platforms/claude-code.md).
 
 ### With Codex

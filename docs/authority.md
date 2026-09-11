@@ -19,7 +19,7 @@ Which file wins when two disagree.
 **Higher wins.** Specifically:
 
 - If an **adapter** and a **canonical role** disagree, the role wins and **the adapter is
-  defective**. Fix `roles/`, then run `tools/check.py --sync`.
+  defective**. Fix `roles/`, then run `python3 tools/check.py --sync`.
 - If a **platform document** and a **canonical file** disagree, the canonical file wins and
   the platform document is stale.
 - If a **concept document** and a **role** disagree, they are describing the same thing at two
@@ -56,7 +56,7 @@ with a file path as its entire instruction set.
 | **Why** | adapter bodies must be self-contained to function as system prompts |
 | **Which is authoritative** | `roles/*.md`, always |
 | **How drift is detected** | `tools/check.py` compares the embedded text and its recorded SHA-256 against the canonical file |
-| **How it is repaired** | `tools/check.py --sync` |
+| **How it is repaired** | `python3 tools/check.py --sync` |
 
 Both directions are caught: editing a role without syncing, and hand-editing an adapter body.
 Both are proven to fail rather than assumed to.
@@ -66,9 +66,9 @@ concepts are referenced, not restated.
 
 ## Changing things safely
 
-**A role:** edit `roles/<id>.md` → `tools/check.py --sync` → `tools/check.py`. If you changed
-what the role *is* rather than how it is worded, check the workflows that name it and the
-concept documents that reference it.
+**A role:** edit `roles/<id>.md` → `python3 tools/check.py --sync` → `python3 tools/check.py`.
+If you changed what the role *is* rather than how it is worded, check the workflows that name
+it and the concept documents that reference it.
 
 **A skill:** edit `skills/<name>/SKILL.md`. Nothing to sync — both harnesses read it directly.
 
@@ -92,4 +92,5 @@ Each layer points **downward or sideways**, never back up as an authority:
 
 Role files reference other documents by repository-root path in backticks rather than by
 relative link, because their bodies are copied into other directories where a relative link
-would break — or, worse, resolve to a different file. `tools/check.py` enforces this.
+would break — or, worse, resolve to a different file. `tools/check.py` enforces the
+prohibition on relative links; the backtick form itself is a convention, not a check.
