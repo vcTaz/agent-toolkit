@@ -37,6 +37,10 @@ deciding the job produces a package built from what you happen to have.
 answer, the first question is whether it could have known better, and an unrecorded omission
 makes that unanswerable.
 
+**When in doubt about whether this agent may see something, leave it out.** Disclosure fails
+closed. Being on a team permits *selection*; it does not authorise passing along everything
+that exists.
+
 ### 3. Bound it with actual limits
 
 Caps force selection. Without them, "relevant context" expands to everything.

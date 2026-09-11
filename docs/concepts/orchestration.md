@@ -313,11 +313,48 @@ condition invented at the end is a rationalisation.
 ### O24 · Record the decision and the reason, not the narrative
 
 Every routing choice, refusal, stop and promotion should be answerable after the fact from
-what was recorded — *why did this branch get this discovery?*, *why did this run exhaust?* —
-without re-reading any transcript.
+what was recorded, without re-reading any transcript. The concrete test — if you cannot
+answer these from the record, you did not record enough:
+
+```text
+Why was this claim treated as established?     the review that settled it, and its decision
+What evidence established it?                  the check, its actual inputs, its actual output
+Why did this agent receive this discovery?     the routing decision and what matched
+Why did this branch stop?                      the stop reason, recorded when it stopped
+Why did the run end without an answer?         the gate's last reasons, and every refusal
+Which findings support the conclusion?         recomputed from the citations, not asserted
+```
+
+**Derive these from the record, not from a parallel tally.** A second bookkeeping of progress
+maintained alongside the work will disagree with it, and the disagreement will be discovered
+at the worst moment. Recompute from what was actually committed.
 
 **Ignore it and:** the only account of the run is a model's summary of it, which is the one
 source that cannot be checked.
+
+### O27 · Disclosure fails closed
+
+Membership permits selection; it never authorises automatic injection. Before passing any
+record to an agent, establish that this agent may legitimately see it. **If you cannot
+establish who owns it, do not send it.**
+
+The case that catches people: a conflict spanning two branches belongs to neither. Sending it
+to one of them presents a contested question as settled — so it is undisclosable rather than
+quietly shared with whichever branch is closer to hand.
+
+**Ignore it and:** context leaks by default, and the leak looks like helpfulness.
+
+### O28 · Report what nothing consumed
+
+At the end, say what was recorded and never used: a discovery routed but never answered, a
+follow-up requested but never scheduled, a finding nothing cited, a question raised and
+dropped.
+
+These are the quiet failures. Nothing went wrong loudly — work was simply done and then not
+used — and a report that omits them looks identical to a run where everything mattered.
+
+**Ignore it and:** you cannot tell a run that used its work from one that wasted half of it,
+and the same waste repeats next time.
 
 ### O25 · Fail closed on anything unrecognised
 

@@ -1,9 +1,12 @@
+# Editor and OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Tooling scratch
+.serena/
+
+# Python bytecode, if a contributor runs tools/check.py from a checkout
 __pycache__/
 *.py[cod]
-*.egg-info/
-build/
-dist/
-.venv/
-*.sqlite*
-*.db
-swarm-runs.db
