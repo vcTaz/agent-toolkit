@@ -1,36 +1,29 @@
 # CLAUDE.md
 
-This repository uses `AGENTS.md` as the primary persistent project instruction file.
+@AGENTS.md
 
-Before making changes:
+`AGENTS.md` above is the primary instruction file for this repository, imported here because
+Claude Code does not read it natively. Everything in it applies.
 
-1. Read `AGENTS.md`.
-2. Read `docs/mvp-architecture.md` for the architecture as implemented.
-3. Read `docs/stage-8-report.md`, the current MVP checkpoint.
-4. Preserve the architectural invariants and implementation boundaries documented there.
-5. Treat the repository as the source of truth for current implementation state.
-6. Do not infer implementation state from previous chat history when the repository contains a newer checkpoint.
-7. Do not begin post-MVP/V2 work unless explicitly authorized.
+## Claude Code specifics
 
-Current state (see `AGENTS.md` for detail): **Stages 1-8 are complete and verified.
-The MVP is complete.** No post-MVP/V2 work is authorized.
+- **Roles** are available as subagents in `.claude/agents/` — `explorer`, `specialist`,
+  `implementer`, `critic`, `validator`, `synthesizer`, `final-reviewer`. The same definitions
+  work as Agent Teams teammate types.
+- **Skills** are discovered through `.claude/skills`, a symlink to the canonical `skills/`.
+- **`docs/platforms/claude-code.md`** has the team compositions, the subagent-versus-teammate
+  decision, and the honest limitations — including that `Bash` is not read-only-enforceable,
+  so the read-only roles rely on instruction rather than sandboxing.
 
-Core project principles:
+## Before changing a role
 
-- Functional agent roles, not simulated human job titles.
-- Models/executors propose.
-- Controllers decide.
-- Repository commits authoritative state.
-- Validation requires evidence, not model agreement.
-- Shared context is bounded and deliberately selected.
-- Discoveries propagate, transcripts do not; delivery is targeted and bounded, never broadcast.
-- Progress is measured from what changed, not from what an agent claimed.
-- Readiness to answer is computed by the controller, never asserted by a model.
-- A run completes only on an independent reviewer PASS that still holds against current state.
-- A reviewed result version is immutable; a revision creates a new version.
-- EXHAUSTED means the system worked and the evidence or limits did not suffice; FAILED means it could not work at all.
-- What can be verified is decided by the criterion verifier policy; arithmetic is the shipped trusted verifier, and an unsupported verifier kind fails closed.
-- Prefer deterministic, inspectable policies before learned or LLM-driven policies.
-- Avoid premature distributed infrastructure, embeddings, vector databases, hidden retries, and unnecessary frameworks.
+Edit `roles/<id>.md` — never `.claude/agents/<id>.md`. The adapter's body is a synchronised
+copy; hand-editing it is caught by `tools/check.py` and will be overwritten by `--sync`.
 
-If this file conflicts with `AGENTS.md`, `docs/mvp-architecture.md`, or a newer repository checkpoint, follow the more specific and more recent repository documentation and report the discrepancy.
+```bash
+python3 tools/check.py --sync    # regenerate adapter bodies from roles/
+python3 tools/check.py           # structure, conformance, drift, links
+```
+
+If this file, `AGENTS.md`, or a canonical file disagree, follow `docs/authority.md` and report
+the discrepancy.

@@ -1,228 +1,127 @@
 # AGENTS.md
 
-Persistent project instructions for agents working in this repository.
+Persistent instructions for agents working in this repository.
 
-This file is a **map and a set of invariants**, not a specification. The architecture itself lives in
-`docs/`. Do not duplicate it here.
+This is a **map and a set of invariants**, not a specification and not a prompt. The
+definitions live in `roles/`, `skills/` and `workflows/`. Do not duplicate them here.
 
 ## What this repository is
 
-A reusable multi-agent **swarm framework**: a distributed computational system in which agents
-dynamically take on *functional* roles — exploration, criticism, validation, specialization,
-consolidation, cross-pollination, synthesis, final review.
+A platform-neutral toolkit for designing, composing and operating reliable AI agent teams. It
+provides reusable agent roles, skills, workflows and reliability patterns, plus thin adapters
+for Claude Code and Codex.
 
-It is deliberately **not** modelled as a simulated human company with rigid job titles.
-
-Python 3.11+, `src` layout, single async process, standard-library runtime, `unittest`.
-No runtime dependencies. `setuptools` is build-only.
-
-## Read before architectural work
-
-1. `docs/architecture-review.md` — the full-system design and the source of truth for intent.
-2. `docs/stages-1-3-report.md` — domain, persistence and execution-seam checkpoint.
-3. `docs/stage-4-report.md` — scheduling, groups, messaging, bounded context, admission, budgets.
-4. `docs/stage-5-report.md` — criticism, independent validation, host claim-to-evidence
-   verification, promotion, invalidation, consolidation and conflicts.
-5. `docs/stage-6-report.md` — deterministic cross-pollination, targeted delivery and
-   retraction, reconsideration, bounded exploration cycles, branch progress and branch stopping.
-6. `docs/stage-7-report.md` — the guarded run state machine, the computed synthesis gate,
-   result versions and provenance, independent final review, PASS/REVISE/REJECT semantics,
-   the bounded repair loop, budget and reviewer reservation, and terminal outcomes.
-7. `docs/stage-8-report.md` — **latest completed checkpoint**: the runnable MVP surface —
-   the scenario format and its fail-closed validation, the CLI, inspection and provenance,
-   the causal trace, run metrics, the evaluation harness, packaging and the shipped examples.
-8. `docs/mvp-architecture.md` — the resulting architecture as implemented, in one document.
-9. `INSTRUCTIONS/kickoff-prompt-for-swarm-implementation.md` — the original brief.
-10. `README.md` — the project entry point, the capability boundary and the trust boundary.
-
-The repository, not chat history, is the source of truth for implementation state.
-
-## Core principles
-
-The central invariant chain:
-
-```text
-model / executor proposes
-controller decides
-repository commits
-```
-
-The epistemic boundary:
-
-```text
-model agreement != verification
-```
-
-The circulation rule:
-
-```text
-propagate discoveries, not transcripts
-```
-
-The completion rule:
-
-```text
-readiness is computed, never asserted
-```
-
-Everything below is a standing constraint, not a suggestion:
-
-- **Functional roles, not simulated human organizational hierarchy.** Roles are capabilities a run
-  assigns, not job titles.
-- **Agent identity is separated from Role.** An agent is never permanently bound to a role; roles are
-  assigned and reassigned while idle.
-- **Controller-owned authoritative state.** One controller owns a run. It alone determines readiness,
-  selects work, assigns agents and roles, transitions lifecycles and commits. Executors hold no
-  repository handle.
-- **Bounded, deliberately selected context.** Context is constructed by an explicit service with
-  count and size limits, recorded selections, recorded omissions and recorded reasons. Nothing is
-  injected automatically.
-- **No raw transcript as shared memory.** Provider transcripts stay inside the execution seam. There
-  is no broadcast address and no global chatroom. Message delivery is targeted: `agent:<id>`,
-  `group:<id>` or `orchestrator`. Cross-branch knowledge moves only as a bounded insight on a
-  `Propagation` naming exactly one target task — discoveries, never transcripts.
-- **Dependency-aware stale-output detection.** Assignments pin everything they relied on — records
-  and revisions, criterion and tool hashes, the context hash. A late or superseded result is
-  rejected, never merged.
-- **Controller-authorized task creation.** Models may propose a `TaskRequest`; an admitted request
-  stays an inert proposal, and **generic worker `TaskRequest` adoption remains closed**. Agents do
-  not spawn schedulable work. The controller alone authors schedulable work, through narrow audited
-  factories — review tasks, reconsideration/follow-up tasks, repair tasks, and the synthesis and
-  final-review tasks — each bounded by admissibility, task limit, budget and a duplicate check.
-- **Run-level authoritative budgets.** Budgets live durably on the `Run` record and are incremented
-  before the work they pay for. In-process counters are mirrors of that ledger, never a second
-  authority.
-- **Independent validation.** Validation is a separate pass by a different agent, not the author's
-  own confidence.
-- **Evidence, not model agreement.** Agreement between models is review, not proof. Validated status
-  requires evidence that proves the exact claim.
-- **Deterministic policies before learned or LLM-driven policies.** Readiness, selection,
-  consolidation, ranking, relevance routing and admission are deterministic and inspectable
-  first. Cross-pollination costs no provider request.
-- **Bounded cycling and measured progress.** Exploration waves are bounded and open only when
-  the controller can admit real work. A wave is charged against the limit when it is opened
-  *with* admitted executable work; a wave considered but not opened costs nothing. Branch
-  progress is measured from what a branch changed, never from what it claimed, and a branch
-  that stops contributing is closed with a reason.
-- **No model decides that a run is finished.** The synthesis gate computes readiness from
-  validated, host-verified, dependency-valid, unconflicted support. `COMPLETED` is reachable
-  only from `FINAL_REVIEW`, only after an independent reviewer PASS *and* a re-check of the
-  gate and the citations against current state, and only in the transaction that also writes
-  the accepted `Result`. `EXHAUSTED` means the system worked and the evidence or the limits
-  did not suffice; `FAILED` means it could not work at all. Terminal states are absorbing.
-- **A reviewed result is never edited.** Result versions are immutable; a revision creates a
-  new version naming the one it supersedes, so the version a reviewer judged keeps its
-  answer, its citations and its verdict.
-- **No premature distributed infrastructure, vector databases or embeddings.** No hidden retries, no
-  plugin frameworks, no speculative abstraction.
+It contains **no runtime**. There is nothing to install, no framework, and no language
+dependency. Everything here is Markdown, except one standard-library Python script used to
+check structure.
 
 ## Repository map
 
 ```text
-INSTRUCTIONS/            original brief and stage authorization prompts
-docs/                    architecture review and stage checkpoint reports
-src/swarm/
-  domain.py              frozen records, enums, guarded transitions
-  invariants.py          snapshot invariants: references, classification, acyclicity
-  schema.py              canonical field/type definitions
-  serialization.py       versioned JSON round trips over a closed type registry
-  persistence.py         SQLiteRepository: atomic record/event commits
-  audit.py               RepositoryAudit: durable execution events and run counters
-  events.py              typed event envelopes
-  contracts.py           ModelProvider and Tool interfaces
-  execution.py           the bounded execution seam; returns drafts only
-  output.py              envelope parsing and bounded repair
-  validation.py          structural validation of parsed output
-  controller.py          ControllerCore: identity, transactions, execution seam, dispatch
-  circulation.py         Circulation: cross-pollination, retraction, cycles, branch stopping
-  engine.py              WorkEngine: admitted work driven to quiescence, no run opinion
-  orchestration.py       WorkController: the run workflow over the engine
-  workflow.py            the guarded run state machine and the terminal report
-  completion.py          the synthesis gate: readiness, gaps, repair admissibility, reserves
-  synthesis.py           controller-owned synthesis work and result admission
-  finalreview.py         final-review independence, verdict semantics, repair factory
-  policies.py            readiness, selection, role choice, compatibility, retry, budget
-  admission.py           assignment admissibility, task-request admission
-  outcomes.py            admission of permitted proposals into a transaction batch
-  context.py             ContextBuilder: bounded, deterministic, auditable snapshots
-  messaging.py           targeted routing and delivery snapshots
-  scope.py               disclosure boundaries, fail-closed
-  roles.py               data-driven role configuration and review output allowlists
-  review.py              review scheduling, independence, review-envelope admission
-  verification.py        host verification policies; the only writer of verified evidence
-  knowledge.py           projection, consolidation, conflicts, transitive invalidation
-  propagation.py         eligibility, relevance, targeted delivery, retraction, follow-up factory
-  cycles.py              exploration waves, branch progress measurement, branch stopping
-  scenario.py            the scenario schema, its fail-closed validation and its records
-  runner.py              seeding one validated scenario and driving it to a terminal state
-  cli.py                 the local command line, its exit codes and its refusals
-  __main__.py            `python -m swarm`
-  inspection.py          structured projections over persisted state, including provenance
-  timeline.py            the causal trace, printed from an allowlist of event fields
-  metrics.py             run metrics recomputed from records and durable counters
-  render.py              human-readable rendering of results, inspections and traces
-  evaluation.py          the deterministic evaluation harness over the packaged scenarios
-  examples/*.json        the shipped demonstration scenarios
-  providers/fake.py      ScriptedProvider
-  providers/scripted.py  ScenarioProvider: the scenario-driven demonstration provider
-  tools/arithmetic.py    tool-verifiable toy claim
-tests/                   unittest suite, real SQLite, deterministic provider
+roles/            CANONICAL  seven agent roles, platform-neutral
+skills/           CANONICAL  six reusable procedures, Agent Skills format
+workflows/        CANONICAL  four ways roles and skills cooperate
+docs/concepts/               why the canonical layer is shaped this way
+docs/platforms/              how to use it on one harness
+docs/authority.md            which file wins when two disagree
+docs/lineage.md              where these ideas came from
+.claude/agents/   ADAPTER    Claude Code subagent + teammate definitions
+.codex/agents/    ADAPTER    Codex project-scoped subagents
+.claude/skills    LINK    →  skills/
+.agents/skills    LINK    →  skills/
+tools/check.py               structural checks and adapter sync
 ```
 
-Keep modules; split one when responsibility or size justifies it. Domain code never imports
-providers, prompts or storage. Replaceable decisions stay outside the controller as plain functions
-and frozen dataclasses.
+## The conceptual hierarchy
 
-## Working agreements
+Four levels. Putting a concept at the wrong one is the most common failure this toolkit
+prevents.
 
-- Run the suite with `PYTHONPATH=src python3 -m unittest discover -s tests -v`.
-- Run a scenario with `PYTHONPATH=src python3 -m swarm run --scenario arithmetic_success`.
-- Tests use real SQLite and a deterministic scripted provider. No credentials, no network.
-- Do not add runtime dependencies.
-- Implement only the authorized stage. Record deviations from `docs/architecture-review.md` in the
-  stage report rather than silently diverging.
-- Every stage leaves an importable package with a passing suite and a checkpoint report in `docs/`.
+```text
+ROLE            what responsibility is an agent assuming for this assignment?
+SKILL           what reusable procedure can an agent perform?
+WORKFLOW        how do roles and skills cooperate toward a larger objective?
+ORCHESTRATION   what rule governs the run, belonging to no single agent?
+```
 
-## Current status
+Not everything is an agent. Routing findings, deduplicating them and measuring progress are
+**decisions, not judgements** — they need no model call and get no role. See
+`docs/concepts/roles-skills-workflows.md`.
 
-**Stages 1–8 are complete and verified. The MVP is complete.**
+## Invariants
 
-**Latest completed checkpoint: `docs/stage-8-report.md`.** The architecture as implemented is
-described in one place in `docs/mvp-architecture.md`; `README.md` is the project entry point.
+Standing constraints, not suggestions.
 
-Stage 8 passed **675 tests with 0 failures** in three environments:
+- **One conceptual definition; multiple platform adapters.** An adapter carries platform
+  mechanics only. If an adapter and a canonical role disagree, the role wins and the adapter
+  is defective. See `docs/authority.md`.
+- **The canonical layer is portable.** Nothing in `roles/`, `skills/` or `workflows/` may
+  require Claude Code, Codex, Anthropic, OpenAI, Python, a particular model or any runtime.
+  Platform specifics belong in adapters or `docs/platforms/`.
+- **The agent that produced an artifact is not its only reviewer.** Critic, Validator and
+  Final Reviewer are three distinct roles with distinct questions, vocabularies and exclusions.
+  Do not collapse them.
+- **`model agreement != verification`.** Agreement between agents is review. A claim is
+  established only when evidence outside the models is checked against it — and an unknown
+  claim kind fails closed rather than being guessed.
+- **Readiness is computed, never asserted.** No agent decides that work is finished.
+- **`EXHAUSTED` is not `FAILED`.** The first means the work happened and the evidence or the
+  limits did not suffice; the second means it could not proceed at all. A process that cannot
+  produce the first will report success on everything.
+- **Propagate discoveries, not transcripts.** Delivery is targeted and bounded; there is no
+  broadcast.
+- **Progress is measured from what changed, not from what was claimed.**
+- **Prefer a deterministic decision to a model call.**
+- **One artifact, one owner.** Parallelise only genuinely independent work.
 
-- CPython 3.13.5
-- CPython 3.11.9 (the declared `requires-python` floor)
-- the built wheel (`swarm_foundations-1.0.0-py3-none-any.whl`), imported with `src` off the path
+Full catalogue: `docs/concepts/orchestration.md`.
 
-**37/37 meaningful single-guard mutations were caught** (0 survivors), plus one control
-mutation that survived as designed. The battery found two real coverage gaps — a permission
-test that asserted a problem code rather than which check produced it, and an untested
-provider obligation — and both were bound by a test before being re-mutated.
+## Verification expectations
 
-Stage 8 added, on top of the Stage-7 run workflow:
+Before treating any claim in this repository as established — including a claim about a
+platform mechanism:
 
-- a validated, fail-closed scenario format over the canonical records
-- a narrow local CLI: `run`, `validate`, `inspect`, `list-runs`, `examples`, `evaluate`
-- distinct exit codes, so `COMPLETED` / `EXHAUSTED` / `FAILED` / refused are different facts
-- structured inspection over persisted state, with provenance answered from records
-- a causal trace printed from an allowlist of event fields, never from payloads
-- run metrics recomputed from records and durable counters
-- a deterministic evaluation harness that fails closed on an unknown expectation
-- five shipped scenarios covering COMPLETED, EXHAUSTED, FAILED and configuration refusal
-- packaging: examples inside the wheel, a `swarm` console script, no new runtime dependency
+1. Is there evidence outside the models, or only agreement between them?
+2. Were the evidence's inputs this claim's own subject?
+3. Does the output entail the claim *as stated*, not a weaker neighbour?
+4. If no check exists for this kind of claim, is it labelled **reviewed** rather than verified?
 
-The capability boundary is now explicit and enforced at configuration time: `arithmetic` is
-the only registered verification policy, and a scenario declaring a verifier kind this host
-cannot implement is **refused before a run exists** rather than started and quietly
-exhausted. No weak model-agreement verification was added, and generic worker `TaskRequest`
-adoption remains closed.
+Platform documentation in `docs/platforms/` states the date and version it was verified
+against. Anything not verified against official documentation must say so.
 
-**No post-MVP or V2 work is authorized.** A real provider adapter, general web research,
-arbitrary free-text verification, semantic or embedding-based routing, vector databases,
-distributed workers, durable queues, crash resume, dashboards or a UI, learned orchestration
-and long-lived autonomy all stay out of scope until explicitly authorized. Candidates are
-listed, in priority order, in `docs/stage-8-report.md` §16.
+## Contribution guidance
 
-Do not begin V2 work without explicit authorization.
+**Run `python3 tools/check.py` before finishing.** It requires no dependencies and checks role
+structure, Agent Skills conformance, adapter coverage and drift, symlink targets and link
+resolution. It fails closed on anything it cannot classify.
+
+- **Editing a role:** edit `roles/<id>.md`, then `tools/check.py --sync`, then
+  `tools/check.py`. Never edit inside a `canonical:begin` block or a TOML
+  `developer_instructions` string.
+- **Adding a role** requires a distinct epistemic posture, a distinct output contract **and**
+  a distinct independence requirement. Two out of three means you have a *brief* for an
+  existing role, not a new role.
+- **Adding a skill** requires that it encode a reliability procedure this toolkit is about and
+  that no existing skill covers it. Generic engineering procedures belong to the host
+  platform's own ecosystem. Skill lists are context-budgeted and silently truncated on some
+  harnesses, so every addition costs the others.
+- **Adding a workflow** requires a genuinely different *shape* of cooperation, not a different
+  subject. A workflow that adds a role without giving it something the other roles cannot do
+  is theatre.
+- **Do not add** a runtime, an orchestration engine, a plugin framework, a workflow DSL, a
+  prompt compiler, a dependency, or CI configuration, without a concrete need.
+- **Do not add legacy instruction files** — `.cursorrules`, `.windsurfrules`, `AGENT.md`,
+  `.rules` and similar. Some harnesses resolve project instructions by first match and would
+  never reach this file.
+
+## Where to start
+
+| You want to | Read |
+|---|---|
+| understand the model | `docs/concepts/roles-skills-workflows.md` |
+| use a role | `roles/README.md`, then the role |
+| run a team | `workflows/README.md` |
+| use this with Claude Code | `docs/platforms/claude-code.md` |
+| use this with Codex | `docs/platforms/codex.md` |
+| use this with anything else | `docs/platforms/generic-harness.md` |
+| change something safely | `docs/authority.md` |
