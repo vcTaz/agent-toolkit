@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "name": "unsupported_verifier",
+  "description": "A scenario asking for free-text verification. The MVP ships one trusted verifier, so this is refused before a run exists rather than started and quietly exhausted.",
+  "objective": "Summarise the current state of a research field and defend the summary.",
+  "acceptance_criteria": [
+    {
+      "id": "c1",
+      "description": "the summary is accurate",
+      "verifier_kind": "prose",
+      "required": true
+    }
+  ],
+  "permissions": ["arithmetic"],
+  "groups": [{"id": "ga"}],
+  "agents": [
+    {"id": "explorer-a", "group_id": "ga"},
+    {"id": "critic-1"},
+    {"id": "validator-1"}
+  ],
+  "tasks": [
+    {
+      "id": "ta",
+      "objective": "survey the field",
+      "description": "",
+      "group_id": "ga",
+      "acceptance_criterion_ids": ["c1"]
+    }
+  ],
+  "provider": {"kind": "scripted"}
+}

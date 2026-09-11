@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swarm-foundations"
+version = "1.0.0"
+description = "A locally runnable multi-agent swarm: dynamic functional roles, a deterministic controller, independent criticism and validation, host-verified evidence, selective cross-pollination, bounded cycles, synthesis and independent final review"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+swarm = "swarm.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"swarm.examples" = ["*.json"]
