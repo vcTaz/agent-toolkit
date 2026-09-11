@@ -75,7 +75,7 @@ because most real tasks should use a reduced form.
 [verification](docs/concepts/verification.md) ·
 [orchestration](docs/concepts/orchestration.md)
 
-Twenty-six numbered orchestration principles, each with what it is, why it exists, and what
+Twenty-eight numbered orchestration principles, each with what it is, why it exists, and what
 breaks when you ignore it.
 
 ### 5 · Platform adapters
@@ -175,9 +175,9 @@ python3 tools/check.py           # structure, conformance, adapter drift, links
 python3 tools/check.py --sync    # regenerate adapter bodies from roles/
 ```
 
-One standard-library file, no dependencies. It verifies that every adapter body still matches
-its canonical role by SHA-256, so the one duplication in the repository cannot silently
-diverge. Both drift directions are proven to fail, not assumed to.
+One standard-library file, Python 3.9+, no dependencies. It verifies that every adapter
+body still matches its canonical role by SHA-256, so the one duplication in the repository
+cannot silently diverge. Both drift directions are proven to fail, not assumed to.
 
 ## What this is not
 

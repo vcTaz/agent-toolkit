@@ -91,9 +91,9 @@ against. Anything not verified against official documentation must say so.
 
 ## Contribution guidance
 
-**Run `python3 tools/check.py` before finishing.** It requires no dependencies and checks role
-structure, Agent Skills conformance, adapter coverage and drift, symlink targets and link
-resolution. It fails closed on anything it cannot classify.
+**Run `python3 tools/check.py` before finishing.** It requires Python 3.9+ and no
+dependencies, and checks role structure, Agent Skills conformance, adapter coverage and
+drift, symlink targets and link resolution. It fails closed on anything it cannot classify.
 
 - **Editing a role:** edit `roles/<id>.md`, then `tools/check.py --sync`, then
   `tools/check.py`. Never edit inside a `canonical:begin` block or a TOML
