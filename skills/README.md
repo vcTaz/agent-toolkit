@@ -61,8 +61,14 @@ none of these six needs one.
 | Codex | `.agents/skills/` | scanned from cwd up to the repository root |
 | Others (Cursor, Zed, VS Code, Copilot, Gemini CLI, Goose, …) | `.agents/skills/` | the cross-client convention from the Agent Skills spec |
 
-Both paths in this repository are links to this directory, so there is exactly one copy.
+Both paths in this repository are symlinks to this directory, so there is exactly one copy.
 See [docs/platforms/](../docs/platforms/).
+
+**On Windows**, git checks symlinks out as plain text files unless `core.symlinks` is enabled
+(`git clone -c core.symlinks=true`, or Developer Mode). Without it, skill discovery fails
+silently on both harnesses. `python3 tools/check.py` detects this and reports
+*"expected a symlink to the canonical skills/ directory"*; the fallback is to copy `skills/`
+to both paths, which reintroduces duplication the checker can no longer verify.
 
 ## Related
 
