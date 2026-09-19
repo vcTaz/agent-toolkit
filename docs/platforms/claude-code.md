@@ -31,7 +31,9 @@ that implement the Agent Skills convention.
 discovered by walking up from the working directory, and project definitions take precedence
 over `~/.claude/agents/` and over plugin-supplied agents.
 
-Each adapter carries four things and nothing else:
+An adapter's frontmatter carries these four keys and nothing else. Only the first two are
+required, and omitting either of the others is a meaningful choice rather than an oversight —
+see the asymmetry below:
 
 ```yaml
 name: critic              # required
@@ -80,8 +82,13 @@ therefore resolves to that environment variable wherever it is set. Omitting `to
 unambiguous by comparison — the documentation states that a definition with no `tools`
 inherits every tool available to subagents.
 
-The orchestrator pins neither, deliberately; its adapter records the reasoning and this
-caveat.
+That asymmetry decides the orchestrator's frontmatter, in `.claude/agents/orchestrator.md`.
+It sets **`model: inherit`** and omits **`tools`**. `inherit` is not a pin — it names no model
+and only directs the agent to the main conversation's — and it is load-bearing rather than
+decorative, because under omission `CLAUDE_CODE_SUBAGENT_MODEL` would outrank the host, and an
+orchestrator running on a different model from the run it holds contradicts what that agent
+is. `tools` needs no such handling, because omission is documented to inherit the available
+subagent tool pool. The adapter records the same reasoning beside the frontmatter it governs.
 
 ## Agent Teams
 

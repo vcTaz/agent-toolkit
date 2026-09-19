@@ -1,6 +1,7 @@
 ---
 name: orchestrator
 description: Hold a multi-agent run — decide what is dispatched, to whom, and when it stops.
+model: inherit
 ---
 
 # Claude Code operating notes
@@ -8,20 +9,26 @@ description: Hold a multi-agent run — decide what is dispatched, to whom, and 
 _Edit this section by hand. Everything between the canonical markers below is
 generated from the definition and will be overwritten._
 
-**Neither `model` nor `tools` is pinned here, deliberately.** The orchestrator is the identity
-that holds the run: it should use the model chosen for that run and the host's normal tool
-surface. Pinning either would tie a canonical definition to one Claude Code tool surface, and
-permissions and sandboxing belong to the harness and its security layer rather than to this
-file — nothing here grants anything.
+**No model is pinned and no tools are listed.** The orchestrator is the identity that holds
+the run: it uses the model chosen for that run and the host's normal tool surface. Neither
+field grants anything — permissions and sandboxing belong to the harness and its security
+layer, not to this file.
 
-One caveat, established from the official subagent documentation on 2026-09-19 (that page
-carries no version number): omitting `tools` inherits every tool available to subagents, but
-omitting `model` is **not** identical to `model: inherit`. The documented resolution order is
-the per-invocation model parameter, then this frontmatter, then `CLAUDE_CODE_SUBAGENT_MODEL`,
-then the main conversation's model — so where that environment variable is set, an omitted
-`model` resolves to it rather than to the host's. Omission remains the default here; set
-`model: inherit` explicitly only if you run with that variable set and still want the
-orchestrator to track the host.
+The two fields reach that outcome differently, and the difference is load-bearing. Both facts
+are established from the official subagent documentation on 2026-09-19, a page that carries no
+version number of its own.
+
+- **`model: inherit` is set, and is not a pin.** It names no model; it directs this agent to
+  the main conversation's. It is here because *omitting* `model` would not do the same thing:
+  the documented resolution order is the per-invocation parameter, then this frontmatter, then
+  `CLAUDE_CODE_SUBAGENT_MODEL`, then the main conversation's model. Under omission, that
+  environment variable outranks the host, and an orchestrator running on a different model
+  from the run it holds contradicts what this agent is. `inherit` closes that gap. Do not
+  replace it with a model ID: a specific ID would rot, and `inherit` will not.
+- **`tools` is omitted, and that is the complete answer.** The documentation states that a
+  definition with no `tools` inherits every tool available to subagents. There is no
+  equivalent gap to close, and listing tools would tie this definition to one Claude Code tool
+  surface.
 
 <!-- canonical:begin source=agents/orchestrator.md sha256=631fe9645da7c533550cbb71275d4402e0cc12d72eac244dcb87603ef142c002 -->
 
