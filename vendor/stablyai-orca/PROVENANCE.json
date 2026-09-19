@@ -1,0 +1,16 @@
+{
+  "license": "MIT",
+  "note": "Third-party content, not authored in this repository. Do not edit here; change the pin in vendor/sources.json and re-run --sync.",
+  "ref": "fb322046e82b0e60ff2949f8360f0e0f071f42d4",
+  "skills": {
+    "orca-cli": {
+      "SKILL.md": "b21b9b80475c35996b9c046379b9c9fa788f2d357c9e917befd8ab1b37df2e77"
+    }
+  },
+  "source": "stablyai/orca",
+  "upstreamPaths": {
+    "orca-cli": "skills/orca-cli"
+  },
+  "url": "https://github.com/stablyai/orca",
+  "vendoredBy": "tools/vendor-sync.py"
+}
