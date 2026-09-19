@@ -38,25 +38,39 @@ The host layer is deliberately the least powerful thing that solves those cases.
 
 ## What was verified, and what was not
 
-Established against Claude Code 2.1.278 on 2026-09-19:
+Established from the official documentation on 2026-09-19, against Claude Code 2.1.278.
+**All of it is static validation: no cloud session has executed any part of this toolkit.**
 
 | Claim | Status |
 |---|---|
-| Repo `.claude/agents/`, `.claude/skills/`, `CLAUDE.md`, `AGENTS.md` load in cloud | established |
-| Repo `.claude/settings.json` is read in cloud, including plugins and marketplaces | established |
-| `~/.claude/settings.json` does not reach cloud at all | established |
-| Repo `.mcp.json` works in cloud for remote HTTP/SSE transports only | established |
-| claude.ai Connectors are available inside cloud Code sessions | established |
-| Git stores this repository's `.claude/skills` as a mode-`120000` symlink | established here, directly |
+| A project thread clones **every** project repository and loads `CLAUDE.md`, skills and plugins from all of them | established |
+| Repo `.claude/skills/`, `.claude/agents/`, `.claude/commands/` load in cloud | established |
+| Plugins declared in a repo `.claude/settings.json` are **installed at session start** from the declared marketplace | established |
+| A `<skill-name>` **entry** in a project skills directory may be a symlink; Claude Code reads `SKILL.md` from the target | established |
+| Repo `permissions`, `hooks` and `env` apply **only** in a single-repository session; a multi-repo project thread starts above the clones and reads none of them | established |
+| Repo `.mcp.json` loads only in a single-repository session | established |
+| `~/.claude/` — settings, skills, agents, commands — does not reach cloud at all | established |
+| Cloud pre-installs git, gh, jq, yq, ripgrep, tmux, node, python3, uv | established |
+| Setup scripts run as root on Ubuntu 24.04 before Claude Code launches, must exit zero, ~5 min budget | established |
+| `github.com` is on the default Trusted network allowlist | established |
+| Threads get MCP exclusively from claude.ai account connectors (plus repo `.mcp.json` when single-repo) | established |
 
-Explicitly **not** established, and therefore not depended on:
+Three earlier conclusions in this repository were **wrong** and have been corrected:
+
+| Was claimed | Correction |
+|---|---|
+| Repo `.claude/commands/` support is undocumented | It is documented and supported |
+| Plugin auto-install in cloud is unverified | Repo-declared plugins install at session start |
+| ripgrep and uv are absent from cloud environments | Both are pre-installed; `cloud/setup.sh` no longer installs them |
+
+Still **not** established, and therefore not depended on:
 
 | Claim | Status | Consequence |
 |---|---|---|
-| Repo `.claude/commands/*.md` load in cloud | undocumented | Commands are provided but nothing requires them |
-| Symlinks inside `.claude/` are followed by cloud sessions | undocumented | `cloud/setup.sh` installs **copies**, not links. Fallback if it ever fails: move `skills/` to `.claude/skills/` and re-point the Codex adapter |
-| A private plugin marketplace authenticates in cloud | undocumented | The cloud path uses a plain git clone instead, never a marketplace |
-| A user can publish their own skill or plugin into the account-synced channel | no documented route | Not used. `~/.claude/{plugins,skills}/synced/` is one-way, Anthropic-curated |
+| A skills **container** directory may itself be a symlink | undocumented — only entries are | `.claude/skills/` is a real directory of per-skill symlinks. This is the documented form |
+| A private marketplace authenticates in a cloud session | undocumented | Not used. Plugins come from public marketplaces; the toolkit arrives as a project repository |
+| A user can publish their own plugin into the account-synced channel | no documented route | Not used. Enabling an existing plugin for the account is a different, supported thing |
+| Whether a plain clone of a private repo succeeds through the GitHub proxy without a PAT | untested | `cloud/setup.sh` tries it first and degrades to a PAT, and never fails the session either way |
 
 ## The sandbox boundary
 

@@ -259,12 +259,44 @@ def check_links():
 
 
 def check_skill_links():
-    """Both harness skill paths must be links to the one canonical skills directory."""
-    for link in (ROOT / '.claude' / 'skills', ROOT / '.agents' / 'skills'):
+    """Every harness skill path must resolve to the one canonical skills/ directory.
+
+    The two harnesses need different shapes, and the difference is deliberate.
+
+    `.claude/skills/` is a real directory whose ENTRIES are symlinks. Claude Code
+    documents exactly this form -- "a <skill-name> entry in the enterprise, personal, or
+    project location can be a symlink to a directory elsewhere on disk" -- and documents
+    nothing about the container itself being a link. A cloud session clones this
+    repository and reads `.claude/skills/`, so the shape that is documented is the shape
+    that is used.
+
+    `.agents/skills` stays a single container symlink: it is the generic Agent Skills
+    convention, it is only ever read locally, and no cloud surface depends on it.
+    """
+    canonical = sorted(d.name for d in (ROOT / 'skills').iterdir() if d.is_dir())
+
+    container = ROOT / '.agents' / 'skills'
+    if not container.is_symlink():
+        fail(container, 'expected a symlink to the canonical skills/ directory')
+    elif container.resolve() != (ROOT / 'skills').resolve():
+        fail(container, f'points at {container.resolve()}, expected {ROOT / "skills"}')
+
+    entries = ROOT / '.claude' / 'skills'
+    if entries.is_symlink() or not entries.is_dir():
+        fail(entries, 'expected a real directory of per-skill symlinks, not a symlink. '
+                      'Only a <skill-name> entry is documented as symlinkable.')
+        return
+    present = sorted(p.name for p in entries.iterdir())
+    for missing in [n for n in canonical if n not in present]:
+        fail(entries / missing, f'canonical skill {missing!r} has no entry')
+    for orphan in [n for n in present if n not in canonical]:
+        fail(entries / orphan, 'entry names no canonical skill')
+    for name in [n for n in present if n in canonical]:
+        link = entries / name
         if not link.is_symlink():
-            fail(link, 'expected a symlink to the canonical skills/ directory')
-        elif link.resolve() != (ROOT / 'skills').resolve():
-            fail(link, f'points at {link.resolve()}, expected {ROOT / "skills"}')
+            fail(link, 'expected a symlink to the canonical skill, not a copy')
+        elif link.resolve() != (ROOT / 'skills' / name).resolve():
+            fail(link, f'points at {link.resolve()}, expected {ROOT / "skills" / name}')
 
 
 # --- entry point ---------------------------------------------------------------------

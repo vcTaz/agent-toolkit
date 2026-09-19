@@ -1,18 +1,44 @@
 {
-  "$comment": "External executables this setup depends on. Recorded so a fresh machine is reproducible.",
+  "$comment": "External executables this setup depends on. CORRECTED 2026-09-19: cloud sessions pre-install git, jq, node, python3, ripgrep, gh, uv, yq, tmux and more. An earlier version of this file wrongly claimed ripgrep and uv were absent; cloud/setup.sh no longer installs either.",
   "schemaVersion": 1,
-  "verifiedAgainst": { "date": "2026-09-19" },
-
-  "required": {
-    "git":    { "scope": "both", "cloudDefault": true },
-    "jq":     { "scope": "both", "cloudDefault": true, "note": "Hard dependency of the rtk PreToolUse hook." },
-    "node":   { "scope": "both", "cloudDefault": true, "observedVersion": "24.21.0" },
-    "python3":{ "scope": "both", "cloudDefault": true, "note": "tools/check.py requires 3.9+, stdlib only." },
-    "rg":     { "scope": "both", "cloudDefault": false, "install": "apt-get install -y ripgrep", "note": "NOT present in cloud environments by default." },
-    "gh":     { "scope": "both", "cloudDefault": false },
-    "uv":     { "scope": "machine-local", "cloudDefault": false, "install": "curl -LsSf https://astral.sh/uv/install.sh | sh" }
+  "verifiedAgainst": {
+    "date": "2026-09-19",
+    "source": "code.claude.com/docs/en/cloud-environments#installed-tools"
   },
-
+  "required": {
+    "git": {
+      "scope": "both",
+      "cloudPreinstalled": true
+    },
+    "jq": {
+      "scope": "both",
+      "cloudPreinstalled": true,
+      "note": "Hard dependency of the rtk PreToolUse hook (local only)."
+    },
+    "node": {
+      "scope": "both",
+      "cloudPreinstalled": true,
+      "note": "Cloud ships 20, 21 and 22; 22 on PATH. Local observed 24.21.0."
+    },
+    "python3": {
+      "scope": "both",
+      "cloudPreinstalled": true,
+      "note": "tools/check.py requires 3.9+, stdlib only."
+    },
+    "rg": {
+      "scope": "both",
+      "cloudPreinstalled": true
+    },
+    "gh": {
+      "scope": "both",
+      "cloudPreinstalled": true,
+      "note": "Cloud: authenticates through the GitHub proxy; no token needed."
+    },
+    "uv": {
+      "scope": "both",
+      "cloudPreinstalled": true
+    }
+  },
   "machineLocal": {
     "rtk": {
       "purpose": "Token-reducing CLI proxy; invoked by a PreToolUse Bash hook on every command.",
@@ -32,16 +58,26 @@
       "scope": "machine-local",
       "reason": "Cloud sessions use Anthropic's own per-session VM isolation. This is a separate, non-equivalent boundary and must not be assumed to carry over."
     },
-    "bwrap":  { "purpose": "bubblewrap; the kernel-namespace primitive srt builds on.", "install": "apt-get install -y bubblewrap", "scope": "machine-local" },
-    "socat":  { "purpose": "Required by claude-safe's policy plumbing.", "install": "apt-get install -y socat", "scope": "machine-local" }
+    "bwrap": {
+      "purpose": "bubblewrap; the kernel-namespace primitive srt builds on.",
+      "install": "apt-get install -y bubblewrap",
+      "scope": "machine-local"
+    },
+    "socat": {
+      "purpose": "Required by claude-safe's policy plumbing.",
+      "install": "apt-get install -y socat",
+      "scope": "machine-local"
+    }
   },
-
   "relatedRepos": {
     "claude-safe": {
       "localPath": "${HOME}/claude-safe",
       "remote": null,
       "RISK": "Has no git remote as of 2026-09-19. The hardened launcher, its threat model and its six test suites exist on exactly one disk.",
-      "installs": ["${HOME}/.local/bin/claude-safe", "${HOME}/.local/bin/claude-safe-verify"]
+      "installs": [
+        "${HOME}/.local/bin/claude-safe",
+        "${HOME}/.local/bin/claude-safe-verify"
+      ]
     }
   }
 }
