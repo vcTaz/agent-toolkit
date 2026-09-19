@@ -248,14 +248,49 @@ def sync_codex(path, identity, source, body, sync):
 # --- links ---------------------------------------------------------------------------
 
 def check_links():
-    """Every relative markdown link must resolve. A broken pointer is a broken document."""
+    """Every relative markdown link must resolve. A broken pointer is a broken document.
+
+    `vendor/` is excluded. That content is third-party, materialised verbatim from a
+    pinned upstream commit, and this repository has no authority to change it. Policing
+    it would report defects that are upstream's and that a re-sync would restore --
+    three such links exist in cloudflare/skills at the current pin. `.claude/skills/`
+    is excluded for the same reason once resolved: its entries are symlinks into
+    `skills/` and `vendor/`, both already covered.
+    """
+    skip = {'.git', 'docs/archive', 'vendor'}
     for path in sorted(ROOT.rglob('*.md')):
-        if any(part in {'.git', 'docs/archive'} for part in path.parts):
+        if any(part in skip for part in path.parts):
+            continue
+        if path.is_symlink() or '.claude/skills' in str(path):
             continue
         for target in LINK_RE.findall(path.read_text(encoding='utf-8')):
             resolved = (path.parent / target).resolve()
             if not resolved.exists():
                 fail(path, f'broken link: {target}')
+
+
+def vendored_skills():
+    """{name: path} for third-party skills committed under vendor/.
+
+    Their content is not authored here; `tools/vendor-sync.py` materialises it from a
+    pinned upstream commit and records provenance and licence beside it. They are
+    committed rather than referenced because Claude Projects load skills from a cloned
+    repository, and a manifest entry makes nothing available to a cloud session.
+    """
+    sources = ROOT / 'vendor' / 'sources.json'
+    if not sources.is_file():
+        return {}
+    import json
+    found = {}
+    for source, spec in json.loads(sources.read_text())['sources'].items():
+        for skill in spec['skills']:
+            path = ROOT / 'vendor' / source / skill
+            if not (path / 'SKILL.md').is_file():
+                fail(path, 'declared in vendor/sources.json but has no SKILL.md; '
+                           'run tools/vendor-sync.py --sync')
+                continue
+            found[skill] = path
+    return found
 
 
 def check_skill_links():
@@ -273,7 +308,13 @@ def check_skill_links():
     `.agents/skills` stays a single container symlink: it is the generic Agent Skills
     convention, it is only ever read locally, and no cloud surface depends on it.
     """
-    canonical = sorted(d.name for d in (ROOT / 'skills').iterdir() if d.is_dir())
+    canonical = {d.name: ROOT / 'skills' / d.name
+                 for d in (ROOT / 'skills').iterdir() if d.is_dir()}
+    for name, path in vendored_skills().items():
+        if name in canonical:
+            fail(path, f'vendored skill {name!r} collides with a canonical skill of the '
+                       'same name; one of them must be renamed')
+        canonical[name] = path
 
     container = ROOT / '.agents' / 'skills'
     if not container.is_symlink():
@@ -288,15 +329,17 @@ def check_skill_links():
         return
     present = sorted(p.name for p in entries.iterdir())
     for missing in [n for n in canonical if n not in present]:
-        fail(entries / missing, f'canonical skill {missing!r} has no entry')
+        fail(entries / missing, f'skill {missing!r} has no entry')
     for orphan in [n for n in present if n not in canonical]:
-        fail(entries / orphan, 'entry names no canonical skill')
+        fail(entries / orphan, 'entry names no canonical or vendored skill')
     for name in [n for n in present if n in canonical]:
         link = entries / name
         if not link.is_symlink():
-            fail(link, 'expected a symlink to the canonical skill, not a copy')
-        elif link.resolve() != (ROOT / 'skills' / name).resolve():
-            fail(link, f'points at {link.resolve()}, expected {ROOT / "skills" / name}')
+            fail(link, 'expected a symlink to the skill, not a copy')
+        elif link.resolve() != canonical[name].resolve():
+            fail(link, f'points at {link.resolve()}, expected {canonical[name]}')
+        elif not (link / 'SKILL.md').is_file():
+            fail(link, 'resolves, but the target has no SKILL.md')
 
 
 # --- entry point ---------------------------------------------------------------------
@@ -326,7 +369,8 @@ def main():
         return 1
     action = 'synced and checked' if sync else 'checked'
     print(f'ok: {len(roles)} roles, {len(agents)} agents, '
-          f'{len(list((ROOT / "skills").glob("*/SKILL.md")))} skills, '
+          f'{len(list((ROOT / "skills").glob("*/SKILL.md")))} skills '
+          f'+ {len(vendored_skills())} vendored, '
           f'{len(roles) * 2 + len(agents)} adapters {action}')
     return 0
 

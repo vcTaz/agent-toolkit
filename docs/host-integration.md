@@ -72,6 +72,24 @@ Still **not** established, and therefore not depended on:
 | A user can publish their own plugin into the account-synced channel | no documented route | Not used. Enabling an existing plugin for the account is a different, supported thing |
 | Whether a plain clone of a private repo succeeds through the GitHub proxy without a PAT | untested | `cloud/setup.sh` tries it first and degrades to a PAT, and never fails the session either way |
 
+## Vendoring, and why it is not a contradiction
+
+`AGENTS.md` says the canonical layer is ours and portable. `vendor/` is neither, and that is
+why it is a separate top level with its own README, licences and provenance rather than
+something mixed into `skills/`.
+
+It exists because the alternatives do not work. A cloud session does not read
+`~/.claude/skills/`; a manifest entry is documentation, not delivery; and the account-skill
+upload route has no documented bulk mechanism. Committing the content is the only supported
+path, and all three upstreams permit redistribution — verified by fetching each `LICENSE`,
+since GitHub's own detection reports none for all three.
+
+The bound is that `tools/vendor-sync.py` is the only way content gets there. What is
+committed is always reproducible from a named upstream commit, verifiable offline against
+per-file hashes, and never hand-edited. `tools/check.py` excludes `vendor/` from the link
+checker for the same reason: three links are broken upstream in `cloudflare/skills` at the
+current pin, and this repository has no authority to fix them.
+
 ## The sandbox boundary
 
 The local machine may run Claude Code inside an OS-enforced sandbox built on Linux user

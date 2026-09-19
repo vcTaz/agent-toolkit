@@ -9,7 +9,13 @@
 #   ./local/bootstrap.sh --dry-run    show every action, change nothing
 #   ./local/bootstrap.sh --check      verify only (alias for doctor.sh)
 #   ./local/bootstrap.sh --uninstall  remove links this toolkit owns
-#   ./local/bootstrap.sh --with-plugins   also install marketplaces/plugins from manifest/
+#   ./local/bootstrap.sh --with-plugins    also install marketplaces/plugins from manifest/
+#   ./local/bootstrap.sh --with-vendored   also link the 27 vendored third-party skills
+#
+# --with-vendored is OPT-IN because on a machine where those skills were installed by
+# their own CLI they already exist, and linking would replace working installs (backed
+# up first, but replaced). On a FRESH machine it is what you want: one bootstrap instead
+# of re-running three separate installers.
 #
 # Machine-specific paths are discovered, never hard-coded: the toolkit root comes from
 # this script's own location, and the Claude config directory from CLAUDE_CONFIG_DIR
@@ -22,12 +28,13 @@ CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_DIR="${CLAUDE_DIR}/backups/toolkit-bootstrap-${STAMP}"
 
-DRY_RUN=0; UNINSTALL=0; WITH_PLUGINS=0; CHECK_ONLY=0
+DRY_RUN=0; UNINSTALL=0; WITH_PLUGINS=0; CHECK_ONLY=0; WITH_VENDORED=0
 for arg in "$@"; do
   case "$arg" in
     --dry-run)      DRY_RUN=1 ;;
     --uninstall)    UNINSTALL=1 ;;
-    --with-plugins) WITH_PLUGINS=1 ;;
+    --with-plugins)  WITH_PLUGINS=1 ;;
+    --with-vendored) WITH_VENDORED=1 ;;
     --check)        CHECK_ONLY=1 ;;
     -h|--help)      sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) printf 'unknown argument: %s\n' "$arg" >&2; exit 2 ;;
@@ -104,6 +111,21 @@ do_skills() {
   done
 }
 
+do_vendored() {
+  local mf="$TOOLKIT_ROOT/vendor/sources.json"
+  [ -f "$mf" ] || { warn "no vendor/sources.json"; return 0; }
+  command -v jq >/dev/null 2>&1 || { warn "jq not found — cannot read vendor/sources.json"; return 0; }
+  say "vendored skills -> ${CLAUDE_DIR#"$HOME"/}/skills/"
+  local source skill
+  while IFS=$'\t' read -r source skill; do
+    [ -n "$skill" ] || continue
+    local src="$TOOLKIT_ROOT/vendor/$source/$skill"
+    [ -d "$src" ] || { warn "$skill: not materialised (run tools/vendor-sync.py --sync)"; continue; }
+    if [ "$UNINSTALL" -eq 1 ]; then unlink_one "$CLAUDE_DIR/skills/$skill" "$skill"
+    else link_one "$src" "$CLAUDE_DIR/skills/$skill" "$skill"; fi
+  done < <(jq -r '.sources | to_entries[] | .key as $s | .value.skills | keys[] | [$s, .] | @tsv' "$mf")
+}
+
 # --- optional: reconstruct the plugin composition from the manifest ------------------
 do_plugins() {
   local mf="$TOOLKIT_ROOT/manifest/plugins.json"
@@ -124,11 +146,19 @@ do_plugins() {
                   | [.key, .value.source.source, (.value.source.repo // ""), (.value.source.url // "")]
                   | @tsv' "$mf")
 
+  # Install every plugin whose marketplace is reachable. That is a LOCAL decision and is
+  # deliberately broader than `cloud`: claude-mem and clangd-lsp are useful on a machine
+  # and simply cannot follow to a cloud session.
   while IFS= read -r name; do
     [ -n "$name" ] || continue
     act "plugin install $name"
     [ "$DRY_RUN" -eq 0 ] && claude plugin install "$name" || true
-  done < <(jq -r '.plugins | to_entries[] | select(.value.scope == "portable") | .key' "$mf")
+  done < <(jq -r --slurpfile m "$mf" '
+             .plugins | to_entries[]
+             | .key as $k
+             | ($k | split("@")[1]) as $mk
+             | select($m[0].marketplaces[$mk].scope == "portable")
+             | $k' "$mf")
 }
 
 # --- main ----------------------------------------------------------------------------
@@ -144,6 +174,7 @@ say ""
 
 do_agents; say ""
 do_skills
+if [ "$WITH_VENDORED" -eq 1 ] || [ "$UNINSTALL" -eq 1 ]; then say ""; do_vendored; fi
 if [ "$WITH_PLUGINS" -eq 1 ] && [ "$UNINSTALL" -eq 0 ]; then say ""; do_plugins; fi
 
 say ""
@@ -152,6 +183,7 @@ if [ "$UNINSTALL" -eq 1 ]; then
 else
   say "linked $linked, already correct $skipped, backed up $backed_up, problems $problems"
   [ "$backed_up" -gt 0 ] && say "backups: $BACKUP_DIR"
+  [ "$WITH_VENDORED" -eq 0 ] && say "vendored skills not linked — add --with-vendored (see local/README.md)"
   [ "$WITH_PLUGINS" -eq 0 ] && say "plugins not touched — add --with-plugins to install them from the manifest"
 fi
 [ "$problems" -eq 0 ] || exit 1

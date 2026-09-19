@@ -1,6 +1,6 @@
 {
-  "$comment": "Claude Code plugin composition. Data only - no content is vendored here.",
-  "schemaVersion": 1,
+  "$comment": "Claude Code plugin composition. Data only - no plugin code is vendored here. Cloud availability is a property of the marketplace and the plugin's runtime needs, NOT of how it happens to be installed on one machine.",
+  "schemaVersion": 2,
   "verifiedAgainst": { "claudeCode": "2.1.278", "date": "2026-09-19" },
 
   "marketplaces": {
@@ -10,7 +10,8 @@
     },
     "ecc": {
       "source": { "source": "git", "url": "https://github.com/affaan-m/everything-claude-code.git" },
-      "scope": "portable"
+      "scope": "portable",
+      "note": "The repository was renamed to affaan-m/ECC. GitHub redirects this URL, and it is the URL already registered locally, so it is kept to avoid creating a second marketplace entry. Canonical: https://github.com/affaan-m/ECC"
     },
     "ui-ux-pro-max-skill": {
       "source": { "source": "github", "repo": "nextlevelbuilder/ui-ux-pro-max-skill" },
@@ -19,50 +20,62 @@
     "thedotmack": {
       "source": { "source": "github", "repo": "thedotmack/claude-mem" },
       "scope": "portable",
-      "autoUpdate": false
+      "autoUpdate": false,
+      "note": "Marketplace is remotely reachable; the PLUGIN is what cannot run in cloud."
     },
     "gitkraken": {
       "source": { "source": "directory", "path": "${CLAUDE_CONFIG_DIR}/plugins/marketplaces/gitkraken" },
       "scope": "machine-local",
-      "reason": "Local-directory marketplace installed by the GitKraken desktop app. Has no remote; cannot be reconstructed from this manifest on another machine."
+      "reason": "Created on disk by the GitKraken desktop app. Its marketplace.json declares source './plugins/gitkraken-hooks' - a relative local path with no remote of any kind. It cannot be declared in a repository and cannot be reconstructed on another machine from this manifest."
     }
   },
 
   "plugins": {
     "ecc@ecc": {
-      "version": "1.10.0",
-      "gitCommitSha": "9523575721cba6285c95d688f08736017e0d2615",
-      "scope": "portable",
-      "note": "Provides 38 declared agents, 181 skills, 79 commands as ecc:* . Declares NO hooks - see local/settings.fragment.json."
+      "cloud": "yes",
+      "enabledInRepoSettings": true,
+      "installedLocally": "1.10.0",
+      "gitCommitShaLocal": "9523575721cba6285c95d688f08736017e0d2615",
+      "upstreamLatest": "2.2.1",
+      "note": "Local is pinned at 1.10.0, whose plugin.json declares an explicit 38-file `agents` list and therefore hides 9 agents it ships. Upstream 2.2.1 OMITS the `agents` key entirely, so Claude Code auto-discovers the whole agents/ directory - 68 agents, including all 9. A cloud session installs from the marketplace, so it gets the current version and those 9 agents resolve there. Upgrading locally is a separate, user-owned decision; this manifest does not perform it.",
+      "shipsOwnMcp": true,
+      "shipsOwnHooks": "1.10.0 declares none; 2.2.1 adds hook userConfig"
     },
-    "superpowers@claude-plugins-official": { "version": "6.3.0", "scope": "portable" },
+    "superpowers@claude-plugins-official": {
+      "cloud": "yes", "enabledInRepoSettings": true, "installedLocally": "6.3.0"
+    },
     "ui-ux-pro-max@ui-ux-pro-max-skill": {
-      "version": "2.5.0",
-      "gitCommitSha": "b7e3af80f6e331f6fb456667b82b12cade7c9d35",
-      "scope": "portable"
+      "cloud": "yes", "enabledInRepoSettings": true, "installedLocally": "2.5.0",
+      "gitCommitShaLocal": "b7e3af80f6e331f6fb456667b82b12cade7c9d35"
     },
     "clangd-lsp@claude-plugins-official": {
-      "version": "1.0.0",
-      "scope": "machine-local",
-      "reason": "Local C/C++ language server integration; no value in a cloud session."
+      "cloud": "capable-but-not-enabled",
+      "enabledInRepoSettings": false,
+      "installedLocally": "1.0.0",
+      "note": "Reclassified. The marketplace is remote and the plugin is declarable, and cloud environments ship GCC, Clang, cmake and ninja, so nothing technical prevents it running there. It is left out of this repository's settings because an LSP for C/C++ is irrelevant to a toolkit repository and costs context in every session, not because it cannot work. Declare it in a C/C++ project's own .claude/settings.json."
     },
     "claude-mem@thedotmack": {
-      "version": "13.23.1",
-      "gitCommitSha": "1627ded4bfcf6d1e3cd1536527cff0d43e939ca2",
-      "scope": "machine-local",
-      "reason": "Backed by a local SQLite store and a stdio MCP server; neither exists in a cloud session."
+      "cloud": "no",
+      "enabledInRepoSettings": false,
+      "installedLocally": "13.23.1",
+      "gitCommitShaLocal": "1627ded4bfcf6d1e3cd1536527cff0d43e939ca2",
+      "reason": "The plugin's value is a persistent local memory database (~/.claude-mem) plus a stdio MCP server that reads it. A cloud session is a fresh VM per session, so even if the server started, the database it indexes would be empty and would not survive. Its cloud-sync skill syncs that database to cmem.ai Pro - it makes the MEMORIES portable, not the plugin's operation in a cloud session."
     },
     "gitkraken-hooks@gitkraken": {
-      "version": "3.1.73",
-      "scope": "machine-local",
-      "reason": "Requires ~/.orca/agent-hooks/ from the GitKraken desktop install."
+      "cloud": "no",
+      "enabledInRepoSettings": false,
+      "installedLocally": "3.1.73",
+      "reason": "Two independent blockers. (1) Its marketplace is a local directory with no remote, so it cannot be declared in a repository. (2) It reports live session state to the GitKraken desktop app through ~/.orca/agent-hooks/, and no desktop app exists in a cloud VM."
     }
   },
 
+  "notInstalled": {
+    "spec-kit": "Named in a request but not present on this machine: absent from installed_plugins.json, known_marketplaces.json, settings.json and the plugins cache. Nothing to port."
+  },
+
   "accountSynced": {
-    "$comment": "Delivered one-way cloud->local by Anthropic into plugins/synced/ and skills/synced/. NOT user-publishable. Listed for inventory completeness only; nothing here is installable from this manifest.",
+    "$comment": "Delivered one-way cloud->local by Anthropic into plugins/synced/. Not user-publishable. Listed for inventory completeness; nothing here installs from this manifest.",
     "marketplace": "knowledge-work-plugins",
-    "plugins": ["design", "engineering", "productivity", "cowork-plugin-management"],
-    "skills": ["docx", "pdf", "pptx", "xlsx", "deep-research", "skill-creator", "computer-use", "chrome-browser", "built-in-browser", "morning", "import-memory", "docs"]
+    "plugins": ["design", "engineering", "productivity", "cowork-plugin-management"]
   }
 }

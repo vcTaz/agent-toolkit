@@ -1,0 +1,65 @@
+{
+  "license": "MIT",
+  "note": "Third-party content, not authored in this repository. Do not edit here; change the pin in vendor/sources.json and re-run --sync.",
+  "ref": "e79ca9ec7e071eb3a3b623c4fb752e853fc3ed58",
+  "skills": {
+    "brandkit": {
+      "SKILL.md": "b0c4837e1bd140ca816ae54948754ddd2ac1e2a4d3619363777a80caf00b2ede"
+    },
+    "design-taste-frontend": {
+      "SKILL.md": "aa194351b246b8b4799099d4ed7b033d29eab6e6e3d58d8d2172978be7b3ec89"
+    },
+    "design-taste-frontend-v1": {
+      "SKILL.md": "033d45af1ed23832730642f95f40ab49db7fb5222848489a6c5656144bfc6dae"
+    },
+    "full-output-enforcement": {
+      "SKILL.md": "e5bf48b1ae561511439cf71672209a10a88cee0968cc925909ff861dfa0a96a7"
+    },
+    "gpt-taste": {
+      "SKILL.md": "2e64c269953f2656c21bf5a0fa6b4568e82fe0c72b36e8f84758e090349966a5"
+    },
+    "high-end-visual-design": {
+      "SKILL.md": "e1e32f5e2d420872c6c7332b53d5ff7721946766b78c4822b424c2d512c8fdbc"
+    },
+    "image-to-code": {
+      "SKILL.md": "4c060a8064a8b13380bc2ef3d6e6a1d0b1e316aa093cd9807d0ce9e4eeb037fa"
+    },
+    "imagegen-frontend-mobile": {
+      "SKILL.md": "8a33389979f3074fa0926678e266ad2eb9234624472254469fc1ad916b9caa24"
+    },
+    "imagegen-frontend-web": {
+      "SKILL.md": "6b5c2256522fdba1e3313eafa3d743b960a7b13ec029d3e6586e04b23327c1f8"
+    },
+    "industrial-brutalist-ui": {
+      "SKILL.md": "fffbaac8597f07679e9d87145533567658aedba3b5eca6f16a7075a333048caa"
+    },
+    "minimalist-ui": {
+      "SKILL.md": "36bc7328f085405f43b476938e62460fa573bf7e984e949e072bcf014831a44c"
+    },
+    "redesign-existing-projects": {
+      "SKILL.md": "98ad3e5b051bfb71b2795f7e8a6aa0d32b51ee095606c098a4b2822ac07926c9"
+    },
+    "stitch-design-taste": {
+      "DESIGN.md": "0ab6740c4ebb1966dbceddb823a66d4bf027e960efbd73faca56cbf8370ae2ad",
+      "SKILL.md": "46bdb08fee2dded38b6ba0a051230a502d6ac6e4044afd47592cb40c256028b5"
+    }
+  },
+  "source": "Leonxlnx/taste-skill",
+  "upstreamPaths": {
+    "brandkit": "skills/brandkit",
+    "design-taste-frontend": "skills/taste-skill",
+    "design-taste-frontend-v1": "skills/taste-skill-v1",
+    "full-output-enforcement": "skills/output-skill",
+    "gpt-taste": "skills/gpt-tasteskill",
+    "high-end-visual-design": "skills/soft-skill",
+    "image-to-code": "skills/image-to-code-skill",
+    "imagegen-frontend-mobile": "skills/imagegen-frontend-mobile",
+    "imagegen-frontend-web": "skills/imagegen-frontend-web",
+    "industrial-brutalist-ui": "skills/brutalist-skill",
+    "minimalist-ui": "skills/minimalist-skill",
+    "redesign-existing-projects": "skills/redesign-skill",
+    "stitch-design-taste": "skills/stitch-skill"
+  },
+  "url": "https://github.com/Leonxlnx/taste-skill",
+  "vendoredBy": "tools/vendor-sync.py"
+}

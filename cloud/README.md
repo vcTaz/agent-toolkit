@@ -39,6 +39,21 @@ the thread. A single-repo project does apply them.
 Hooks that an *enabled plugin* provides still run in both shapes, because plugins load from
 every repository.
 
+## What this repository actually carries
+
+| Under `.claude/` | Count | Form | Reaches cloud |
+|---|---|---|---|
+| `agents/` | 7 | real files | yes |
+| `skills/` → `skills/` | 6 | entry symlinks | yes |
+| `skills/` → `vendor/` | **27** | entry symlinks | yes |
+| `commands/` | 0 | — | n/a |
+| `settings.json` | 1 | real file | plugins always; permissions/hooks only in a single-repo project |
+
+The 27 are third-party skills committed under `vendor/` from pinned upstream commits, with
+their licences — 13 Cloudflare (Apache-2.0), 13 taste-skill (MIT), 1 orca (MIT). They are
+committed rather than referenced because a manifest entry delivers nothing to a cloud
+session. See `vendor/README.md`.
+
 ## What is already true without any setup
 
 Cloud sessions pre-install: `git`, `gh`, `jq`, `yq`, `ripgrep`, `tmux`, `vim`, Python

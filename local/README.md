@@ -6,8 +6,23 @@ git clone <this repo> ~/agents && cd ~/agents
 ./local/doctor.sh               # verify
 ```
 
-`bootstrap.sh --with-plugins` additionally reconstructs the marketplaces and plugins
-recorded in `manifest/plugins.json`.
+On a fresh machine, do all of it at once:
+
+```bash
+./local/bootstrap.sh --with-vendored --with-plugins
+```
+
+| Flag | Adds |
+|---|---|
+| *(none)* | 7 agents + 6 toolkit skills |
+| `--with-vendored` | the 27 third-party skills committed under `vendor/` |
+| `--with-plugins` | marketplaces and plugins from `manifest/plugins.json` |
+
+**`--with-vendored` is opt-in on purpose.** On a machine where those skills were installed
+by their own CLI, they already exist, and linking would replace working installs — backed
+up first, but replaced. A dry run on such a machine reports exactly that: 13 directories it
+would back up and 14 symlinks pointing outside the toolkit that it refuses to touch. On a
+fresh machine it is simply what you want.
 
 ## Guarantees
 

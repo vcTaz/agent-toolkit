@@ -70,6 +70,26 @@ if command -v rtk >/dev/null 2>&1; then
   fi
 else skip "rtk not installed"; fi
 
+head_ "rtk hook integrity (regression guard)"
+# The upstream hook once advised `cargo install rtk` on the version-too-old path. That
+# crate is a DIFFERENT project (reachingforthejack/rtk, "Rust Type Kit"); installing it
+# replaces a working rtk with one that has no `rewrite` subcommand and silently disables
+# the PreToolUse hook on every Bash call. This guard fails if the advice comes back --
+# for example after an rtk reinstall overwrites the hook.
+rtk_hook="${CLAUDE_DIR}/hooks/rtk-rewrite.sh"
+if [ -f "$rtk_hook" ]; then
+  # Comment lines are excluded: the fix itself documents the trap by naming it.
+  if grep -vE '^[[:space:]]*#' "$rtk_hook" | grep -qE '\bcargo[[:space:]]+install[[:space:]]+rtk\b'; then
+    warn "rtk-rewrite.sh advises 'cargo install rtk' on the version-too-old path. That crate is a DIFFERENT project (Rust Type Kit); following it replaces rtk with a binary that has no 'rewrite' subcommand and silently disables this hook. Latent only: it fires below 0.23.0. The file is integrity-protected by rtk (.rtk-hook.sha256), so editing it makes rtk refuse to run until the baseline is updated too -- see docs/known-discrepancies.md before changing anything"
+  elif grep -q 'rtk-ai/rtk' "$rtk_hook"; then
+    pass "rtk-rewrite.sh points at the correct upstream installer"
+  else
+    warn "rtk-rewrite.sh names no installer; a stale binary would give no recovery path"
+  fi
+else
+  skip "no rtk-rewrite.sh at $rtk_hook"
+fi
+
 head_ "plugins"
 if command -v jq >/dev/null 2>&1 && [ -f "$CLAUDE_DIR/plugins/installed_plugins.json" ]; then
   while IFS= read -r name; do
@@ -77,7 +97,9 @@ if command -v jq >/dev/null 2>&1 && [ -f "$CLAUDE_DIR/plugins/installed_plugins.
     if jq -e --arg n "$name" '.plugins | has($n)' "$CLAUDE_DIR/plugins/installed_plugins.json" >/dev/null 2>&1
     then pass "$name"
     else warn "$name in manifest but not installed — run bootstrap.sh --with-plugins"; fi
-  done < <(jq -r '.plugins | to_entries[] | select(.value.scope=="portable") | .key' \
+  done < <(jq -r '.plugins | to_entries[]
+                  | .key as $k | ($k | split("@")[1]) as $mk
+                  | select(.value.installedLocally != null) | $k' \
              "$TOOLKIT_ROOT/manifest/plugins.json")
 else skip "cannot read installed_plugins.json"; fi
 

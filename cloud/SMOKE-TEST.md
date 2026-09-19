@@ -26,9 +26,13 @@ Answer each item. If something is absent, say "none" — do not guess or fill in
 2. SKILLS
    - List every skill you can invoke, grouped by origin: this toolkit, a plugin,
      the claude.ai account, another repository.
-   - Confirm specifically whether these six are present:
+   - Confirm these six toolkit skills are present:
      adversarial-review, bounded-context-handoff, evidence-backed-synthesis,
      evidence-verification, final-verification, independent-validation
+   - Confirm these vendored skills are present (they are committed under vendor/ and
+     linked from .claude/skills/): wrangler, durable-objects, cloudflare, brandkit,
+     minimalist-ui, high-end-visual-design, orca-cli
+   - Report the TOTAL count of skills whose SKILL.md resolves under this repository.
    - For adversarial-review, report the path you would load its SKILL.md from, and whether
      that path is a symlink.
 
@@ -49,7 +53,11 @@ Answer each item. If something is absent, say "none" — do not guess or fill in
 6. MCP
    - List every MCP tool available, and for each say whether it is a claude.ai connector
      or came from a repository .mcp.json.
-   - State whether any stdio MCP server is present. (Expected: none.)
+   - State whether any stdio MCP server is present AND whether its tools actually work.
+     Do not assume either way: Anthropic's documentation does not say stdio servers are
+     blocked in cloud sessions, and the ecc plugin ships a .mcp.json declaring five of
+     them. This question is open, and your answer is the evidence. If any stdio tool is
+     listed, call one read-only tool from it and report whether it responded.
 
 7. PERMISSIONS
    - State whether permission deny rules from a repository's .claude/settings.json are in
@@ -95,11 +103,11 @@ local setup. Be blunt; a clean pass on everything is not the expected result.
 | Category | Expected in a project with this repo attached |
 |---|---|
 | Instructions | This repo's `CLAUDE.md` → `AGENTS.md`, plus your app repo's, one per repository |
-| Skills | The 6 toolkit skills, plus ~181 `ecc:*`, plus any account skills |
+| Skills | 6 toolkit + **27 vendored** = 33 from this repo, plus ~181 `ecc:*`, plus account skills |
 | Agents | The 7 roles, plus ~38 `ecc:*` |
 | Commands | ~79 `ecc:*`; this repo ships none of its own |
 | Plugins | `ecc`, `superpowers`, `ui-ux-pro-max` |
-| MCP | Only claude.ai connectors. **No stdio servers** |
+| MCP | claude.ai connectors certainly. Whether the ecc plugin's five stdio servers run is **genuinely unknown** — that is the point of asking |
 | Permissions | Applied in a one-repo project; **not applied** in a multi-repo project |
 | Binaries | All nine present, none MISSING |
 
@@ -107,7 +115,8 @@ local setup. Be blunt; a clean pass on everything is not the expected result.
 
 | Symptom | Likely cause |
 |---|---|
-| Toolkit skills absent, agents present | `.claude/skills/` entry symlinks not followed. Fall back to committing real directories under `.claude/skills/` |
+| All 33 skills absent, agents present | `.claude/skills/` entry symlinks not followed, despite being the documented form. Fall back: replace the symlinks with real directories (`tools/vendor-sync.py` plus a copy step) |
+| Vendored 27 absent, toolkit 6 present | Impossible by construction — both use the identical symlink mechanism. If seen, report it |
 | Both absent | The repository is not attached to the project, or the Claude GitHub App is not installed on it |
 | Plugins absent | No network access to the marketplace, or the marketplace source is unreachable |
 | Deny rules absent | Expected in a multi-repo project. Re-declare them in **Project settings** |
