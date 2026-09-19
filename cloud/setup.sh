@@ -1,89 +1,89 @@
 #!/usr/bin/env bash
-# setup.sh — cloud environment setup for Claude Code sessions.
+# setup.sh — optional cloud environment setup script.
 #
-# Paste this as the setup script in the cloud environment UI (Claude Code does not read a
-# devcontainer.json; a bash setup script plus environment variables is the supported
-# mechanism as of 2026-09-19).
+# YOU PROBABLY DO NOT NEED THIS. The supported way to get this toolkit into cloud
+# sessions is to add this repository to the project: every thread clones every project
+# repository and loads `.claude/skills/`, `.claude/agents/`, `.claude/commands/` and
+# `CLAUDE.md` from each one. See cloud/README.md.
 #
-# It does two things:
-#   1. Installs the tools that cloud images do not ship but this toolkit's skills assume.
-#   2. Optionally clones the private toolkit and installs its agents and skills into the
-#      session, so they are available when the checked-out repo is NOT the toolkit itself.
+# This script exists for the one case that does not cover: a single-repository cloud
+# session started on some OTHER repository (`claude --cloud` from an app repo), where
+# you still want the toolkit present.
 #
-# Step 2 is OPT-IN and does nothing unless both variables below are set in the environment:
+# Contract this script is written against (docs verified 2026-09-19):
+#   - runs as root on Ubuntu 24.04, before Claude Code launches
+#   - MUST exit zero, or the session fails to start
+#   - must finish well inside five minutes
+#   - github.com is on the default Trusted allowlist
+#   - ripgrep, jq, git, gh, uv, node, python3 are ALREADY installed; do not reinstall
 #
-#   TOOLKIT_REPO   e.g. vcTaz/agent-toolkit-private
-#   TOOLKIT_TOKEN  a GitHub PAT, fine-grained, READ-ONLY 'Contents', scoped to that ONE repo
-#
-# The token is never written to disk, never placed in a URL, never passed as an argument,
-# and never printed. It reaches git only through GIT_ASKPASS on a single fd.
+# Because a non-zero exit breaks the session, every step below is best-effort and the
+# script ends with an unconditional `exit 0`.
 
-set -euo pipefail          # never add -x here; it would echo the token
+set -uo pipefail          # deliberately NOT -e; and never -x, which would echo the token
 
-log() { printf '[setup] %s\n' "$*"; }
+log() { printf '[toolkit-setup] %s\n' "$*"; }
 
-# --- 1. tools the cloud image does not ship -----------------------------------------
-# Present by default: git, curl, jq, python3, node, go, rust. Absent: ripgrep, uv.
-install_tools() {
-  if command -v rg >/dev/null 2>&1; then
-    log "ripgrep present"
-  elif command -v apt-get >/dev/null 2>&1; then
-    log "installing ripgrep"
-    sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+# --- 1. report the tools we rely on, install only what is genuinely absent -----------
+check_tools() {
+  local missing=""
+  for t in git jq rg node python3; do
+    command -v "$t" >/dev/null 2>&1 || missing="$missing $t"
+  done
+  if [ -n "$missing" ]; then
+    log "not pre-installed:$missing — attempting apt (running as root, no sudo needed)"
+    apt-get update -qq >/dev/null 2>&1 || log "apt update failed; continuing"
+    # shellcheck disable=SC2086
+    apt-get install -y -qq $missing >/dev/null 2>&1 || log "apt install failed; continuing"
   else
-    log "WARN ripgrep missing and no apt-get; skills that shell out to rg will degrade"
-  fi
-
-  if command -v uv >/dev/null 2>&1; then
-    log "uv present"
-  else
-    log "installing uv"
-    curl -LsSf https://astral.sh/uv/install.sh | sh >/dev/null 2>&1 || \
-      log "WARN uv install failed; uvx-based MCP servers are unavailable (they are stdio-only anyway, so cloud cannot use them)"
+    log "all required tools pre-installed"
   fi
 }
 
-# --- 2. optional private toolkit install --------------------------------------------
+# --- 2. optional: clone this toolkit into a single-repo session ----------------------
+# Preferred: leave TOOLKIT_TOKEN unset. Cloud sessions authenticate GitHub through a
+# proxy, so a plain clone often succeeds for a repository the Claude GitHub App is
+# installed on, with no credential in the environment at all. The token path is a
+# fallback for when it does not.
 install_toolkit() {
-  if [ -z "${TOOLKIT_REPO:-}" ] || [ -z "${TOOLKIT_TOKEN:-}" ]; then
-    log "TOOLKIT_REPO/TOOLKIT_TOKEN not set — skipping toolkit install (this is fine when the checked-out repo IS the toolkit)"
+  [ -n "${TOOLKIT_REPO:-}" ] || { log "TOOLKIT_REPO unset — nothing to clone (normal when the toolkit is a project repository)"; return 0; }
+
+  local dest="${HOME}/.claude-toolkit"
+  [ -d "$dest/.git" ] && { log "toolkit already present at $dest"; return 0; }   # idempotent
+
+  local ok=1
+  if [ -z "${TOOLKIT_TOKEN:-}" ]; then
+    log "cloning ${TOOLKIT_REPO} via the session's GitHub proxy (no token in the environment)"
+    git clone --depth 1 --quiet "https://github.com/${TOOLKIT_REPO}.git" "$dest" 2>/dev/null && ok=0
+  else
+    log "cloning ${TOOLKIT_REPO} with TOOLKIT_TOKEN"
+    local askpass; askpass="$(mktemp)"; chmod 700 "$askpass"
+    printf '#!/bin/sh\nexec printf %%s "$TOOLKIT_TOKEN"\n' > "$askpass"
+    GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+      git clone --depth 1 --quiet \
+        "https://x-access-token@github.com/${TOOLKIT_REPO}.git" "$dest" 2>/dev/null && ok=0
+    rm -f "$askpass"
+  fi
+
+  if [ "$ok" -ne 0 ]; then
+    log "WARN clone failed — the session will start WITHOUT the toolkit."
+    log "     Check: the Claude GitHub App is installed on ${TOOLKIT_REPO}, or"
+    log "     TOOLKIT_TOKEN has read access to it. Not failing the session."
     return 0
   fi
 
-  local dest="${HOME}/.claude-toolkit"
-  local askpass; askpass="$(mktemp)"
-  # chmod BEFORE writing, so the token is never briefly world-readable.
-  chmod 700 "$askpass"
-  printf '#!/bin/sh\nexec printf %%s "$TOOLKIT_TOKEN"\n' > "$askpass"
-  # shellcheck disable=SC2064
-  trap "rm -f '$askpass'" EXIT INT TERM
-
-  log "cloning ${TOOLKIT_REPO}"
-  if GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
-     git clone --depth 1 --quiet \
-       "https://x-access-token@github.com/${TOOLKIT_REPO}.git" "$dest" 2>/dev/null
-  then
-    log "cloned to ${dest}"
-  else
-    log "ERROR clone failed — check that TOOLKIT_TOKEN has read access to ${TOOLKIT_REPO}"
-    return 1
-  fi
-
-  rm -f "$askpass"; trap - EXIT INT TERM
-
-  # Install as real copies, not symlinks: symlink handling in cloud sessions is
-  # undocumented, and agents are the surface we least want to gamble on.
+  # Copies, not symlinks: only a <skill-name> ENTRY is documented as symlinkable, and a
+  # copy needs no such guarantee.
   mkdir -p "${HOME}/.claude/agents" "${HOME}/.claude/skills"
-  if [ -d "${dest}/.claude/agents" ]; then
-    cp -f "${dest}"/.claude/agents/*.md "${HOME}/.claude/agents/" 2>/dev/null || true
-    log "installed $(find "${dest}/.claude/agents" -name '*.md' | wc -l) agent(s)"
-  fi
-  if [ -d "${dest}/skills" ]; then
-    cp -rf "${dest}"/skills/*/ "${HOME}/.claude/skills/" 2>/dev/null || true
-    log "installed $(find "${dest}/skills" -mindepth 1 -maxdepth 1 -type d | wc -l) skill(s)"
-  fi
+  cp -f "${dest}"/.claude/agents/*.md "${HOME}/.claude/agents/" 2>/dev/null
+  log "agents installed: $(find "${HOME}/.claude/agents" -name '*.md' 2>/dev/null | wc -l)"
+  cp -rLf "${dest}"/skills/. "${HOME}/.claude/skills/" 2>/dev/null
+  log "skills installed: $(find "${HOME}/.claude/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)"
+  log "NOTE ~/.claude/skills is NOT read by cloud sessions; ~/.claude/agents is user-scope."
+  log "     Adding this repository to the project is the reliable route. See cloud/README.md."
 }
 
-install_tools
+check_tools
 install_toolkit
 log "done"
+exit 0                      # never fail the session

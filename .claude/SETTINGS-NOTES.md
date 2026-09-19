@@ -1,14 +1,16 @@
 # Why `.claude/settings.json` contains what it contains
 
-This file is **repository-scoped settings**. It is the *only* configuration channel that
-reaches a cloud Claude Code session: verified 2026-09-19 against Claude Code 2.1.278,
-nothing from `~/.claude/settings.json` is synced to cloud.
+This file is **repository-scoped settings**. Nothing from `~/.claude/settings.json` reaches
+a cloud session — verified 2026-09-19 against Claude Code 2.1.278 — so this file is the only
+settings channel a repository has. How much of it is honoured depends on the project shape:
+all of it in a single-repository session, and only `enabledPlugins` and
+`extraKnownMarketplaces` in a multi-repository project thread.
 
 ## What is here, and why
 
 | Key | Reason |
 |---|---|
-| `permissions.deny` | Mirrors the 17 machine-local deny rules. Deny rules are additive, so this can only ever *tighten* a session. Today a cloud session has none of these; adding them is a net security gain. |
+| `permissions.deny` | Mirrors the 17 machine-local deny rules. Deny rules are additive, so this can only ever *tighten* a session. **Important:** a cloud session reads these only when the project has **one** repository. In a multi-repository project the thread starts above the clones and reads no repository's `permissions`, `hooks` or `env` — so these rules do **not** apply there and must be set in **Project settings** instead. See `cloud/README.md`. |
 | `enabledPlugins` | Only the three **portable** plugins. |
 | `extraKnownMarketplaces` | Only the two public marketplaces the portable plugins need. `claude-plugins-official` is built in and needs no entry. |
 

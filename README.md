@@ -115,9 +115,16 @@ polluted with duplicates:
 ./local/doctor.sh             # verify
 ```
 
-To use them in a **cloud** Claude Code session, see [cloud/README.md](cloud/README.md).
-The short version: nothing in `~/.claude/` reaches cloud, so a git checkout is the only
-route, and this repository is shaped to be that checkout.
+To use them in **Claude Projects or a cloud** Claude Code session, see
+[cloud/README.md](cloud/README.md). The short version: nothing in `~/.claude/` reaches
+cloud, so a repository is the only route — add this one to the project and every thread
+loads its agents and skills.
+
+> Cloud behaviour described here is **statically validated only**: derived from Anthropic's
+> documentation and from local inspection, with no cloud session having executed it.
+> [cloud/SMOKE-TEST.md](cloud/SMOKE-TEST.md) is how you close that gap, and
+> [docs/known-discrepancies.md](docs/known-discrepancies.md) records what has already been
+> found wrong.
 
 ```text
 Use the critic agent to attack the change in src/auth/.

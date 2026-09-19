@@ -1,76 +1,129 @@
-# Using this toolkit with cloud Claude Code
+# Using this toolkit with Claude Projects and cloud Claude Code
 
-Verified against **Claude Code 2.1.278, 2026-09-19**. Mechanisms change; where this file
-disagrees with the official documentation, the documentation is right and this is stale.
+Verified against Claude Code 2.1.278 and the official documentation on **2026-09-19**.
+**Statically validated only — no cloud session has executed any of this.** Where this file
+disagrees with the documentation, the documentation is right and this is stale.
 
-## The one fact that determines everything
+## The mechanism
 
-**Nothing in `~/.claude/` reaches a cloud session.** Not settings, not agents, not skills,
-not hooks. Portability here means *committed to a git repository that Claude checks out* —
-it does not mean *synced from your machine*.
+A Claude **Project** is one conversation in which Claude coordinates **threads**, and each
+thread is a cloud session. Per the documentation:
 
-| Surface | Local CLI | Cloud |
+> Each thread clones every repository in the project and loads `CLAUDE.md`, skills, and
+> plugins from all of them.
+
+So the supported way to get this toolkit into cloud work is simply **add this repository to
+the project**, alongside your application repository. No token, no clone script, no sync.
+
+## What a thread actually gets, by project shape
+
+| In each repository | Project with **one** repo | Project with **several** repos |
 |---|---|---|
-| repo `.claude/agents/*.md` | yes | **yes** |
-| repo `.claude/skills/*/SKILL.md` | yes | **yes** |
-| repo `CLAUDE.md` / `AGENTS.md` | yes | **yes** |
-| repo `.claude/settings.json` | yes | **yes** — incl. `enabledPlugins`, `extraKnownMarketplaces`, `hooks` |
-| repo `.mcp.json` | all servers | **remote HTTP/SSE only** |
-| claude.ai Connectors | yes | **yes**, inside cloud Code sessions |
-| `~/.claude/settings.json` | yes | **no — none of it** |
-| `~/.claude/{agents,skills,commands}` | yes | **no** |
-| stdio MCP (`npx`, `node`, `uvx`) | yes | **no** |
-| repo `.claude/commands/*.md` | yes | **undocumented — do not depend on it** |
+| `CLAUDE.md` | loaded | loaded from **every** repo |
+| `.claude/skills/`, `.claude/agents/`, `.claude/commands/` | loaded | loaded from **every** repo |
+| Plugins in `.claude/settings.json` | loaded | loaded from **every** repo |
+| **Permission rules, hooks, `env`** in `.claude/settings.json` | apply | **do NOT apply** |
+| `.mcp.json` | loaded | **not loaded** |
 
-## Two ways in
+That fourth row matters and is easy to miss. In a multi-repo project the thread starts
+*above* the clones, so no repository's `permissions`, `hooks` or `env` are read.
 
-### 1. The checked-out repo *is* this toolkit
+### Consequence for security
 
-Nothing to do. `.claude/agents/`, `.claude/skills` and `.claude/settings.json` load natively.
+This repository's `.claude/settings.json` carries 17 `permissions.deny` rules protecting
+`~/.ssh`, cloud credentials, keyrings and similar. **In a multi-repo project those rules do
+not apply.** They are not silently lost — they were never read. If you want them in a
+multi-repo project, set them in **Project settings**, which is the only scope that reaches
+the thread. A single-repo project does apply them.
 
-### 2. The checked-out repo is something else
+Hooks that an *enabled plugin* provides still run in both shapes, because plugins load from
+every repository.
 
-Use `cloud/setup.sh` as the environment's setup script, with two environment variables set
-in the cloud environment UI:
+## What is already true without any setup
 
-| Variable | Value |
+Cloud sessions pre-install: `git`, `gh`, `jq`, `yq`, `ripgrep`, `tmux`, `vim`, Python
+(with `pip`, `uv`, `ruff`, `pytest`), Node 20/21/22, Ruby, PHP, Java, Go, Rust, C/C++,
+Docker, PostgreSQL 16, Redis 7. **Nothing this toolkit needs has to be installed.**
+
+`github.com` is on the default **Trusted** network allowlist.
+
+## `cloud/setup.sh` — usually unnecessary
+
+Only for a single-repository cloud session started on some *other* repository, where you
+still want the toolkit. It is best-effort and always exits zero, because a non-zero exit
+from a setup script makes the session fail to start.
+
+Prefer leaving `TOOLKIT_TOKEN` unset: cloud sessions authenticate GitHub through a proxy, so
+a plain clone often succeeds for a repository the Claude GitHub App is installed on, with no
+credential in the environment. If you must set a token, use a **fine-grained, read-only
+`Contents` PAT scoped to this one repository** — the documentation warns that anyone who can
+use the environment can read its variables.
+
+---
+
+# HOW TO ENABLE THIS TOOLKIT IN A NEW CLAUDE PROJECT
+
+Every step is manual and account-side unless marked otherwise. Start: **New Claude Project**.
+
+### Prerequisites
+
+1. **Check plan and rollout.** Projects are public beta on **Pro and Max**, not yet on Team
+   or Enterprise. If **Projects** is absent from the sidebar at claude.ai/code, the rollout
+   has not reached you; use a single-repo cloud session instead (`claude --cloud`).
+2. **Install the Claude GitHub App on BOTH repositories** — your application repo *and*
+   `agent-toolkit-private`. A project thread clones each repo and requires the App on each,
+   plus push access from your GitHub account. `/web-setup` alone is **not** sufficient for
+   project threads.
+
+### Create and populate the project
+
+3. **Create the project** at claude.ai/code → **Projects** → **New project**.
+4. **Add your application repository.**
+5. **Add `agent-toolkit-private`** in the same dialog, or later in
+   **Project settings → Environment**. This is the step that delivers the toolkit.
+   - Note: once a project has repositories, Claude can only add repos from a GitHub owner
+     the project already uses. Add a different owner's repo yourself here.
+
+### Configure what repos cannot carry
+
+6. **Plugins** — the repo's `.claude/settings.json` declares `ecc`, `superpowers` and
+   `ui-ux-pro-max` with their marketplaces, and those load automatically. Use
+   **Project settings → Plugins** only to override a conflict between repositories, or to
+   add a plugin you do not want committed.
+7. **Permissions** — if this is a **multi-repo** project, re-declare the deny rules in
+   **Project settings**, because repository `permissions` are not read. Copy them from
+   `.claude/settings.json` in this repo.
+8. **Connectors (this is how MCP works in threads)** — threads get MCP tools from the
+   connectors on your claude.ai account, at
+   [claude.ai/customize/connectors](https://claude.ai/customize/connectors) or via
+   **Manage connectors** in **Project settings → Environment**. Connect what you need
+   (Notion, Google Drive, Google Calendar, Claude Docs, …). The project conversation itself
+   has no connectors — send connector work as a *task for a thread*.
+9. **Environment** — **Project settings → Environment**. Set network access (default
+   **Trusted** is enough). Add `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` here if you want
+   Agent Teams. Add a setup script only if you need a tool outside the pre-installed set.
+10. **Account-level skills (optional)** — skills you enable for your claude.ai account also
+    load into every thread. Manage them in the skills settings on claude.ai or
+    **Customize** in the Desktop app. Use this for skills you want everywhere without
+    committing them to a repo.
+
+### Verify
+
+11. **Start a new thread** in the project.
+12. **Run the smoke test** in `cloud/SMOKE-TEST.md`. Paste it as the thread's first message.
+
+Done when the thread lists this toolkit's agents and skills and can invoke one of each.
+
+---
+
+## What can never transfer from local Claude Code
+
+| Stays local | Why |
 |---|---|
-| `TOOLKIT_REPO` | `<owner>/<repo>` of this private repository |
-| `TOOLKIT_TOKEN` | a GitHub PAT — **fine-grained, read-only `Contents`, scoped to this one repository** |
-
-The script never writes the token to disk, never puts it in a URL or an argument, and never
-prints it; it reaches `git` only through `GIT_ASKPASS`. **Do not** use a classic PAT or a
-broadly-scoped token: a cloud environment variable is readable by anything running in that
-session.
-
-If you would rather not place a token there at all, leave both unset. Route 1 still works,
-and the script degrades to installing tools only.
-
-## Manual, account-side steps
-
-These cannot be automated from a repository and must be done by you:
-
-1. **Create the environment** and paste `cloud/setup.sh` into its setup-script field.
-2. **Set `TOOLKIT_REPO` / `TOOLKIT_TOKEN`** if you want route 2.
-3. **Connectors** — Notion, Google Drive, Google Calendar, Claude Docs and similar are
-   configured on your claude.ai account, not here. They *do* work inside cloud Code sessions
-   and are the correct replacement for the local stdio MCP servers.
-4. **Permission mode** — cloud sessions use the UI permission dropdown.
-   `--dangerously-skip-permissions` does not apply there.
-
-## What deliberately does not come to cloud
-
-| Not ported | Why |
-|---|---|
-| `claude-safe`, `srt`, `bwrap` | An OS-level sandbox built on Linux user namespaces. Cloud uses per-session VM isolation — a **separate, non-equivalent** boundary. Neither substitutes for the other, and this toolkit does not pretend otherwise. |
-| The 45 machine hooks | Every one invokes an absolute local path. See `local/settings.fragment.json`. |
-| `rtk` | A local binary wrapping local commands for token reduction. |
-| `gitkraken-hooks`, `clangd-lsp`, `claude-mem` | Need a desktop app, a local language server and a local database respectively. |
-| stdio MCP servers | Cloud supports remote transports only. |
-
-## Security note
-
-`.claude/settings.json` carries the same 17 `permissions.deny` rules as the local machine.
-Deny rules are additive and can only tighten a session, so this is a net gain: without it a
-cloud session would have none of them. Nothing in this directory relaxes a permission,
-grants an allowlist, or sets a default mode.
+| `claude-safe`, `srt`, `bwrap` | An OS sandbox built on Linux user namespaces. Cloud uses per-session VM isolation — a **separate, non-equivalent** boundary. Neither substitutes for the other. |
+| `--dangerously-skip-permissions` | Not applicable in cloud; use the session's permission-mode dropdown. |
+| The 45 machine hooks | Every one invokes an absolute local path. In a multi-repo project, repository hooks are not read at all. |
+| `rtk` | Wraps local commands for token reduction; no cloud equivalent. |
+| `gitkraken-hooks`, `clangd-lsp`, `claude-mem` | Need a desktop app, a local language server, and a local database. |
+| stdio MCP servers | Cloud supports remote transports; use Connectors instead. |
+| `~/.claude/*` in general | Documented: cloud sessions do not read it. |
