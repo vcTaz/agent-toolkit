@@ -6,20 +6,42 @@ Which file wins when two disagree.
 
 ```text
 1.  AGENTS.md                           project invariants and contribution rules
+    docs/concepts/orchestration.md      the invariants' full catalogue, O1-O28
             ↓  may constrain, never redefine
-2.  roles/  skills/  workflows/         CANONICAL — the only place a concept is DEFINED
-    docs/concepts/                      the reasoning behind them
+2.  roles/  skills/  workflows/         CANONICAL and portable
+    agents/                             CANONICAL and host-specific
+    docs/concepts/*                     the reasoning behind them
             ↓  may add platform mechanics, never redefine
 3.  .claude/agents/  .codex/agents/     ADAPTERS — mechanics only
     .claude/skills   .agents/skills     LINKS — no content of their own
             ↓  may explain, never define
 4.  docs/platforms/*.md                 USAGE — how to drive the above on one harness
+
+    manifest/  local/  cloud/           HOST — delivery, alongside the chain and
+    .claude/settings.json                      outside it; defines nothing
 ```
+
+`docs/concepts/orchestration.md` sits at level 1 rather than level 2 for a derived reason:
+`AGENTS.md` states the invariants as "standing constraints, not suggestions" and names that
+file as their full catalogue. The O-numbers are therefore invariant material, and nothing
+below may contradict them. Every other concept document is level 2 — reasoning about the
+canonical layer, not a competing definition of it.
+
+The `HOST` layer is not a rung. It defines no concept, and `AGENTS.md` forbids anything in
+`roles/`, `agents/`, `skills/` or `workflows/` from referencing it, so it can never be in a
+position to win or lose a disagreement about meaning. Remove it and the canonical layer is
+unchanged and still correct.
 
 **Higher wins.** Specifically:
 
-- If an **adapter** and a **canonical role** disagree, the role wins and **the adapter is
-  defective**. Fix `roles/`, then run `python3 tools/check.py --sync`.
+- If an **adapter** and its **canonical definition** disagree, the definition wins and **the
+  adapter is defective** — for a role in `roles/` and for an agent in `agents/` alike. Fix the
+  canonical file, then run `python3 tools/check.py --sync`.
+- **A harness working differently is not permission to redefine.** If the platform cannot do
+  what a canonical definition requires, that is a limitation to state, not a semantics to
+  rewrite. The precedent is in `docs/platforms/claude-code.md`: Claude Code has no read-only
+  Bash, and that is recorded as an honest limitation of the adapters rather than by weakening
+  the roles that depend on it.
 - If a **platform document** and a **canonical file** disagree, the canonical file wins and
   the platform document is stale.
 - If a **concept document** and a **role** disagree, they are describing the same thing at two
@@ -33,9 +55,39 @@ Which file wins when two disagree.
 |---|---|---|
 | `AGENTS.md` | repository map, invariants, contribution rules, pointers | role definitions, platform mechanics, long prose |
 | `roles/` `skills/` `workflows/` | the definition of a concept | anything requiring a specific harness, vendor, model or language |
+| `agents/` | the definition of an agent that is not a role, including the harness mechanics it cannot be written without | a definition that would satisfy the three-part role bar; a reference to the `HOST` layer |
+| `manifest/` `local/` `cloud/` `.claude/settings.json` | delivery and installation — shell and JSON data | any definition, and anything the canonical layer is expected to read |
 | `docs/concepts/` | why the canonical layer is shaped this way | a second, competing definition |
 | `.claude/` `.codex/` | identifiers, tool limits, model/effort, permissions, a few operating notes, a marked verbatim copy | a reworded version of a role's responsibilities |
 | `docs/platforms/` | how to use the above on one harness, with its limitations | any definition |
+
+## A worked case: the orchestrator
+
+The host agent is the case where every layer has something to say, so it is worth spelling
+out. Five things could disagree about what the orchestrator is:
+
+| # | Source | Authoritative for | May never |
+|---|---|---|---|
+| 1 | `docs/concepts/orchestration.md` | what the rules of a run **are** — O1 to O28 | be contradicted by anything below |
+| 2 | `agents/orchestrator.md` | what the orchestrator **is**: its decisions, its state, its exclusions | contradict a principle it cites |
+| 3 | `.claude/agents/orchestrator.md`, outside the markers | this harness's `name`, `description`, `tools`, `model` and operating notes | restate a responsibility in its own words |
+| 4 | `.claude/agents/orchestrator.md`, between the markers | nothing — it is a mechanical copy | differ from its source by one byte |
+| 5 | `docs/platforms/claude-code.md` | how to drive it here, and what this harness cannot do | define any of the above |
+
+Read downwards. **1 beats 2 beats 3 beats 5, and 4 is not a party to the argument** — a
+difference there is drift, which `tools/check.py` reports and `--sync` repairs.
+
+Two consequences worth stating plainly:
+
+- **An adapter may not redefine orchestrator semantics because the harness works
+  differently.** If Claude Code makes something awkward, the adapter's operating notes say so
+  and `docs/platforms/claude-code.md` records the limitation. Neither may quietly substitute
+  a looser rule. An adapter whose notes said the orchestrator may judge a run finished would
+  be defective, because **O18** says readiness is computed, and no harness fact changes that.
+- **`agents/orchestrator.md` carrying Claude Code mechanics does not make it an adapter.** It
+  is canonical and host-specific: authoritative about the agent, and making no claim that it
+  survives a move to another harness. That is why no Codex adapter is generated from it — see
+  `agents/README.md`.
 
 ## The source-of-truth rule
 

@@ -43,7 +43,7 @@ every repository.
 
 | Under `.claude/` | Count | Form | Reaches cloud |
 |---|---|---|---|
-| `agents/` | 7 | real files | yes |
+| `agents/` | 8 | real files | yes |
 | `skills/` → `skills/` | 6 | entry symlinks | yes |
 | `skills/` → `vendor/` | **27** | entry symlinks | yes |
 | `commands/` | 0 | — | n/a |

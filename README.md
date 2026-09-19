@@ -24,7 +24,7 @@ The thing this toolkit is actually about:
 
 ```text
 1  roles/            WHAT responsibility an agent assumes        canonical
-   agents/           anything useful that is not a role          canonical
+   agents/           anything useful that is not a role          canonical, host-specific
 2  skills/           WHAT procedure it performs                  canonical
 3  workflows/        HOW roles and skills cooperate              canonical
 4  docs/concepts/    WHY it is shaped this way                   reliability principles
@@ -32,8 +32,12 @@ The thing this toolkit is actually about:
    manifest/ local/ cloud/   host integration                    mechanics only
 ```
 
-Layers 1–4 are portable and that portability is enforced. Layer 5 is the opposite by
-construction — it exists to attach the rest to one harness. See
+**Canonical** means this repository holds the authoritative definition. **Portable** means
+that definition carries no harness mechanics. They are separate claims. `roles/`, `skills/`,
+`workflows/` and `docs/concepts/` are both; `agents/` is canonical and deliberately
+host-specific, because a host agent cannot be defined without saying how it dispatches. Layer
+5 defines nothing and only attaches the rest to one harness. Portability is a review rule
+rather than a check — see [docs/authority.md](docs/authority.md) and
 [docs/host-integration.md](docs/host-integration.md).
 
 ### 1 · Roles

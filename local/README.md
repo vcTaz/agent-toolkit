@@ -14,7 +14,7 @@ On a fresh machine, do all of it at once:
 
 | Flag | Adds |
 |---|---|
-| *(none)* | 7 agents + 6 toolkit skills |
+| *(none)* | 8 agents + 6 toolkit skills |
 | `--with-vendored` | the 27 third-party skills committed under `vendor/` |
 | `--with-plugins` | marketplaces and plugins from `manifest/plugins.json` |
 

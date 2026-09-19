@@ -12,8 +12,9 @@ provides reusable agent roles, skills, workflows and reliability patterns, plus 
 for Claude Code and Codex.
 
 It contains **no runtime**. There is nothing to install, no framework, and no language
-dependency. Everything here is Markdown, apart from seven TOML adapter files and one
-standard-library Python script used to check structure.
+dependency. Everything here is Markdown, apart from one TOML adapter per role and `tools/`,
+which holds stdlib-only Python maintenance scripts — structural checks, adapter sync, vendor
+sync. Nothing reads them at use time; you run them by hand when you change something.
 
 ## Repository map
 
@@ -37,9 +38,25 @@ cloud/            HOST       install it into a cloud Claude Code environment
 tools/check.py               structural checks and adapter sync
 ```
 
-The `CANONICAL` layer is platform-neutral and that neutrality is enforced. The `HOST` layer
-is the opposite by construction: it exists to attach the canonical layer to one particular
-harness, and it is excluded from every portability claim made below.
+`CANONICAL` and `PORTABLE` are **two different claims**, and conflating them is the mistake
+this section exists to prevent.
+
+| Term | Claim |
+|---|---|
+| `CANONICAL` | this repository holds the authoritative definition of the concept; everything else points at it or copies it mechanically |
+| `PORTABLE` | that definition carries no harness mechanics, so it translates to another harness unchanged |
+
+`roles/`, `skills/` and `workflows/` are both. `agents/` is canonical and deliberately **not**
+portable: a host agent's definition names how it dispatches, which is exactly why the tier is
+separate from `roles/`. It remains the source of truth for what that agent is, and an adapter
+may not redefine it.
+
+Portability is a **review** rule, not a check. `tools/check.py` enforces structure, adapter
+coverage and drift; nothing in it scans canonical text for a harness, vendor or model name.
+Treat portability as reviewed rather than verified, per the expectations below.
+
+The `HOST` layer makes neither claim. It defines no concept at all: it exists to attach the
+canonical layer to one particular harness and deliver it.
 
 ## The conceptual hierarchy
 
@@ -64,9 +81,11 @@ Standing constraints, not suggestions.
 - **One conceptual definition; multiple platform adapters.** An adapter carries platform
   mechanics only. If an adapter and a canonical role disagree, the role wins and the adapter
   is defective. See `docs/authority.md`.
-- **The canonical layer is portable.** Nothing in `roles/`, `skills/` or `workflows/` may
-  require Claude Code, Codex, Anthropic, OpenAI, Python, a particular model or any runtime.
-  Platform specifics belong in adapters or `docs/platforms/`.
+- **The portable layer carries no harness mechanics.** Nothing in `roles/`, `skills/` or
+  `workflows/` may require Claude Code, Codex, Anthropic, OpenAI, Python, a particular model
+  or any runtime. Platform specifics belong in adapters, in `docs/platforms/`, or — for a
+  host agent, which cannot be defined without them — in `agents/`. Canonical and portable are
+  separate claims; see the repository map above and `docs/authority.md`.
 - **The agent that produced an artifact is not its only reviewer.** Critic, Validator and
   Final Reviewer are three distinct roles with distinct questions, vocabularies and exclusions.
   Do not collapse them.

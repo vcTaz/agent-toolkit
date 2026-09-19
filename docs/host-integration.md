@@ -24,8 +24,8 @@ so there is exactly one copy of every definition on the machine. Case 3 is solve
 
 The host layer is deliberately the least powerful thing that solves those cases.
 
-- **Shell and JSON only.** No new language dependency. `tools/check.py` remains the one
-  Python file, stdlib-only.
+- **Shell and JSON only.** No new language dependency: `tools/` stays stdlib-only Python and
+  is added to only when a maintenance task genuinely needs it.
 - **No runtime the canonical layer can observe.** Nothing in `roles/`, `agents/`, `skills/`
   or `workflows/` may reference `local/`, `cloud/`, `manifest/` or `.claude/settings.json`.
   Remove the host layer and the canonical layer is unchanged and still correct.
