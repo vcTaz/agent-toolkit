@@ -33,17 +33,56 @@ mistake this README exists to prevent.
 
 | | `roles/` | `agents/` (here) |
 |---|---|---|
-| What it is | A canonical **role**: a distinct epistemic posture | Any other useful agent |
+| What it is | A canonical **role**: a distinct epistemic posture | A canonical **host agent**: an identity the harness runs |
 | Contract | All thirteen `REQUIRED_ROLE_SECTIONS`, in order | Frontmatter plus a body |
-| Bar to add one | A distinct epistemic posture **and** a distinct output contract **and** a distinct independence requirement — all three | It is useful and nothing here already does it |
+| Bar to add one | A distinct epistemic posture **and** a distinct output contract **and** a distinct independence requirement — all three | The four-part admission test below — all four |
 | Adapters generated | Claude Code **and** Codex | Claude Code only |
 | Canonical | yes — the authoritative definition | yes — the authoritative definition |
 | Portable | yes — no harness mechanics | no — may name its harness, by design |
 
 If a definition satisfies the three-part role bar, it belongs in `roles/` and gains the
-reliability guarantees described in `docs/concepts/independence.md`. If it does not, it
-belongs here — and that is not a lesser thing, it is an honest one. Two of the three means
+reliability guarantees described in `docs/concepts/independence.md`. Two of the three means
 you have a *brief* for an existing role, not a new role. See `AGENTS.md`.
+
+Failing the role bar is **not** by itself a qualification for this tier. Most things that
+fail it are briefs, deterministic mechanisms or adapter concerns, and each of those has a
+home already.
+
+## The admission test
+
+This is an exceptional tier, not a drawer for custom agents. A definition is admitted only
+when **all four** of these hold. Any one of them failing sends it somewhere else, and that
+somewhere else already exists.
+
+**A · It needs a host-side identity with its own lifecycle.** Something has to *be* this
+agent for a stretch of the run — spawned, held, ended. An existing role pointed at a
+different subject is a brief, and a brief travels in the dispatch, not in a file here.
+
+**B · Nothing else in the repository can carry it.** Work the classification in
+`docs/concepts/roles-skills-workflows.md` before reaching for this tier. If it is a rule about
+the run as a whole, or decidable without a model, it is an orchestration principle. If several
+roles would each want to perform it, it is a skill. If it is a shape of cooperation, it is a
+workflow. If it is identifiers, tool limits or operating notes, it is an adapter. Only what
+survives all of those arrives here.
+
+**C · Its semantics must be defined once, and it cannot be described without harness
+mechanics.** This is the pairing the tier exists for, and it is why an entry is canonical but
+not portable. Define it once so no adapter can redefine it; accept that part of what it does
+can only be said in one harness's terms. If the definition turns out to need no harness
+mechanics at all, it was a role.
+
+**D · It creates a system responsibility that nobody currently holds.** Not a new name for
+work already owned. Ask what the system can no longer do if this file is deleted; if the
+answer is "nothing, the work just moves", it is a persona.
+
+### The orchestrator against the test
+
+| | |
+|---|---|
+| **A** | The run is held by one identity for its whole duration. That is a lifecycle, not a brief. |
+| **B** | The principles it enforces are orchestration; the identity that enforces them is not a rule and cannot be one. No role, skill or workflow owns dispatch. |
+| **C** | `O1` to `O28` must mean the same thing on every harness, while dispatching can only be described in one harness's terms — subagent or teammate, team size, tool surface. |
+| **D** | Before it existed, twenty-eight principles were addressed to an identity this repository never defined. Delete the file and that hole returns. |
 
 ## Why Codex adapters are not generated here
 

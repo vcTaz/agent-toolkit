@@ -195,13 +195,20 @@ The rule that carries most of the value, whatever your harness:
 
 ---
 
-## Three outcomes, not two
+## Four terminal states, not two
 
 ```text
-COMPLETE     reviewed, checked, and it holds
+reached by the run's own execution and evaluation
+COMPLETED    reviewed, checked, and it holds
 EXHAUSTED    the work happened and the evidence or the limits did not suffice
 FAILED       it could not proceed at all
+
+imposed from outside the run
+CANCELLED    stopped by something other than the run's own evaluation
 ```
+
+The first three are what a run reaches by its own execution and evaluation; `CANCELLED` is
+imposed from outside it. See [O22](docs/concepts/orchestration.md).
 
 `EXHAUSTED` is the outcome most systems lack, and its absence is why they answer questions
 they could not settle. It is not failure: it carries the partial result, the unresolved gaps,

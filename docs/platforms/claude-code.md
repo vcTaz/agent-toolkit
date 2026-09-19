@@ -72,6 +72,17 @@ or use the Codex adapters, where `sandbox_mode = "read-only"` is actually enforc
 `model: inherit` means "use the lead's model". Pinning a specific model ID would rot; the
 aliases and `inherit` will not.
 
+**Omitting `model` is not the same as `inherit`.** Established from the official subagent
+documentation on 2026-09-19, a page that carries no version number of its own: the model is
+resolved as the per-invocation parameter, then the definition's frontmatter, then
+`CLAUDE_CODE_SUBAGENT_MODEL`, then the main conversation's model. An omitted `model`
+therefore resolves to that environment variable wherever it is set. Omitting `tools` is
+unambiguous by comparison — the documentation states that a definition with no `tools`
+inherits every tool available to subagents.
+
+The orchestrator pins neither, deliberately; its adapter records the reasoning and this
+caveat.
+
 ## Agent Teams
 
 **Experimental and off by default.** Enable with:

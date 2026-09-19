@@ -130,13 +130,15 @@ record the gap — do not fall back to self-review.
 
 ## Termination
 
-| Outcome | When |
+| Terminal state | When |
 |---|---|
-| **Complete** | Final Reviewer `PASS`, re-checked against current state, every required criterion met by support that still stands. |
-| **Exhausted** | Repair rounds spent, or a `REVISE` that locates nothing the record confirms. **The work happened and did not converge** — report the partial result, the unresolved issues and what is missing. |
-| **Failed** | It could not proceed at all: the requirement was incoherent, the environment unusable, the dependency absent. |
+| `COMPLETED` | Final Reviewer `PASS`, re-checked against current state, every required criterion met by support that still stands. |
+| `EXHAUSTED` | Repair rounds spent, or a `REVISE` that locates nothing the record confirms. **The work happened and did not converge** — report the partial result, the unresolved issues and what is missing. |
+| `FAILED` | It could not proceed at all: the requirement was incoherent, the environment unusable, the dependency absent. |
 
-**Exhausted is not failed, and neither is a success.** A workflow that cannot produce
+`CANCELLED` is the fourth terminal state. This workflow cannot reach it by working, because it is imposed from outside the run, but any run may end in it — see [terminal states](README.md).
+
+**`EXHAUSTED` is not `FAILED`, and it is not a success either.** A workflow that cannot produce
 "exhausted" will report success on everything.
 
 Say up front how many repair rounds are allowed. A limit invented at the end is a
