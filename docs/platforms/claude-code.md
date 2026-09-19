@@ -1,8 +1,9 @@
 # Claude Code
 
-Verified against **Claude Code 2.1.269**, September 2026. Mechanisms change; if something
-here disagrees with the official documentation, the official documentation is right and this
-file is stale.
+Parts of this file were re-checked on **2026-09-19 against Claude Code 2.1.278**, and parts
+were not. **What was checked, and how** at the foot of the file says which, by what method,
+and against which version. Mechanisms change; if something here disagrees with the official
+documentation, the official documentation is right and this file is stale.
 
 ## What this repository provides
 
@@ -19,8 +20,9 @@ symlink is checked out as a text file and skills are not found.
 ### Skills are a symlink, not a copy
 
 `.claude/skills` is a symlink to the canonical `skills/` directory. Claude Code follows it —
-verified in this repository, where all six skills appear in the session's skill list. That is
-why there is exactly one copy of each skill and no adapter layer for them.
+observed in a 2.1.278 session with this repository open, where all six skills appeared in the
+session's skill list. That is why there is exactly one copy of each skill and no adapter layer
+for them.
 
 `.agents/skills` is a second symlink to the same directory, for Codex and the other clients
 that implement the Agent Skills convention.
@@ -101,7 +103,9 @@ Give it the diff and the requirement, not my reasoning about the fix.
 
 Claude Code applies the definition's `tools`, its `model`, and its body. One field it does
 **not** apply: `skills:`. Teammates load skills from project and user settings instead —
-another reason `.claude/skills` must resolve, and it does.
+another reason `.claude/skills` must resolve, and it does. The `tools` half and the symlink
+half were re-checked at 2.1.278; the `skills:` half is a documentation claim that has not been
+re-checked since 2.1.269.
 
 ## Team compositions
 
@@ -191,3 +195,33 @@ will not enforce it for you. In practice:
 
 Nothing canonical in this repository depends on Agent Teams. If it changed tomorrow, the roles,
 skills and workflows would be unaffected and only this file would need editing.
+
+## What was checked, and how
+
+`AGENTS.md` asks that a claim be labelled **reviewed** rather than verified when no check
+exists for its kind, and that this page state the date and version it was checked against.
+This file mixes checked and unchecked claims, so it names which are which rather than
+covering both with one version number.
+
+| Claim | Status |
+|---|---|
+| `.claude/skills` resolves as a symlink and all six skills are discovered through it | **executed** 2026-09-19, 2.1.278 |
+| `.claude/agents/*.md` is discovered and all seven roles are offered | **executed** 2026-09-19, 2.1.278 |
+| `tools:` is applied — Synthesizer is offered without `Bash` | **executed** 2026-09-19, 2.1.278 |
+| The tools and model table matches the seven adapters | **executed** 2026-09-19, 2.1.278 — `python3 tools/check.py` |
+| Subagent discovery walks up from the working directory; project definitions take precedence | **not re-checked** since 2026-09-11, 2.1.269 |
+| Agent Teams is experimental, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`-gated, and interactive-only | **not re-checked** since 2026-09-11, 2.1.269 |
+| A split-pane teammate replaces its system prompt; an in-process one has the body appended | **not re-checked** since 2026-09-11, 2.1.269 |
+| `skills:` is not applied to teammates | **not re-checked** since 2026-09-11, 2.1.269 |
+| `.claude/teams/teams.json` is not recognised as configuration | **not re-checked** since 2026-09-11, 2.1.269 |
+| `.claude/commands/` is legacy and superseded by skills | **not re-checked** since 2026-09-11, 2.1.269 |
+| The Windows `core.symlinks` caveat | **unchecked** — needs a Windows checkout, which nothing here has |
+| Codex `sandbox_mode = "read-only"` is enforced | carries its own provenance in `codex.md` |
+
+The executed rows were run in a cloud session with this repository as the only project
+repository. Session shape can change what a repository's configuration reaches, so a result
+established in one shape should not be assumed to hold in another.
+
+**A "not re-checked" row is not a refuted row.** Those claims were established on 2026-09-11
+against 2.1.269, and the version has moved to 2.1.278 since. They may all still hold; nothing
+in this file establishes that they do, and a reader relying on one should check it.
