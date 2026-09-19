@@ -62,11 +62,12 @@ Closed sets, so a verdict can be acted on mechanically instead of interpreted:
 criticism      PASS | CHALLENGE | INCONCLUSIVE
 validation     PASS | FAIL      | INCONCLUSIVE
 final review   PASS | REVISE    | REJECT
-outcome        COMPLETE | EXHAUSTED | FAILED
+terminal state COMPLETED | EXHAUSTED | FAILED | CANCELLED
 ```
 
-`EXHAUSTED` is the one most systems lack and the reason they produce plausible answers to
-questions they could not settle.
+The first three terminal states are reached by the run's own execution and evaluation;
+`CANCELLED` is imposed from outside it. `EXHAUSTED` is the one most systems lack and the
+reason they produce plausible answers to questions they could not settle.
 
 ### 4 · Adopt the verification boundary
 

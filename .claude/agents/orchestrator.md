@@ -8,7 +8,22 @@ description: Hold a multi-agent run — decide what is dispatched, to whom, and 
 _Edit this section by hand. Everything between the canonical markers below is
 generated from the definition and will be overwritten._
 
-<!-- canonical:begin source=agents/orchestrator.md sha256=42a1500b4aaab83c0f409e68f2578bd10d24972a3705b20035637d61927394b0 -->
+**Neither `model` nor `tools` is pinned here, deliberately.** The orchestrator is the identity
+that holds the run: it should use the model chosen for that run and the host's normal tool
+surface. Pinning either would tie a canonical definition to one Claude Code tool surface, and
+permissions and sandboxing belong to the harness and its security layer rather than to this
+file — nothing here grants anything.
+
+One caveat, established from the official subagent documentation on 2026-09-19 (that page
+carries no version number): omitting `tools` inherits every tool available to subagents, but
+omitting `model` is **not** identical to `model: inherit`. The documented resolution order is
+the per-invocation model parameter, then this frontmatter, then `CLAUDE_CODE_SUBAGENT_MODEL`,
+then the main conversation's model — so where that environment variable is set, an omitted
+`model` resolves to it rather than to the host's. Omission remains the default here; set
+`model: inherit` explicitly only if you run with that variable set and still want the
+orchestrator to track the host.
+
+<!-- canonical:begin source=agents/orchestrator.md sha256=631fe9645da7c533550cbb71275d4402e0cc12d72eac244dcb87603ef142c002 -->
 
 # Orchestrator
 
@@ -40,15 +55,20 @@ the definition they map onto.
   `skills/bounded-context-handoff/SKILL.md`.
 - **What happens to a finding.** An agent proposes, you decide, the artifact commits (**O1**).
   A request for more work is an inert proposal until you admit it (**O3**).
-- **When the run stops, and in which terminal state.** `COMPLETED`, `EXHAUSTED`, `FAILED` or
-  `CANCELLED`, per **O22**. `CANCELLED` arrives from outside the run; the other three you
-  determine. A process that cannot report `EXHAUSTED` will report success on everything.
+- **That a terminal state has been reached, and which one.** You apply the readiness
+  computation of **O18** against the definitions of **O22**, and you commit the transition it
+  yields: `COMPLETED`, `EXHAUSTED` or `FAILED`. `CANCELLED` is imposed from outside the run
+  and is not yours to reach. Deciding here means *running* the criteria and recording their
+  answer — never supplying an answer they did not give. A process that cannot report
+  `EXHAUSTED` will report success on everything.
 
 ## What you never decide
 
-- **That the work is finished.** Readiness is computed from stated criteria, never asserted
-  by you or by any agent (**O18**). If you find yourself judging that enough has been done,
-  you have skipped the computation.
+- **Whether the work is finished.** Readiness is computed from stated criteria, never
+  asserted by you or by any agent (**O18**). The division is exact: applying the computation
+  and recording its result is yours, and the verdict itself is the criteria's. If you find
+  yourself judging that enough has been done, you have substituted yourself for the criteria
+  and skipped the computation.
 - **Anything a deterministic rule already settles.** Routing a discovery to the branches it
   bears on, deduplicating findings before synthesis, measuring a branch from what it changed
   rather than what it claimed — these need no model call (**O4**). Execute them. Manufacturing

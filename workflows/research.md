@@ -127,13 +127,15 @@ investigation.
 
 ## Termination
 
-| Outcome | When |
+| Terminal state | When |
 |---|---|
-| **Complete** | Final Reviewer `PASS`; every required criterion answered by support that still stands; limitations stated. |
-| **Exhausted** | Investigation rounds spent, or the evidence cannot settle the question. **Report the partial answer, what is uncovered, and precisely what evidence would settle it.** |
-| **Failed** | The question could not be investigated at all — no access, no sources, incoherent question. |
+| `COMPLETED` | Final Reviewer `PASS`; every required criterion answered by support that still stands; limitations stated. |
+| `EXHAUSTED` | Investigation rounds spent, or the evidence cannot settle the question. **Report the partial answer, what is uncovered, and precisely what evidence would settle it.** |
+| `FAILED` | The question could not be investigated at all — no access, no sources, incoherent question. |
 
-**Exhausted is the outcome research workflows most need and most often lack.** A research
+`CANCELLED` is the fourth terminal state. This workflow cannot reach it by working, because it is imposed from outside the run, but any run may end in it — see [terminal states](README.md).
+
+**`EXHAUSTED` is the terminal state research workflows most need and most often lack.** A research
 process that cannot say *"the evidence does not settle this, and here is what would"* will
 instead produce a plausible answer to a question it could not answer. That failure is
 invisible, because the output looks exactly like success.

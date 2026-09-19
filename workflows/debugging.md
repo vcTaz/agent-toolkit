@@ -148,11 +148,13 @@ a shared prior, and a shared prior is exactly the thing competing hypotheses exi
 
 ## Termination
 
-| Outcome | When |
+| Terminal state | When |
 |---|---|
-| **Complete** | Root cause proven by intervention, fix implemented, fix independently verified. |
-| **Exhausted** | Hypotheses eliminated without a survivor, or the survivor cannot be proven. **Report what was eliminated and what would settle the remainder** — that is real progress and the next investigation starts from it. |
-| **Failed** | Cannot reproduce, or cannot instrument the system enough to test anything. |
+| `COMPLETED` | Root cause proven by intervention, fix implemented, fix independently verified. |
+| `EXHAUSTED` | Hypotheses eliminated without a survivor, or the survivor cannot be proven. **Report what was eliminated and what would settle the remainder** — that is real progress and the next investigation starts from it. |
+| `FAILED` | Cannot reproduce, or cannot instrument the system enough to test anything. |
+
+`CANCELLED` is the fourth terminal state. This workflow cannot reach it by working, because it is imposed from outside the run, but any run may end in it — see [terminal states](README.md).
 
 **A hypothesis that cannot be disproven has not been confirmed.** If the leading theory
 survives only because nothing can test it, say so — do not fix on the strength of it. A fix

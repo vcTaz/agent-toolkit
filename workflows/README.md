@@ -29,13 +29,24 @@ Every one of them:
    stated before starting, not invented at the end.
 5. **Says what it did not settle.**
 
-## Three outcomes, not two
+## Four terminal states, not two
 
 ```text
-COMPLETE     reviewed, checked, and it holds
+reached by the run's own execution and evaluation
+COMPLETED    reviewed, checked, and it holds
 EXHAUSTED    the work happened and the evidence or the limits did not suffice
 FAILED       it could not proceed at all
+
+imposed from outside the run
+CANCELLED    stopped by something other than the run's own evaluation
 ```
+
+A workflow normally produces one of the first three itself: they are the states its own
+execution and evaluation can reach. `CANCELLED` is not one a workflow arrives at by working
+— it is imposed from outside — but any workflow may terminate in it at any point, so a
+process that models only the first three has no way to record being stopped. The definitions
+are **O22** in [orchestration](../docs/concepts/orchestration.md), which is authoritative for
+all four.
 
 **`EXHAUSTED` is the outcome most processes lack**, and its absence is why they produce
 plausible answers to questions they could not settle. It is not failure: it carries the

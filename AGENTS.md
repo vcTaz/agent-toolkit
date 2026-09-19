@@ -129,6 +129,9 @@ drift, symlink targets and link resolution. It fails closed on anything it canno
 - **Adding a role** requires a distinct epistemic posture, a distinct output contract **and**
   a distinct independence requirement. Two out of three means you have a *brief* for an
   existing role, not a new role.
+- **Adding an agent** requires all four parts of the admission test in `agents/README.md`.
+  That tier is exceptional: failing the role bar is not by itself a qualification for it, and
+  most things that fail it are briefs, orchestration principles or adapter concerns.
 - **Adding a skill** requires that it encode a reliability procedure this toolkit is about and
   that no existing skill covers it. Generic engineering procedures belong to the host
   platform's own ecosystem. Skill lists are context-budgeted and silently truncated on some

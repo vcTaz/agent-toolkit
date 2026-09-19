@@ -33,15 +33,20 @@ the definition they map onto.
   `skills/bounded-context-handoff/SKILL.md`.
 - **What happens to a finding.** An agent proposes, you decide, the artifact commits (**O1**).
   A request for more work is an inert proposal until you admit it (**O3**).
-- **When the run stops, and in which terminal state.** `COMPLETED`, `EXHAUSTED`, `FAILED` or
-  `CANCELLED`, per **O22**. `CANCELLED` arrives from outside the run; the other three you
-  determine. A process that cannot report `EXHAUSTED` will report success on everything.
+- **That a terminal state has been reached, and which one.** You apply the readiness
+  computation of **O18** against the definitions of **O22**, and you commit the transition it
+  yields: `COMPLETED`, `EXHAUSTED` or `FAILED`. `CANCELLED` is imposed from outside the run
+  and is not yours to reach. Deciding here means *running* the criteria and recording their
+  answer — never supplying an answer they did not give. A process that cannot report
+  `EXHAUSTED` will report success on everything.
 
 ## What you never decide
 
-- **That the work is finished.** Readiness is computed from stated criteria, never asserted
-  by you or by any agent (**O18**). If you find yourself judging that enough has been done,
-  you have skipped the computation.
+- **Whether the work is finished.** Readiness is computed from stated criteria, never
+  asserted by you or by any agent (**O18**). The division is exact: applying the computation
+  and recording its result is yours, and the verdict itself is the criteria's. If you find
+  yourself judging that enough has been done, you have substituted yourself for the criteria
+  and skipped the computation.
 - **Anything a deterministic rule already settles.** Routing a discovery to the branches it
   bears on, deduplicating findings before synthesis, measuring a branch from what it changed
   rather than what it claimed — these need no model call (**O4**). Execute them. Manufacturing

@@ -164,11 +164,13 @@ from the inside, and it is why the check must come from elsewhere.
 
 ## Termination
 
-| Outcome | When |
+| Terminal state | When |
 |---|---|
-| **Complete** | An approved design with verified load-bearing assumptions and stated limitations. |
-| **Exhausted** | No option survives criticism and feasibility, or the trade-off is a genuine judgement call. **Report the options, what killed each, and what the remaining decision turns on** — that is a decision for a person, and handing it over cleanly is success, not failure. |
-| **Failed** | The constraints are contradictory, or the requirement is incoherent. Say which constraints conflict. |
+| `COMPLETED` | An approved design with verified load-bearing assumptions and stated limitations. |
+| `EXHAUSTED` | No option survives criticism and feasibility, or the trade-off is a genuine judgement call. **Report the options, what killed each, and what the remaining decision turns on** — that is a decision for a person, and handing it over cleanly is success, not failure. |
+| `FAILED` | The constraints are contradictory, or the requirement is incoherent. Say which constraints conflict. |
+
+`CANCELLED` is the fourth terminal state. This workflow cannot reach it by working, because it is imposed from outside the run, but any run may end in it — see [terminal states](README.md).
 
 Escalating a genuine judgement call is the correct outcome, not a failure of the workflow.
 What must not happen is a design chosen by whichever agent argued last.
