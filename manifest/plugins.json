@@ -1,0 +1,68 @@
+{
+  "$comment": "Claude Code plugin composition. Data only - no content is vendored here.",
+  "schemaVersion": 1,
+  "verifiedAgainst": { "claudeCode": "2.1.278", "date": "2026-09-19" },
+
+  "marketplaces": {
+    "claude-plugins-official": {
+      "source": { "source": "github", "repo": "anthropics/claude-plugins-official" },
+      "scope": "portable"
+    },
+    "ecc": {
+      "source": { "source": "git", "url": "https://github.com/affaan-m/everything-claude-code.git" },
+      "scope": "portable"
+    },
+    "ui-ux-pro-max-skill": {
+      "source": { "source": "github", "repo": "nextlevelbuilder/ui-ux-pro-max-skill" },
+      "scope": "portable"
+    },
+    "thedotmack": {
+      "source": { "source": "github", "repo": "thedotmack/claude-mem" },
+      "scope": "portable",
+      "autoUpdate": false
+    },
+    "gitkraken": {
+      "source": { "source": "directory", "path": "${CLAUDE_CONFIG_DIR}/plugins/marketplaces/gitkraken" },
+      "scope": "machine-local",
+      "reason": "Local-directory marketplace installed by the GitKraken desktop app. Has no remote; cannot be reconstructed from this manifest on another machine."
+    }
+  },
+
+  "plugins": {
+    "ecc@ecc": {
+      "version": "1.10.0",
+      "gitCommitSha": "9523575721cba6285c95d688f08736017e0d2615",
+      "scope": "portable",
+      "note": "Provides 38 declared agents, 181 skills, 79 commands as ecc:* . Declares NO hooks - see local/settings.fragment.json."
+    },
+    "superpowers@claude-plugins-official": { "version": "6.3.0", "scope": "portable" },
+    "ui-ux-pro-max@ui-ux-pro-max-skill": {
+      "version": "2.5.0",
+      "gitCommitSha": "b7e3af80f6e331f6fb456667b82b12cade7c9d35",
+      "scope": "portable"
+    },
+    "clangd-lsp@claude-plugins-official": {
+      "version": "1.0.0",
+      "scope": "machine-local",
+      "reason": "Local C/C++ language server integration; no value in a cloud session."
+    },
+    "claude-mem@thedotmack": {
+      "version": "13.23.1",
+      "gitCommitSha": "1627ded4bfcf6d1e3cd1536527cff0d43e939ca2",
+      "scope": "machine-local",
+      "reason": "Backed by a local SQLite store and a stdio MCP server; neither exists in a cloud session."
+    },
+    "gitkraken-hooks@gitkraken": {
+      "version": "3.1.73",
+      "scope": "machine-local",
+      "reason": "Requires ~/.orca/agent-hooks/ from the GitKraken desktop install."
+    }
+  },
+
+  "accountSynced": {
+    "$comment": "Delivered one-way cloud->local by Anthropic into plugins/synced/ and skills/synced/. NOT user-publishable. Listed for inventory completeness only; nothing here is installable from this manifest.",
+    "marketplace": "knowledge-work-plugins",
+    "plugins": ["design", "engineering", "productivity", "cowork-plugin-management"],
+    "skills": ["docx", "pdf", "pptx", "xlsx", "deep-research", "skill-creator", "computer-use", "chrome-browser", "built-in-browser", "morning", "import-memory", "docs"]
+  }
+}

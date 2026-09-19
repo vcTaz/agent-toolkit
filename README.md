@@ -24,11 +24,17 @@ The thing this toolkit is actually about:
 
 ```text
 1  roles/            WHAT responsibility an agent assumes        canonical
+   agents/           anything useful that is not a role          canonical
 2  skills/           WHAT procedure it performs                  canonical
 3  workflows/        HOW roles and skills cooperate              canonical
 4  docs/concepts/    WHY it is shaped this way                   reliability principles
 5  .claude/ .codex/  platform adapters, and the guides to them   mechanics only
+   manifest/ local/ cloud/   host integration                    mechanics only
 ```
+
+Layers 1–4 are portable and that portability is enforced. Layer 5 is the opposite by
+construction — it exists to attach the rest to one harness. See
+[docs/host-integration.md](docs/host-integration.md).
 
 ### 1 · Roles
 
@@ -99,6 +105,19 @@ them. `docs/authority.md` explains why they are separate layers.
 ### With Claude Code
 
 Open the repository. Seven subagents and six skills are discovered with no setup.
+
+To use them in **every** project on a machine rather than only in this one, link them into
+the user-level configuration once — one checkout, one copy of each definition, no project
+polluted with duplicates:
+
+```bash
+./local/bootstrap.sh          # idempotent; --dry-run first if you prefer
+./local/doctor.sh             # verify
+```
+
+To use them in a **cloud** Claude Code session, see [cloud/README.md](cloud/README.md).
+The short version: nothing in `~/.claude/` reaches cloud, so a git checkout is the only
+route, and this repository is shaped to be that checkout.
 
 ```text
 Use the critic agent to attack the change in src/auth/.

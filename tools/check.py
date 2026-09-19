@@ -63,8 +63,26 @@ def digest(text):
 
 def load_roles():
     """Every canonical role, checked for structure. Returns {id: (path, body)}."""
+    return _load_definitions('roles', require_sections=True)
+
+
+def load_agents():
+    """Free-form agent definitions. Returns {id: (path, body)}.
+
+    Same canonical-plus-adapter machinery as roles/, minus the role contract. A role
+    asserts a distinct epistemic posture, output contract and independence requirement;
+    most useful agents assert none of those and are not roles. This tier exists so that
+    adding one does not require pretending otherwise, and so there is exactly one place
+    in this repository where an agent is added.
+    """
+    if not (ROOT / 'agents').is_dir():
+        return {}
+    return _load_definitions('agents', require_sections=False)
+
+
+def _load_definitions(directory, require_sections):
     roles = {}
-    for path in sorted((ROOT / 'roles').glob('*.md')):
+    for path in sorted((ROOT / directory).glob('*.md')):
         if path.name == 'README.md':
             continue
         fields, body = frontmatter(path)
@@ -74,8 +92,8 @@ def load_roles():
             continue
         if not fields.get('summary'):
             fail(path, 'frontmatter has no summary')
-        found = re.findall(r'^## (.+)$', body, re.M)
-        if found != REQUIRED_ROLE_SECTIONS:
+        found = re.findall(r'^## (.+)$', body, re.M) if require_sections else None
+        if require_sections and found != REQUIRED_ROLE_SECTIONS:
             missing = [s for s in REQUIRED_ROLE_SECTIONS if s not in found]
             extra = [s for s in found if s not in REQUIRED_ROLE_SECTIONS]
             detail = f'missing {missing}' if missing else (
@@ -89,8 +107,8 @@ def load_roles():
         for target in LINK_RE.findall(body):
             fail(path, f'relative link {target!r}: a synced body must be '
                        'location-independent. Use a `path/from/repo/root` in backticks.')
-        roles[identity] = (path, body)
-    if not roles:
+        roles[identity] = (path, body, fields.get('summary', ''))
+    if require_sections and not roles:
         fail('roles/', 'no canonical roles found')
     return roles
 
@@ -127,19 +145,50 @@ def codex_adapter(identity):
     return ROOT / '.codex' / 'agents' / f'{identity}.toml'
 
 
-def check_adapters(roles, sync):
-    """Adapters must name a real role, and their synced body must match it."""
-    for kind, resolve, rebuild in (('claude', claude_adapter, sync_claude),
-                                   ('codex', codex_adapter, sync_codex)):
+def scaffold_claude(path, identity, summary):
+    """Create a missing Claude adapter so `--sync` can then fill its canonical block.
+
+    Only the frontmatter and the heading are invented, and only once: they are
+    platform-specific and thereafter maintained by hand. `tools` is deliberately omitted
+    so the agent inherits the default tool set rather than silently being granted one.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        '---\n'
+        f'name: {identity}\n'
+        f'description: {summary}\n'
+        '---\n\n'
+        '# Claude Code operating notes\n\n'
+        '_Edit this section by hand. Everything between the canonical markers below is\n'
+        'generated from the definition and will be overwritten._\n\n'
+        f'{BEGIN.format(source="", digest="0" * 64)}\n\n{END}\n',
+        encoding='utf-8')
+
+
+def check_adapters(roles, agents, sync):
+    """Adapters must name a real definition, and their synced body must match it.
+
+    Claude Code carries both tiers. Codex carries roles only: the role layer is
+    deliberately platform-neutral, whereas a free-form agent may depend on Claude Code
+    mechanics, so generating a Codex adapter for one would assert a portability that has
+    not been established.
+    """
+    for kind, resolve, rebuild, covered in (
+            ('claude', claude_adapter, sync_claude, {**roles, **agents}),
+            ('codex', codex_adapter, sync_codex, roles)):
         directory = resolve('x').parent
         present = {p.stem for p in directory.iterdir() if p.is_file()}
-        for orphan in sorted(present - set(roles)):
-            fail(directory / orphan, f'{kind} adapter names no canonical role')
-        for identity, (source, body) in roles.items():
+        for orphan in sorted(present - set(covered)):
+            fail(directory / orphan, f'{kind} adapter names no canonical role or agent')
+        for identity, (source, body, summary) in covered.items():
             path = resolve(identity)
             if not path.is_file():
-                fail(path, f'canonical role {identity!r} has no {kind} adapter')
-                continue
+                if sync and kind == 'claude':
+                    scaffold_claude(path, identity, summary)
+                else:
+                    fail(path, f'canonical {identity!r} has no {kind} adapter'
+                               + (' (run tools/check.py --sync)' if kind == 'claude' else ''))
+                    continue
             rebuild(path, identity, source, body, sync)
 
 
@@ -229,8 +278,12 @@ def main():
     sync = '--sync' in argv
 
     roles = load_roles()
+    agents = load_agents()
+    overlap = sorted(set(roles) & set(agents))
+    if overlap:
+        fail('agents/', f'{overlap} also exist in roles/; an id must name exactly one definition')
     check_skills()
-    check_adapters(roles, sync)
+    check_adapters(roles, agents, sync)
     check_skill_links()
     check_links()
 
@@ -240,8 +293,9 @@ def main():
             print(f'  {problem}', file=sys.stderr)
         return 1
     action = 'synced and checked' if sync else 'checked'
-    print(f'ok: {len(roles)} roles, {len(list((ROOT / "skills").glob("*/SKILL.md")))} skills, '
-          f'{len(roles) * 2} adapters {action}')
+    print(f'ok: {len(roles)} roles, {len(agents)} agents, '
+          f'{len(list((ROOT / "skills").glob("*/SKILL.md")))} skills, '
+          f'{len(roles) * 2 + len(agents)} adapters {action}')
     return 0
 
 
