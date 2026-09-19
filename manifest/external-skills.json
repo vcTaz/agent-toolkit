@@ -1,0 +1,57 @@
+{
+  "$comment": "Third-party Agent Skills used on this setup. Sources are recorded so they can be re-pulled; the content is deliberately NOT vendored, because these are actively-maintained upstreams and forking them guarantees drift.",
+  "schemaVersion": 1,
+  "verifiedAgainst": { "date": "2026-09-19" },
+
+  "sources": {
+    "cloudflare-skills": {
+      "repo": "https://github.com/cloudflare/skills",
+      "license": "Apache-2.0",
+      "pinnedCommit": "f96bff754e428838818017f75817f0f9428acd48",
+      "verification": "All 375 files across the 13 skills hash-matched this commit on 2026-09-19: an unmodified, complete copy of the repo's skills/ directory at that point.",
+      "installedAt": "2026-08-22T13:22:12Z",
+      "skills": [
+        "agents-sdk", "cloudflare", "cloudflare-email-service", "cloudflare-one",
+        "cloudflare-one-migrations", "durable-objects", "sandbox-next", "sandbox-stable",
+        "sandbox-migrate-to-next", "turnstile-spin", "web-perf", "workers-best-practices",
+        "wrangler"
+      ],
+      "reinstall": "npx skills add https://github.com/cloudflare/skills",
+      "note": "Upstream has moved on since the pinned commit (nextjs-on-cloudflare was added later). Re-pulling gets newer content; nothing local would be lost."
+    },
+
+    "taste-skill": {
+      "repo": "https://github.com/Leonxlnx/taste-skill",
+      "managedBy": "skills-cli",
+      "lockFile": "${HOME}/.agents/.skill-lock.json",
+      "skills": [
+        "brandkit", "design-taste-frontend", "design-taste-frontend-v1",
+        "full-output-enforcement", "gpt-taste", "high-end-visual-design", "image-to-code",
+        "imagegen-frontend-mobile", "imagegen-frontend-web", "industrial-brutalist-ui",
+        "minimalist-ui", "redesign-existing-projects", "stitch-design-taste"
+      ]
+    },
+
+    "vercel-labs-skills": {
+      "repo": "https://github.com/vercel-labs/skills",
+      "managedBy": "skills-cli",
+      "lockFile": "${HOME}/.agents/.skill-lock.json",
+      "skills": ["find-skills"]
+    },
+
+    "stablyai-orca": {
+      "repo": "https://github.com/stablyai/orca",
+      "managedBy": "skills-cli",
+      "lockFile": "${HOME}/.agents/.skill-lock.json",
+      "skills": ["orca-cli"]
+    }
+  },
+
+  "multiAgentFanOut": {
+    "$comment": "The skills CLI installs into every detected agent directory, not just Claude Code. Recorded because a reinstall reproduces this fan-out.",
+    "observedTargets": [
+      "~/.claude/skills", "~/.codex/skills", "~/.cursor/skills", "~/.gemini/skills",
+      "~/.gemini/antigravity/skills", "~/.junie/skills", "~/.copilot/skills"
+    ]
+  }
+}

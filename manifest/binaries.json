@@ -1,0 +1,47 @@
+{
+  "$comment": "External executables this setup depends on. Recorded so a fresh machine is reproducible.",
+  "schemaVersion": 1,
+  "verifiedAgainst": { "date": "2026-09-19" },
+
+  "required": {
+    "git":    { "scope": "both", "cloudDefault": true },
+    "jq":     { "scope": "both", "cloudDefault": true, "note": "Hard dependency of the rtk PreToolUse hook." },
+    "node":   { "scope": "both", "cloudDefault": true, "observedVersion": "24.21.0" },
+    "python3":{ "scope": "both", "cloudDefault": true, "note": "tools/check.py requires 3.9+, stdlib only." },
+    "rg":     { "scope": "both", "cloudDefault": false, "install": "apt-get install -y ripgrep", "note": "NOT present in cloud environments by default." },
+    "gh":     { "scope": "both", "cloudDefault": false },
+    "uv":     { "scope": "machine-local", "cloudDefault": false, "install": "curl -LsSf https://astral.sh/uv/install.sh | sh" }
+  },
+
+  "machineLocal": {
+    "rtk": {
+      "purpose": "Token-reducing CLI proxy; invoked by a PreToolUse Bash hook on every command.",
+      "repo": "https://github.com/rtk-ai/rtk",
+      "installedVersion": "0.42.1",
+      "sha256": "10445d460a1bea8314163bece8b69a336f715823bc225acd28ef6654aa052a31",
+      "artifact": "rtk-x86_64-unknown-linux-musl.tar.gz",
+      "install": "curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh",
+      "minimumForHook": "0.23.0",
+      "WARNING": "Do NOT run 'cargo install rtk'. The crates.io crate named 'rtk' is a DIFFERENT project (reachingforthejack/rtk, 'Rust Type Kit'). Installing it replaces the working binary with one that has no 'rewrite' subcommand and silently disables the PreToolUse hook on every Bash call."
+    },
+    "srt": {
+      "purpose": "Anthropic Sandbox Runtime. The OS-enforced boundary claude-safe runs Claude Code inside.",
+      "package": "@anthropic-ai/sandbox-runtime",
+      "installedVersion": "0.0.76",
+      "install": "npm install -g @anthropic-ai/sandbox-runtime",
+      "scope": "machine-local",
+      "reason": "Cloud sessions use Anthropic's own per-session VM isolation. This is a separate, non-equivalent boundary and must not be assumed to carry over."
+    },
+    "bwrap":  { "purpose": "bubblewrap; the kernel-namespace primitive srt builds on.", "install": "apt-get install -y bubblewrap", "scope": "machine-local" },
+    "socat":  { "purpose": "Required by claude-safe's policy plumbing.", "install": "apt-get install -y socat", "scope": "machine-local" }
+  },
+
+  "relatedRepos": {
+    "claude-safe": {
+      "localPath": "${HOME}/claude-safe",
+      "remote": null,
+      "RISK": "Has no git remote as of 2026-09-19. The hardened launcher, its threat model and its six test suites exist on exactly one disk.",
+      "installs": ["${HOME}/.local/bin/claude-safe", "${HOME}/.local/bin/claude-safe-verify"]
+    }
+  }
+}

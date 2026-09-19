@@ -10,3 +10,30 @@
 # Python bytecode, if a contributor runs tools/check.py from a checkout
 __pycache__/
 *.py[cod]
+
+# --- secrets and machine state -------------------------------------------------------
+# Nothing secret belongs in this repository. These patterns are a backstop, not a policy:
+# the policy is that credentials live in the environment, never in a file here.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!**/*.key.example
+.credentials.json
+.claude.json
+control.key
+srt-*.json
+*.token
+id_rsa*
+id_ed25519*
+
+# Claude Code runtime state, if a checkout is ever placed inside a config directory
+**/synced/
+**/learned/
+projects/
+shell-snapshots/
+file-history/
+session-env/
+history.jsonl
+*.log

@@ -19,6 +19,7 @@ standard-library Python script used to check structure.
 
 ```text
 roles/            CANONICAL  seven agent roles, platform-neutral
+agents/           CANONICAL  free-form agents; where a new agent is added
 skills/           CANONICAL  six reusable procedures, Agent Skills format
 workflows/        CANONICAL  four ways roles and skills cooperate
 docs/concepts/               why the canonical layer is shaped this way
@@ -29,8 +30,16 @@ docs/lineage.md              where these ideas came from
 .codex/agents/    ADAPTER    Codex project-scoped subagents
 .claude/skills    LINK    →  skills/
 .agents/skills    LINK    →  skills/
+.claude/settings.json  HOST  repo-scoped settings; the only channel that reaches cloud
+manifest/         HOST       what is composed from elsewhere — data, never content
+local/            HOST       install this toolkit into a local Claude Code config
+cloud/            HOST       install it into a cloud Claude Code environment
 tools/check.py               structural checks and adapter sync
 ```
+
+The `CANONICAL` layer is platform-neutral and that neutrality is enforced. The `HOST` layer
+is the opposite by construction: it exists to attach the canonical layer to one particular
+harness, and it is excluded from every portability claim made below.
 
 ## The conceptual hierarchy
 
@@ -110,6 +119,10 @@ drift, symlink targets and link resolution. It fails closed on anything it canno
   is theatre.
 - **Do not add** a runtime, an orchestration engine, a plugin framework, a workflow DSL, a
   prompt compiler, a dependency, or CI configuration, without a concrete need.
+  The `HOST` layer is the one recorded exception, and its concrete need is stated in
+  `docs/host-integration.md`. It remains bounded: shell and JSON only, no new language
+  dependency, no runtime the canonical layer can observe, and nothing in `roles/`,
+  `agents/`, `skills/` or `workflows/` may reference it.
 - **Do not add legacy instruction files** — `.cursorrules`, `.windsurfrules`, `AGENT.md`,
   `.rules` and similar. Some harnesses resolve project instructions by first match and would
   never reach this file.
@@ -124,4 +137,8 @@ drift, symlink targets and link resolution. It fails closed on anything it canno
 | use this with Claude Code | `docs/platforms/claude-code.md` |
 | use this with Codex | `docs/platforms/codex.md` |
 | use this with anything else | `docs/platforms/generic-harness.md` |
+| add an agent | `agents/README.md` |
+| install it on a machine | `local/README.md` |
+| use it with cloud Claude Code | `cloud/README.md` |
+| understand the host layer | `docs/host-integration.md` |
 | change something safely | `docs/authority.md` |
