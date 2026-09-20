@@ -11,8 +11,15 @@ A platform-neutral toolkit for designing, composing and operating reliable AI ag
 provides reusable agent roles, skills, workflows and reliability patterns, plus thin adapters
 for Claude Code and Codex.
 
-It contains **no runtime**. There is nothing to install, no framework, and no language
-dependency. Everything here is Markdown, apart from one TOML adapter per role and `tools/`,
+It contains **no runtime**: no framework, no orchestration engine, and no language
+dependency for *using* it — open the repository with a supported harness and the roles,
+skills and workflows are discovered as they are. Nothing needs installing to use it that
+way, which is the point.
+
+That is not the same as "nothing to install", which this sentence used to say while the
+same file listed `local/` as "install this toolkit into a local Claude Code config" and
+pointed at `local/README.md` under "install it on a machine". The `HOST` layer is
+genuinely installable and genuinely optional; see `docs/host-integration.md`. Everything here is Markdown, apart from one TOML adapter per role and `tools/`,
 which holds stdlib-only Python maintenance scripts — structural checks, adapter sync, vendor
 sync. Nothing reads them at use time; you run them by hand when you change something.
 

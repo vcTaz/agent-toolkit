@@ -30,15 +30,32 @@ log() { printf '[toolkit-setup] %s\n' "$*"; }
 
 # --- 1. report the tools we rely on, install only what is genuinely absent -----------
 check_tools() {
-  local missing=""
-  for t in git jq rg node python3; do
-    command -v "$t" >/dev/null 2>&1 || missing="$missing $t"
+  # The COMMAND and the DEBIAN PACKAGE are not the same string for every tool, and the
+  # previous version passed the command name straight to apt: `apt-get install rg node`
+  # fails, because those packages are `ripgrep` and `nodejs`. It failed silently, too,
+  # since every step here swallows errors.
+  pkg_for() {
+    case "$1" in
+      rg)   printf 'ripgrep' ;;
+      node) printf 'nodejs'  ;;
+      *)    printf '%s' "$1" ;;
+    esac
+  }
+  local missing="" packages=""
+  for t in git jq python3; do          # the tools this toolkit actually uses
+    if ! command -v "$t" >/dev/null 2>&1; then
+      missing="$missing $t"
+      packages="$packages $(pkg_for "$t")"
+    fi
   done
   if [ -n "$missing" ]; then
-    log "not pre-installed:$missing — attempting apt (running as root, no sudo needed)"
+    log "not pre-installed:$missing — attempting apt as:$packages (root, no sudo needed)"
     apt-get update -qq >/dev/null 2>&1 || log "apt update failed; continuing"
     # shellcheck disable=SC2086
-    apt-get install -y -qq $missing >/dev/null 2>&1 || log "apt install failed; continuing"
+    apt-get install -y -qq $packages >/dev/null 2>&1 || log "apt install failed; continuing"
+    for t in $missing; do
+      command -v "$t" >/dev/null 2>&1 || log "STILL MISSING after apt: $t"
+    done
   else
     log "all required tools pre-installed"
   fi
@@ -83,8 +100,15 @@ install_toolkit() {
   log "agents installed: $(find "${HOME}/.claude/agents" -name '*.md' 2>/dev/null | wc -l)"
   cp -rLf "${dest}"/skills/. "${HOME}/.claude/skills/" 2>/dev/null
   log "skills installed: $(find "${HOME}/.claude/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)"
-  log "NOTE ~/.claude/skills is NOT read by cloud sessions; ~/.claude/agents is user-scope."
-  log "     Adding this repository to the project is the reliable route. See cloud/README.md."
+  # This note used to assert that ~/.claude/skills is NOT read by cloud sessions. That is
+  # stronger than anything this repository has established: what is documented is that a
+  # cloud session does not receive the USER'S OWN ~/.claude from their machine, which says
+  # nothing about a directory this script writes inside the session's own container before
+  # Claude Code launches. Neither copy below is verified to be discovered. They are kept
+  # because they are cheap and harmless, and labelled honestly.
+  log "NOTE neither copy above is verified to be discovered by a cloud session."
+  log "     What IS measured: a repository added to the project delivers its .claude/skills/"
+  log "     and .claude/agents/. That is the reliable route. See cloud/README.md."
 }
 
 check_tools

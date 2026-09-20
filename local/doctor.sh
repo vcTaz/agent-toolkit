@@ -43,14 +43,31 @@ for d in "$TOOLKIT_ROOT"/skills/*/; do
   else warn "$name is a real directory, not a link to this toolkit"; fi
 done
 
-head_ "required binaries"
+head_ "binaries"
+# Only `core` can FAIL. `feature` degrades a flag, `reference` is recorded data that
+# nothing here depends on -- a machine without gh, uv, node or rg is a correct machine,
+# and reporting that as a failed install is what this check used to get wrong.
 if command -v jq >/dev/null 2>&1; then
-  while IFS= read -r bin; do
+  while IFS=$'\t' read -r bin tier; do
     [ -n "$bin" ] || continue
-    if command -v "$bin" >/dev/null 2>&1; then pass "$bin -> $(command -v "$bin")"
-    else fail "$bin missing (manifest/binaries.json lists it as required)"; fi
-  done < <(jq -r '.required | keys[]' "$TOOLKIT_ROOT/manifest/binaries.json")
-else fail "jq missing — it is a hard dependency of the rtk PreToolUse hook"; fi
+    if command -v "$bin" >/dev/null 2>&1; then pass "$bin ($tier) -> $(command -v "$bin")"
+    else
+      case "$tier" in
+        core)      fail "$bin missing — core dependency, the toolkit cannot work without it" ;;
+        feature)   warn "$bin missing — optional flags degrade; see manifest/binaries.json" ;;
+        *)         printf '  INFO  %s not on PATH — nothing here depends on it\n' "$bin" ;;
+      esac
+    fi
+  done < <(jq -r '.required | to_entries[] | [.key, (.value.tier // "core")] | @tsv' \
+             "$TOOLKIT_ROOT/manifest/binaries.json")
+else
+  # jq is itself `feature`, so its absence must not fail the run.
+  warn "jq missing — cannot read manifest/binaries.json; binary check skipped"
+  for bin in git python3; do
+    if command -v "$bin" >/dev/null 2>&1; then pass "$bin (core, fallback check)"
+    else fail "$bin missing — core dependency"; fi
+  done
+fi
 
 head_ "machine-local binaries (informational)"
 for bin in rtk srt bwrap socat; do
