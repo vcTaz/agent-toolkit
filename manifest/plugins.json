@@ -1,7 +1,21 @@
 {
-  "$comment": "Claude Code plugin composition. Data only - no plugin code is vendored here. Cloud availability is a property of the marketplace and the plugin's runtime needs, NOT of how it happens to be installed on one machine.",
-  "schemaVersion": 2,
+  "$comment": "Claude Code plugin composition. Data only - no plugin code is vendored here. The `cloud` field records what a cloud session was OBSERVED to do, not what the marketplace and the plugin's runtime needs imply it should do. Revision 2 of this file reasoned from marketplace reachability to cloud availability and got three entries wrong; see cloudObservation below.",
+  "schemaVersion": 3,
   "verifiedAgainst": { "claudeCode": "2.1.278", "date": "2026-09-19" },
+
+  "cloudObservation": {
+    "date": "2026-09-20",
+    "method": "Controlled pair of cloud sessions, same Claude Code build and hour, differing only in whether this repository's .claude/settings.json was in the working tree. Read ~/.claude/plugins/known_marketplaces.json, ~/.claude/plugins/installed_plugins.json and the headless_marketplace_reconcile lines in $CLAUDE_CODE_DIAGNOSTICS_FILE.",
+    "settingsFileIsRead": "YES. permissions.deny from this file is enforced in a cloud session, and the reconcile fires only when the file is present. Do not read the observation below as 'repo settings are ignored in cloud' - that reading is wrong and was corrected once already.",
+    "reconcileResult": "Registered exactly one marketplace, anthropics/claude-plugins-official, which Claude Code already knows. Registered NEITHER marketplace declared in extraKnownMarketplaces. Installed ZERO plugins: installed_plugins.json stayed {\"version\":2,\"plugins\":{}}. Reported failed_count 0 and skipped_count 0 - no error, no warning, no skip, no log line, no network attempt.",
+    "untestedCell": "Every observation above is of a session where the settings file APPEARED (present at container restart, or absent throughout). A session that SPAWNS with the file already on the repository's default branch has NOT been tested. A spawn always clones the default branch, so testing it needs a repository whose default branch carries the file. Until that runs, the `cloud` values below are what was measured in the cases measured, not a settled negative.",
+    "vocabulary": {
+      "yes": "observed working in a cloud session",
+      "declared-not-delivered": "enabled in this repository's .claude/settings.json; the reconcile ran and did not install it, and reported no failure. Whether a spawn-time reconcile behaves differently is the untested cell above.",
+      "capable-but-not-enabled": "nothing technical prevents it; deliberately left out of this repository's settings",
+      "no": "a stated technical blocker makes it unable to work in a cloud session"
+    }
+  },
 
   "marketplaces": {
     "claude-plugins-official": {
@@ -32,20 +46,31 @@
 
   "plugins": {
     "ecc@ecc": {
-      "cloud": "yes",
+      "cloud": "declared-not-delivered",
+      "cloudEvidence": "2026-09-20: enabled in .claude/settings.json, reconcile ran, this plugin was not installed and no failure was reported. Its marketplace `ecc` was never registered either. See cloudObservation.",
       "enabledInRepoSettings": true,
       "installedLocally": "1.10.0",
       "gitCommitShaLocal": "9523575721cba6285c95d688f08736017e0d2615",
       "upstreamLatest": "2.2.1",
-      "note": "Local is pinned at 1.10.0, whose plugin.json declares an explicit 38-file `agents` list and therefore hides 9 agents it ships. Upstream 2.2.1 OMITS the `agents` key entirely, so Claude Code auto-discovers the whole agents/ directory - 68 agents, including all 9. A cloud session installs from the marketplace, so it gets the current version and those 9 agents resolve there. Upgrading locally is a separate, user-owned decision; this manifest does not perform it.",
+      "note": "Local is pinned at 1.10.0, whose plugin.json declares an explicit 38-file `agents` list and therefore hides 9 agents it ships. Upstream 2.2.1 OMITS the `agents` key entirely, so Claude Code auto-discovers the whole agents/ directory - 68 agents, including all 9. Upgrading locally is a separate, user-owned decision; this manifest does not perform it.",
+      "nineHiddenAgents": {
+        "status": "REVIEWED, NOT VERIFIED",
+        "claim": "The 9 agents hidden by the local 1.10.0 pin resolve in a cloud session, because a cloud session installs the current marketplace version rather than the local pin.",
+        "restsOn": "Two reads of the two plugin.json files - that part is checked. The cloud half rests on the premise that a repo-declared plugin installs in a cloud session, which the 2026-09-20 observation contradicts for the cases measured. A plugin that is not installed ships no agents at all, hidden or otherwise.",
+        "toVerify": "In a cloud session with this plugin actually loaded, list the agents Claude Code resolves and check for the 9. Nothing short of that establishes it."
+      },
       "shipsOwnMcp": true,
       "shipsOwnHooks": "1.10.0 declares none; 2.2.1 adds hook userConfig"
     },
     "superpowers@claude-plugins-official": {
-      "cloud": "yes", "enabledInRepoSettings": true, "installedLocally": "6.3.0"
+      "cloud": "declared-not-delivered",
+      "cloudEvidence": "2026-09-20: the sharpest case. Its marketplace, claude-plugins-official, WAS registered by the reconcile and this plugin is in that marketplace's manifest - and it still did not install, with failed_count 0. So marketplace reachability does not entail plugin delivery, which is the inference this whole file was built on. See cloudObservation.",
+      "enabledInRepoSettings": true, "installedLocally": "6.3.0"
     },
     "ui-ux-pro-max@ui-ux-pro-max-skill": {
-      "cloud": "yes", "enabledInRepoSettings": true, "installedLocally": "2.5.0",
+      "cloud": "declared-not-delivered",
+      "cloudEvidence": "2026-09-20: enabled in .claude/settings.json, reconcile ran, not installed, no failure reported. Its marketplace `ui-ux-pro-max-skill` was never registered either. See cloudObservation.",
+      "enabledInRepoSettings": true, "installedLocally": "2.5.0",
       "gitCommitShaLocal": "b7e3af80f6e331f6fb456667b82b12cade7c9d35"
     },
     "clangd-lsp@claude-plugins-official": {

@@ -29,7 +29,7 @@ docs/authority.md            which file wins when two disagree
 docs/lineage.md              where these ideas came from
 .claude/agents/   ADAPTER    Claude Code subagent + teammate definitions
 .codex/agents/    ADAPTER    Codex project-scoped subagents
-.claude/skills    LINK    →  skills/
+.claude/skills/   LINKS      real directory; each entry links to skills/ or vendor/
 .agents/skills    LINK    →  skills/
 .claude/settings.json  HOST  repo-scoped settings; the only channel that reaches cloud
 manifest/         HOST       what is composed from elsewhere — data, never content
@@ -37,6 +37,14 @@ local/            HOST       install this toolkit into a local Claude Code confi
 cloud/            HOST       install it into a cloud Claude Code environment
 tools/check.py               structural checks and adapter sync
 ```
+
+The two skills paths are **not the same shape**, and `tools/check.py` enforces the
+difference. `.agents/skills` is a single container symlink to `skills/`. `.claude/skills/` is
+a real directory whose *entries* are symlinks, because only a `<skill-name>` entry is
+documented as symlinkable — a symlinked container is not. Its entries currently resolve into
+two places: the canonical `skills/`, and `vendor/` for third-party skills committed from
+pinned upstreams. Whether the vendored set stays there is an open question, not a settled
+part of this map.
 
 `CANONICAL` and `PORTABLE` are **two different claims**, and conflating them is the mistake
 this section exists to prevent.

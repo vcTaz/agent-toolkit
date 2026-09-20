@@ -6,13 +6,18 @@ settings channel a repository has. How much of it is honoured depends on the pro
 all of it in a single-repository session, and only `enabledPlugins` and
 `extraKnownMarketplaces` in a multi-repository project thread.
 
+Measured 2026-09-20, because the two halves of this file fared very differently in cloud: the
+`permissions.deny` half **is read and enforced** in a single-repo session, and the plugin half
+**delivered nothing** and reported no failure. The file reaching the session and the file
+having its stated effect are two claims, and only the first is established for both halves.
+
 ## What is here, and why
 
 | Key | Reason |
 |---|---|
 | `permissions.deny` | Mirrors the 17 machine-local deny rules. Deny rules are additive, so this can only ever *tighten* a session. **Important:** a cloud session reads these only when the project has **one** repository. In a multi-repository project the thread starts above the clones and reads no repository's `permissions`, `hooks` or `env` — so these rules do **not** apply there and must be set in **Project settings** instead. See `cloud/README.md`. |
-| `enabledPlugins` | Only the three **portable** plugins. |
-| `extraKnownMarketplaces` | Only the two public marketplaces the portable plugins need. `claude-plugins-official` is built in and needs no entry. |
+| `enabledPlugins` | Only the three **portable** plugins. **Measured 2026-09-20: in a cloud session these installed nothing.** The reconcile ran and reported no failure. Kept, because they are correct locally and because the spawn-time case is untested — but do not plan a cloud session around them. See `manifest/plugins.json`. |
+| `extraKnownMarketplaces` | Only the two public marketplaces the portable plugins need. `claude-plugins-official` is built in and needs no entry. **Measured 2026-09-20: neither was registered in a cloud session**, silently. |
 
 ## What is deliberately NOT here
 
