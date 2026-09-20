@@ -36,19 +36,31 @@ rule file asserting something false about the machine.
 This toolkit follows the stated *intent* — no attribution trailer — regardless of which you
 pick, because intent is what the rule expresses.
 
-## 2. Cloud behaviour here is statically validated, not tested
+## 2. Cloud behaviour is now part measured, part still only documented
 
-Every cloud claim in this repository comes from Anthropic's documentation and from local
-inspection of file formats, git object modes and script behaviour. **No cloud session has
-executed any of it.** `cloud/SMOKE-TEST.md` exists precisely because that gap is real, and
-nothing in this repository should be read as reporting a tested outcome until a thread has
-run it.
+**Superseded 2026-09-20.** This section previously said no cloud session had executed any of
+this toolkit. That is no longer true: `cloud/SMOKE-TEST.md` was run, and a controlled pair of
+sessions measured the settings and plugin behaviour directly.
 
-Three claims previously asserted here turned out to be wrong when checked against the
-documentation, which is the reason for this caution rather than an argument against it:
-repository `.claude/commands/` *is* supported in cloud; repo-declared plugins *are*
-installed at session start; ripgrep and uv *are* pre-installed. See
-`docs/host-integration.md`.
+What changed, and why it is recorded here rather than quietly edited into the claims:
+
+- The caution was **right**. The first measurement contradicted two claims this repository
+  called established — repo-declared plugins installing at session start, and `gh` being
+  pre-installed in cloud. Both had been asserted confidently from documentation.
+- One of the contradicted claims was itself a *correction* of an earlier caution. "Plugin
+  auto-install in cloud is unverified" was replaced by "repo-declared plugins install at
+  session start" on the strength of the documentation, and the replacement was wrong. A
+  correction is not evidence either.
+- The caution was also **incomplete in the other direction**. The measurement established
+  that a repository's `.claude/settings.json` *is* read in cloud and its `permissions.deny`
+  rules *are* enforced. Reading the missing plugins as "repo settings do not reach cloud" is
+  the opposite error and was made once already.
+
+`docs/host-integration.md` now separates *measured* from *documented*, and names the one cell
+of the plugin question that remains untested — whether a session that **spawns** with the
+settings file already on the default branch behaves differently from one where the file
+appeared mid-life. Until that reports, nothing in this repository should state the plugin
+result as a settled negative.
 
 ## 3. `rtk`'s own upgrade advice would break it
 

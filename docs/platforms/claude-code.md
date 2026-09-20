@@ -9,21 +9,41 @@ file is stale.
 | Layer | Path | Mechanism |
 |---|---|---|
 | Roles | `.claude/agents/*.md` | subagent definitions — also serve as teammate types |
-| Skills | `.claude/skills` → `../skills` | project skills, discovered through the symlink |
+| Skills | `.claude/skills/` | real directory; each entry is a symlink to the skill |
 | Instructions | `CLAUDE.md` → imports `AGENTS.md` | project memory |
 
 Nothing needs installing. Open the repository with Claude Code and all three are
-discovered. On Windows, clone with `git clone -c core.symlinks=true`, or the skill
-symlink is checked out as a text file and skills are not found.
+discovered. On Windows, clone with `git clone -c core.symlinks=true`, or those symlinks are
+checked out as text files and skills are not found.
 
-### Skills are a symlink, not a copy
+### The skills directory is a real directory of symlinks, not a symlink
 
-`.claude/skills` is a symlink to the canonical `skills/` directory. Claude Code follows it —
-verified in this repository, where all six skills appear in the session's skill list. That is
-why there is exactly one copy of each skill and no adapter layer for them.
+This is the single most-misdescribed thing in the repository, so it is stated exactly.
 
-`.agents/skills` is a second symlink to the same directory, for Codex and the other clients
-that implement the Agent Skills convention.
+`.claude/skills/` is a **real directory**. Each `<skill-name>` entry inside it is a symlink to
+the skill's own directory. Nothing is copied, so there is still exactly one copy of each skill
+and no adapter layer for them — but the link is one level lower than a casual reading suggests.
+
+The shape is not cosmetic. Anthropic documents that a *`<skill-name>` entry* in a project
+skills directory may be a symlink and that Claude Code reads `SKILL.md` from the target. It
+does **not** document a symlinked skills *container*. So the container stays real and the
+entries do the linking, and `tools/check.py` fails if either drifts:
+
+```text
+.claude/skills/              real directory
+.claude/skills/<name>   →    ../../skills/<name>      canonical skills
+.claude/skills/<name>   →    ../../vendor/<up>/<name> third-party, pinned upstreams
+.agents/skills          →    ../skills                container symlink (see below)
+```
+
+Measured 2026-09-20 in a cloud session: the entry symlinks are followed, and 33 skills
+appeared in the session's skill list. Whether the vendored entries stay in that directory is
+an open question and not settled here.
+
+`.agents/skills` **is** a container symlink to `skills/`, for Codex and the other clients that
+implement the Agent Skills convention. That asymmetry is deliberate: the Agent Skills
+convention is generic about the container, and Claude Code's documentation is specific about
+the entry. Do not "tidy" the two into the same shape.
 
 ## Subagents
 

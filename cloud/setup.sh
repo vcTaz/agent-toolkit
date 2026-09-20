@@ -10,12 +10,16 @@
 # session started on some OTHER repository (`claude --cloud` from an app repo), where
 # you still want the toolkit present.
 #
-# Contract this script is written against (docs verified 2026-09-19):
+# Contract this script is written against (docs verified 2026-09-19;
+# binaries re-checked against a live cloud session 2026-09-20):
 #   - runs as root on Ubuntu 24.04, before Claude Code launches
 #   - MUST exit zero, or the session fails to start
 #   - must finish well inside five minutes
 #   - github.com is on the default Trusted allowlist
-#   - ripgrep, jq, git, gh, uv, node, python3 are ALREADY installed; do not reinstall
+#   - ripgrep, jq, git, uv, node, python3 are ALREADY installed; do not reinstall
+#   - gh is NOT installed, despite the official installed-tools list naming it. This
+#     script does not install it either: nothing here needs it, and the supported route
+#     for GitHub work in a cloud session is the GitHub MCP tools or plain git.
 #
 # Because a non-zero exit breaks the session, every step below is best-effort and the
 # script ends with an unconditional `exit 0`.

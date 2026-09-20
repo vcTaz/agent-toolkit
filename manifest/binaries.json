@@ -1,9 +1,14 @@
 {
-  "$comment": "External executables this setup depends on. CORRECTED 2026-09-19: cloud sessions pre-install git, jq, node, python3, ripgrep, gh, uv, yq, tmux and more. An earlier version of this file wrongly claimed ripgrep and uv were absent; cloud/setup.sh no longer installs either.",
+  "$comment": "External executables this setup depends on. CORRECTED 2026-09-20 against a live cloud session: `cloudPreinstalled` now records what `command -v` returned in that session, not what the documentation lists. Earlier revisions of this file were wrong twice in opposite directions - once claiming ripgrep and uv were absent when they are present, once claiming gh is present when it is not.",
   "schemaVersion": 1,
   "verifiedAgainst": {
-    "date": "2026-09-19",
-    "source": "code.claude.com/docs/en/cloud-environments#installed-tools"
+    "date": "2026-09-20",
+    "source": "command -v run in a live Claude Code cloud session",
+    "supersedes": {
+      "date": "2026-09-19",
+      "source": "code.claude.com/docs/en/cloud-environments#installed-tools",
+      "note": "The documentation list was taken as the fact. It is right about every entry here except gh."
+    }
   },
   "required": {
     "git": {
@@ -30,9 +35,9 @@
       "cloudPreinstalled": true
     },
     "gh": {
-      "scope": "both",
-      "cloudPreinstalled": true,
-      "note": "Cloud: authenticates through the GitHub proxy; no token needed."
+      "scope": "machine-local",
+      "cloudPreinstalled": false,
+      "note": "MEASURED 2026-09-20 in a cloud session: `command -v gh` and `command -v hub` both return nothing and nothing gh-shaped is anywhere on PATH, though the official installed-tools list names gh. This file declared it present, and that declaration cost a real round trip when a plan was written around `gh repo create`. Do not write one. In a cloud session use the GitHub MCP tools (mcp__github__*) or plain git, which authenticates through the proxy by credential injection. Locally gh is present and authenticates normally."
     },
     "uv": {
       "scope": "both",

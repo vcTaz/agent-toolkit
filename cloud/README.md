@@ -34,10 +34,14 @@ This repository's `.claude/settings.json` carries 17 `permissions.deny` rules pr
 `~/.ssh`, cloud credentials, keyrings and similar. **In a multi-repo project those rules do
 not apply.** They are not silently lost — they were never read. If you want them in a
 multi-repo project, set them in **Project settings**, which is the only scope that reaches
-the thread. A single-repo project does apply them.
+the thread. A single-repo project does apply them — **measured 2026-09-20**, not inferred: a
+deny rule unique to this file was enforced in a live single-repo cloud session, and the same
+probe in a session without the file returned the ordinary not-found answer.
 
-Hooks that an *enabled plugin* provides still run in both shapes, because plugins load from
-every repository.
+Plugin-provided hooks were expected to run in both shapes, on the reasoning that plugins load
+from every repository. **That reasoning is not established, and its premise failed when
+measured.** In the same session the plugin reconcile ran and installed nothing, so there were
+no plugin hooks to run either way. See "Plugins declared here did not arrive" below.
 
 ## What this repository actually carries
 
@@ -47,20 +51,51 @@ every repository.
 | `skills/` → `skills/` | 6 | entry symlinks | yes |
 | `skills/` → `vendor/` | **27** | entry symlinks | yes |
 | `commands/` | 0 | — | n/a |
-| `settings.json` | 1 | real file | plugins always; permissions/hooks only in a single-repo project |
+| `settings.json` | 1 | real file | yes — but see the two rows below for what it then does |
+| ├ `permissions.deny` | 17 rules | — | **measured:** enforced in a single-repo session; not read at all in a multi-repo project |
+| └ `enabledPlugins` / `extraKnownMarketplaces` | 3 + 2 | — | **measured:** read, and delivered nothing. See below |
 
 The 27 are third-party skills committed under `vendor/` from pinned upstream commits, with
 their licences — 13 Cloudflare (Apache-2.0), 13 taste-skill (MIT), 1 orca (MIT). They are
 committed rather than referenced because a manifest entry delivers nothing to a cloud
 session. See `vendor/README.md`.
 
+### Plugins declared here did not arrive
+
+Measured 2026-09-20, against this repository's own `.claude/settings.json`. The file **was**
+read — the plugin reconcile fires only when it is present, and the deny rules in the same file
+were enforced. What the reconcile then did:
+
+- registered exactly one marketplace, `anthropics/claude-plugins-official`, which Claude Code
+  already knows;
+- registered **neither** marketplace declared in `extraKnownMarketplaces`;
+- installed **zero** plugins — `installed_plugins.json` stayed `{"version":2,"plugins":{}}`;
+- reported `failed_count: 0, skipped_count: 0`. No error, no warning, no skip, no log line.
+
+`superpowers` is the sharpest case: its marketplace *was* registered and it is in that
+marketplace's manifest, and it still did not install. So marketplace reachability does not
+entail plugin delivery.
+
+Do not read this as "repository settings are ignored in cloud" — that reading is wrong and was
+made once already. And do not read it as a settled negative: every observation is of a session
+where the settings file appeared mid-life or was absent throughout. A session that **spawns**
+with the file already on the repository's default branch has not been tested. Plan on the
+skills and agents in this repository, which are measured to arrive, rather than on the plugins.
+
 ## What is already true without any setup
 
-Cloud sessions pre-install: `git`, `gh`, `jq`, `yq`, `ripgrep`, `tmux`, `vim`, Python
+Cloud sessions pre-install: `git`, `jq`, `yq`, `ripgrep`, `tmux`, `vim`, Python
 (with `pip`, `uv`, `ruff`, `pytest`), Node 20/21/22, Ruby, PHP, Java, Go, Rust, C/C++,
 Docker, PostgreSQL 16, Redis 7. **Nothing this toolkit needs has to be installed.**
 
-`github.com` is on the default **Trusted** network allowlist.
+> **`gh` is not there**, despite appearing on the official installed-tools list. Measured
+> 2026-09-20: `command -v gh` and `command -v hub` both return nothing and nothing gh-shaped
+> is on `PATH`. Use the GitHub MCP tools or plain `git` — a plan written around `gh` fails at
+> the first command. See `manifest/binaries.json`.
+
+`github.com` is on the default **Trusted** network allowlist. Plain HTTPS to github.com may
+still be denied by the agent proxy while `git` succeeds, because git authenticates through
+credential injection; that is not a network fault.
 
 ## `cloud/setup.sh` — usually unnecessary
 
