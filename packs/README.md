@@ -29,17 +29,18 @@ python3 tools/vendor-sync.py --verify-pack --into ../claude-skills-cloudflare
 
 The build fetches the pinned upstream tarball, extracts only the mapped skills, copies the
 upstream `LICENSE`, writes `PROVENANCE.json` and a copy of the spec as `PACK.json`, and lays
-out the harness entry points. `--verify-pack` is offline and exact: it re-hashes every file and
-compares against `PROVENANCE.json`.
+out the harness entry points. `--verify-pack` is offline and exact: it re-hashes every file, re-reads its mode, and
+compares both against `PROVENANCE.json`. A file whose bytes match but whose mode does not is
+reported as MODE DRIFT rather than passing.
 
 ## What a built pack looks like, and why
 
 ```text
 skills/<name>/                 content, materialised from the pinned commit
 .claude/skills/<name>       →  ../../skills/<name>
-.agents/skills              →  skills
+.agents/skills              →  ../skills
 LICENSE                        fetched from upstream, not trusted from a metadata field
-PROVENANCE.json                upstream repo, exact ref, licence, per-file sha256
+PROVENANCE.json                upstream repo, exact ref, licence, per-file sha256 + mode
 PACK.json                      a copy of this spec, so the pack verifies on its own
 README.md                      generated: what this is and how to rebuild it
 ```

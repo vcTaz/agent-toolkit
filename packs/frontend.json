@@ -33,8 +33,8 @@
     "$comment": "The built pack repository MUST ship .claude/skills/<name> entries. Verified 2026-09-20 by treeless clone at upstream HEAD: Leonxlnx/taste-skill ships zero such entries, so a repository carrying only skills/<name>/SKILL.md in upstream layout attaches to a Project and delivers nothing, with no error.",
     "content": "skills/<name>/",
     "claudeEntries": ".claude/skills/<name> -> ../../skills/<name>",
-    "codexContainer": ".agents/skills -> skills",
-    "provenance": "PROVENANCE.json (upstream repo, ref, licence, per-file sha256)",
+    "codexContainer": ".agents/skills -> ../skills",
+    "provenance": "PROVENANCE.json (upstream repo, ref, licence, per-file sha256 and file mode; schemaVersion 2)",
     "spec": "PACK.json (a copy of this file, so the pack verifies offline on its own)"
   }
 }

@@ -1,6 +1,9 @@
 # Claude Code
 
-Verified against **Claude Code 2.1.269**, September 2026. Mechanisms change; if something
+Verified against **Claude Code 2.1.278**, measured with `claude --version` in a cloud
+session on 2026-09-20. This header read 2.1.269 until then, with a month and no date and no
+record of how it was obtained, while five other files said 2.1.278; the number here is now a
+measured one rather than the more popular one. Mechanisms change; if something
 here disagrees with the official documentation, the official documentation is right and this
 file is stale.
 

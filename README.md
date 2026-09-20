@@ -29,7 +29,7 @@ The thing this toolkit is actually about:
 3  workflows/        HOW roles and skills cooperate              canonical
 4  docs/concepts/    WHY it is shaped this way                   reliability principles
 5  .claude/ .codex/  platform adapters, and the guides to them   mechanics only
-   manifest/ local/ cloud/   host integration                    mechanics only
+   manifest/ packs/ profile/ local/ cloud/   host integration    mechanics only
 ```
 
 **Canonical** means this repository holds the authoritative definition. **Portable** means
@@ -108,7 +108,8 @@ them. `docs/authority.md` explains why they are separate layers.
 
 ### With Claude Code
 
-Open the repository. Seven subagents and six skills are discovered with no setup.
+Open the repository. Eight subagents — the seven roles and the orchestrator — and six
+skills are discovered with no setup.
 
 To use them in **every** project on a machine rather than only in this one, link them into
 the user-level configuration once — one checkout, one copy of each definition, no project
@@ -124,11 +125,16 @@ To use them in **Claude Projects or a cloud** Claude Code session, see
 cloud, so a repository is the only route — add this one to the project and every thread
 loads its agents and skills.
 
-> Cloud behaviour described here is **statically validated only**: derived from Anthropic's
-> documentation and from local inspection, with no cloud session having executed it.
-> [cloud/SMOKE-TEST.md](cloud/SMOKE-TEST.md) is how you close that gap, and
-> [docs/known-discrepancies.md](docs/known-discrepancies.md) records what has already been
-> found wrong.
+> Cloud behaviour here is **part measured and part not**, and the two are marked apart
+> rather than averaged. Measured in Anthropic's hosted cloud environment on 2026-09-19 and
+> 2026-09-20: that a project repository's `.claude/skills/` entry symlinks are followed,
+> that its `permissions.deny` rules are enforced, that plugins declared in repository
+> settings are **not** delivered, and that both skill packs deliver in a fresh session.
+> Everything else is derived from Anthropic's documentation and from local inspection.
+> Those measurements are scoped to that environment and those dates and say nothing about
+> another. [cloud/SMOKE-TEST.md](cloud/SMOKE-TEST.md) is how you close the rest of the gap,
+> and [docs/known-discrepancies.md](docs/known-discrepancies.md) records what has already
+> been found wrong.
 
 ```text
 Use the critic agent to attack the change in src/auth/.
