@@ -1,0 +1,40 @@
+{
+  "$comment": "Specification for an optional skill pack. No third-party content is stored in this repository; tools/vendor-sync.py --pack builds the pack repository from this pin. Nothing here is attached to a Project by default.",
+  "schemaVersion": 1,
+  "pack": "frontend",
+  "packRepo": "vcTaz/claude-skills-frontend",
+  "packVisibility": "private",
+  "upstream": {
+    "repo": "Leonxlnx/taste-skill",
+    "url": "https://github.com/Leonxlnx/taste-skill",
+    "ref": "e79ca9ec7e071eb3a3b623c4fb752e853fc3ed58",
+    "refNote": "Upstream HEAD at 2026-09-16. The local install carried no commit pin (the skills CLI records only a folder hash), but local content was verified to match this revision, so the pin reproduces what was in use. Upstream HEAD has since moved to f41c71f8; the pin is held deliberately, as for the cloudflare pack.",
+    "license": "MIT",
+    "licenseFile": "LICENSE",
+    "noticeFile": null
+  },
+  "skills": {
+    "brandkit": "skills/brandkit",
+    "design-taste-frontend": "skills/taste-skill",
+    "design-taste-frontend-v1": "skills/taste-skill-v1",
+    "full-output-enforcement": "skills/output-skill",
+    "gpt-taste": "skills/gpt-tasteskill",
+    "high-end-visual-design": "skills/soft-skill",
+    "image-to-code": "skills/image-to-code-skill",
+    "imagegen-frontend-mobile": "skills/imagegen-frontend-mobile",
+    "imagegen-frontend-web": "skills/imagegen-frontend-web",
+    "industrial-brutalist-ui": "skills/brutalist-skill",
+    "minimalist-ui": "skills/minimalist-skill",
+    "redesign-existing-projects": "skills/redesign-skill",
+    "stitch-design-taste": "skills/stitch-skill"
+  },
+  "nameNote": "Upstream directory names differ from the skill names Claude Code uses, because the name comes from SKILL.md frontmatter, not the folder. Six of the thirteen differ. The mapping above was derived by reading each upstream SKILL.md, not guessed, and the build asserts each materialised skill's frontmatter name matches its key.",
+  "layout": {
+    "$comment": "The built pack repository MUST ship .claude/skills/<name> entries. Verified 2026-09-20 by treeless clone at upstream HEAD: Leonxlnx/taste-skill ships zero such entries, so a repository carrying only skills/<name>/SKILL.md in upstream layout attaches to a Project and delivers nothing, with no error.",
+    "content": "skills/<name>/",
+    "claudeEntries": ".claude/skills/<name> -> ../../skills/<name>",
+    "codexContainer": ".agents/skills -> skills",
+    "provenance": "PROVENANCE.json (upstream repo, ref, licence, per-file sha256)",
+    "spec": "PACK.json (a copy of this file, so the pack verifies offline on its own)"
+  }
+}
