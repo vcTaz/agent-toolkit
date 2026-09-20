@@ -33,10 +33,26 @@ before anything moves.
 ## Guarantees
 
 - **Idempotent.** A second run reports `already correct` and changes nothing.
-- **Additive.** It never deletes. A real file where a link should go is moved to
+- **Additive on install.** Installing never deletes. A real file where a link should go is moved to
   `~/.claude/backups/toolkit-bootstrap-<timestamp>/` first, and the path is printed.
-- **Reversible.** `--uninstall` removes only links that resolve inside this toolkit.
-  A symlink pointing anywhere else is reported and left alone.
+- **Reversible, and it reports when it was not.** `--uninstall` works from the install
+  record `~/.claude/.toolkit-install-state.tsv`, which `bootstrap.sh` writes with the exact
+  destination and target of every link it created. A recorded path is removed only while it
+  is still a symlink pointing at the recorded target; one you have replaced with a file, or
+  repointed, is left alone. Where there is no usable record — an install made by an older
+  copy of this script — a link is recognised instead by what sits at the *far end* of it:
+  a toolkit checkout (`AGENTS.md` and `tools/check.py`) or a skill pack (`PACK.json` and
+  `PROVENANCE.json`), at a name this toolkit installs, linked as `NAME -> .../NAME`.
+  Anything else is left alone.
+
+  This bullet said until 2026-09-20 that only links resolving *inside* this toolkit are
+  removed and that everything else is left alone. Both halves were wrong: a pack link
+  points outside the toolkit by definition, and an upgrade-path uninstall measured that day
+  left **26 of 26 pack links** in place while reporting that nothing else was touched.
+- **The undo is computed, not asserted.** After removing, the script re-reads the config
+  directory for links it can still attribute to itself and for broken links it cannot judge
+  — the target is gone, so there is nothing to read. It names them, withholds
+  `Nothing else was touched`, and exits non-zero. `--dry-run` runs that read-only scan too.
 - **No hard-coded paths.** The toolkit root comes from the script's own location; the
   config directory from `CLAUDE_CONFIG_DIR`, falling back to `~/.claude` — the same
   variable Claude Code honours. Nothing assumes a username or a home directory.

@@ -165,6 +165,36 @@ def main() -> int:
             elif isinstance(node, list):
                 stack.extend(node)
 
+    # A THIRD shape, and the reason it needs its own rule: the assertion can be carried
+    # by the section HEADING rather than by the row under it. `.claude/SETTINGS-NOTES.md`
+    # kept a row describing `extraKnownMarketplaces` under "What is here, and why" --
+    # twenty lines below another row recording that the key had been removed. The row's
+    # own words named no file, so the textual pass could not see it, and it was a string
+    # in Markdown, so the structural pass could not either. A reader saw the heading and
+    # the key and believed the file declares it.
+    #
+    # So: every key named in the first column of that table must actually be in the
+    # settings file. Scoped to this one document because this is the one document whose
+    # job is to say what that file contains.
+    notes = root / '.claude/SETTINGS-NOTES.md'
+    if notes.exists():
+        in_table = False
+        for n, line in enumerate(notes.read_text().splitlines(), 1):
+            if line.startswith('#'):
+                in_table = line.strip().lower().startswith('## what is here')
+                continue
+            if not in_table or not line.lstrip().startswith('|'):
+                continue
+            cell = line.strip().strip('|').split('|')[0]
+            for named in re.findall(r'`([^`]+)`', cell):
+                top = named.split('.')[0].strip()
+                if not top or top.startswith('$'):
+                    continue
+                if top not in keys:
+                    problems.append(f'{notes}:{n}: "What is here, and why" lists '
+                                    f'`{named}`, which .claude/settings.json does not '
+                                    'declare')
+
     scan = []
     for pattern in SUFFIXES:
         scan.extend(root.rglob(pattern))

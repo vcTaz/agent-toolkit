@@ -64,16 +64,49 @@ CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 # `[ -d ]` skipped exactly that case, so a first install on a machine whose $HOME is a
 # symlink recorded one spelling and every later run compared against another.
 canonical_path() {
-  local p="$1" suffix="" base
+  local p="$1" suffix="" base resolved skip=0
   case "$p" in /*) ;; *) p="$PWD/$p" ;; esac
+  # Walk left to the deepest component that exists, normalising the part that does not.
+  # Re-attaching the missing tail VERBATIM was the earlier bug: "$HOME/miss/./cfg" came
+  # back with the "./" still in it, so the first install recorded one spelling and every
+  # later run -- finding the directory present and normalising it through cd -- compared
+  # another. "." is dropped; ".." cancels the component to its left, and any left over
+  # when the walk stops is applied to the resolved ancestor.
   while [ ! -d "$p" ] && [ "$p" != "/" ] && [ -n "$p" ]; do
     base="$(basename -- "$p")"
-    suffix="/$base$suffix"
     p="$(dirname -- "$p")"
+    case "$base" in
+      .)  ;;
+      ..) skip=$((skip + 1)) ;;
+      *)  if [ "$skip" -gt 0 ]; then skip=$((skip - 1))
+          else suffix="/$base$suffix"; fi ;;
+    esac
   done
-  printf '%s%s\n' "$(cd -- "$p" 2>/dev/null && pwd -P)" "$suffix"
+  # An ancestor that cannot be entered must FAIL, not silently yield the empty string --
+  # which re-anchored the whole path at the filesystem root.
+  resolved="$(cd -- "$p" 2>/dev/null && pwd -P)" || return 1
+  [ -n "$resolved" ] || return 1
+  while [ "$skip" -gt 0 ]; do resolved="$(dirname -- "$resolved")"; skip=$((skip - 1)); done
+  # "/" plus "/x" would be "//x", which no later run reproduces. And the root itself must
+  # come back as "/", not as the empty string.
+  # An explicit `if`, not `[ ... ] && resolved=""`. Measured: bash does NOT abort on a
+  # failing `&&` list in the middle of a body, so the `&&` form was not a live bug here.
+  # It becomes one the moment it ends up LAST in a function -- the list's status is then
+  # the function's, and this test fails for every path that is not the root, which is
+  # almost all of them. That is exactly how this script lost a block once before, so the
+  # form is not kept anywhere it could drift to the end.
+  if [ "$resolved" = "/" ]; then resolved=""; fi
+  # sed does three things here: an empty result is the root; a leading "//" is
+  # implementation-defined and POSIX allows pwd -P to return it, so collapse it; and a
+  # doubled slash anywhere else is redundant.
+  printf '%s\n' "${resolved}${suffix}" | sed -e 's|//*|/|g' -e 's|^$|/|' -e 's|^\(.\)/$|\1|'
 }
-CLAUDE_DIR="$(canonical_path "$CLAUDE_DIR")"
+
+CLAUDE_DIR="$(canonical_path "$CLAUDE_DIR")" || {
+  printf 'cannot resolve %s — is a parent directory readable?\n' \
+    "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" >&2
+  exit 1
+}
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_DIR="${CLAUDE_DIR}/backups/toolkit-bootstrap-${STAMP}"
 
@@ -193,12 +226,10 @@ same_name() {
 # are unset at uninstall, which is the whole reason guessing fails. This also recognises
 # a link made by a DIFFERENT checkout of this toolkit, which $TOOLKIT_ROOT cannot.
 # Echoes "pack", "toolkit" or nothing.
-link_owner() {
-  local resolved="" here="" i=0
-  [ -L "$1" ] || return 0
-  resolved="$(readlink -f -- "$1" 2>/dev/null || echo)"
-  [ -n "$resolved" ] || return 0
-  here="$resolved"
+# The marker test on a DIRECTORY, so the installer can ask the same question the
+# uninstaller will ask later. One implementation, both directions.
+link_owner_of_dir() {
+  local here="$1" i=0
   while [ "$i" -lt 5 ] && [ "$here" != "/" ] && [ -n "$here" ]; do
     # The markers are READ, not merely counted. Two empty files named PACK.json and
     # PROVENANCE.json used to be enough to delete somebody else's symlink, and an empty
@@ -218,6 +249,37 @@ link_owner() {
     here="$(dirname -- "$here")"; i=$((i + 1))
   done
   return 0
+}
+
+# The names this toolkit installs: its own skills and agents, plus every skill name in
+# every pack specification. Read from the specs with sed, not jq, because --uninstall must
+# work without it. Used only to decide whether a BROKEN link -- whose target is gone, so
+# nothing can be read at the far end -- might be one of ours.
+INSTALLED_NAMES=""
+installs_name() {
+  local spec
+  if [ -z "$INSTALLED_NAMES" ]; then
+    INSTALLED_NAMES="$( { for f in "$TOOLKIT_ROOT"/skills/*/; do
+                            [ -e "$f" ] && basename -- "${f%/}"
+                          done
+                          for f in "$TOOLKIT_ROOT"/.claude/agents/*.md; do
+                            [ -e "$f" ] && basename -- "$f"
+                          done
+                          for spec in "$TOOLKIT_ROOT"/packs/*.json; do
+                            [ -e "$spec" ] || continue
+                            sed -n '/"skills"[[:space:]]*:[[:space:]]*{/,/^[[:space:]]*}/p' "$spec" \
+                              | sed -n 's/^[[:space:]]*"\([^"]*\)"[[:space:]]*:.*/\1/p'
+                          done; } 2>/dev/null | sort -u)"
+  fi
+  printf '%s\n' "$INSTALLED_NAMES" | grep -qxF -- "$1"
+}
+
+link_owner() {
+  local resolved=""
+  [ -L "$1" ] || return 0
+  resolved="$(readlink -f -- "$1" 2>/dev/null || echo)"
+  [ -n "$resolved" ] || return 0
+  link_owner_of_dir "$resolved"
 }
 
 unlink_recorded() {
@@ -281,6 +343,17 @@ do_packs() {
       continue
     elif [ ! -d "$dir/skills" ]; then
       warn "$name: $var=$dir has no skills/ — build it with tools/vendor-sync.py --pack"
+      continue
+    elif [ "$(link_owner_of_dir "$dir")" != "pack" ]; then
+      # The installer's acceptance must not be broader than the uninstaller's
+      # recognition, or it creates links nothing can later attribute. It did: any
+      # directory with a skills/ subdirectory was linked, while link_owner needs
+      # PACK.json and a PROVENANCE.json naming the tool that wrote it. The result was a
+      # link this script created, left behind by --uninstall, under a summary that said
+      # nothing else was touched.
+      warn "$name: $var=$dir is not a pack this tooling built — no PACK.json and"
+      warn "  PROVENANCE.json naming tools/vendor-sync.py. Refusing to link from it,"
+      warn "  because --uninstall could not recognise those links afterwards."
       continue
     fi
     while IFS= read -r skill; do
@@ -396,10 +469,14 @@ do_uninstall() {
       # ignoring it lets the summary claim a clean undo over links this script may well
       # have created -- which it did, silently, when a pack checkout was moved away.
       # Count it, name it, and let the summary withhold the claim.
-      # Only a link shaped like one of ours: NAME -> .../NAME. A dead symlink of the
-      # user's own, at their own name, made this script report a failed undo over an
-      # uninstall that had in fact removed every link it owned.
-      if [ ! -e "$leftover" ] && same_name "$leftover"; then
+      # A BROKEN link can only be judged by its name: its target is gone, so there is
+      # nothing to read at the far end. Shape alone was not enough -- `ln -s <target>`
+      # with no second argument creates NAME -> .../NAME, so any dead symlink of the
+      # user's own passed that test and made this script report a failed undo over an
+      # uninstall that had in fact removed every link it owned. It must ALSO be a name
+      # this toolkit installs.
+      if [ ! -e "$leftover" ] && same_name "$leftover" \
+         && installs_name "${leftover##*/}"; then
         broken=$((broken + 1))
         say "  ${leftover##*/}: points at $(readlink -- "$leftover"), which no longer exists — cannot tell whose it is, left alone"
       fi
