@@ -5,13 +5,38 @@
 
   "cloudObservation": {
     "date": "2026-09-20",
-    "method": "Controlled pair of cloud sessions, same Claude Code build and hour, differing only in whether this repository's .claude/settings.json was in the working tree. Read ~/.claude/plugins/known_marketplaces.json, ~/.claude/plugins/installed_plugins.json and the headless_marketplace_reconcile lines in $CLAUDE_CODE_DIAGNOSTICS_FILE.",
-    "settingsFileIsRead": "YES. permissions.deny from this file is enforced in a cloud session, and the reconcile fires only when the file is present. Do not read the observation below as 'repo settings are ignored in cloud' - that reading is wrong and was corrected once already.",
+    "method": "Two experiments. (1) A controlled pair of cloud sessions, same Claude Code build and hour, differing only in whether this repository's .claude/settings.json was in the working tree. (2) A clean fresh-startup run, below. Both read ~/.claude/plugins/known_marketplaces.json, ~/.claude/plugins/installed_plugins.json and the settings_load / headless_marketplace_reconcile lines in $CLAUDE_CODE_DIAGNOSTICS_FILE.",
+    "settingsFileIsRead": "YES. permissions.deny from this file is enforced in a cloud session, and the reconcile fires only when the file is present. Do not read the observations below as 'repo settings are ignored in cloud' - that reading is wrong and was corrected once already.",
     "reconcileResult": "Registered exactly one marketplace, anthropics/claude-plugins-official, which Claude Code already knows. Registered NEITHER marketplace declared in extraKnownMarketplaces. Installed ZERO plugins: installed_plugins.json stayed {\"version\":2,\"plugins\":{}}. Reported failed_count 0 and skipped_count 0 - no error, no warning, no skip, no log line, no network attempt.",
-    "untestedCell": "Every observation above is of a session where the settings file APPEARED (present at container restart, or absent throughout). A session that SPAWNS with the file already on the repository's default branch has NOT been tested. A spawn always clones the default branch, so testing it needs a repository whose default branch carries the file. Until that runs, the `cloud` values below are what was measured in the cases measured, not a settled negative.",
+
+    "freshStartupTest": {
+      "status": "RUN AND VERIFIED, 2026-09-20. This closes the cell earlier revisions of this file called untested. Do not reintroduce that hedge.",
+      "why": "Every prior observation was of a session where the settings file APPEARED mid-life or was absent throughout, so none of them excluded the possibility that a spawn-time reconcile behaves differently. A spawn always clones the default branch, so the test needed a repository whose DEFAULT BRANCH carries the file.",
+      "rig": "vcTaz/agent-toolkit-cloud-validation, default branch main at exactly 132fb2774cfc0c755a96a660723ec9339910937a, .claude/settings.json present from spawn.",
+      "controls": "Clean working tree. No mid-session checkout, fetch, install or repair. So the settings file was in place before Claude Code launched, and nothing in-session could have disturbed the result.",
+      "observed": {
+        "settings_load_completed": "source_count 4, error_count 0",
+        "headless_marketplace_reconcile_completed": "installed_count 1, failed_count 0, skipped_count 0",
+        "eccMarketplace": "not registered",
+        "uiUxProMaxMarketplace": "not registered",
+        "ecc@ecc": "not installed",
+        "ui-ux-pro-max@ui-ux-pro-max-skill": "not installed",
+        "superpowers@claude-plugins-official": "NOT INSTALLED, although the official marketplace was present and contained it",
+        "ListPlugins": "empty",
+        "permissions.deny": "loaded and enforced correctly, from the same settings file"
+      },
+      "readingTheCounters": "The reconcile's own installed_count of 1 is reported verbatim rather than interpreted. Whatever it counts, no plugin became available: ListPlugins was empty and installed_plugins.json was not populated. Do not cite installed_count as evidence that a plugin installed."
+    },
+
+    "claimTiers": {
+      "VERIFIED": "For the tested Anthropic-hosted cloud environment on 2026-09-20: project-scoped enabledPlugins and extraKnownMarketplaces did not deliver the declared plugins at fresh startup. The mechanism runs - settings load without error and the reconcile completes - and delivers nothing.",
+      "BEST_SUPPORTED_EXPLANATION": "That the reconcile ignores project-scoped plugin declarations. This is the explanation the evidence most favours and it is NOT fully proven: no instrumentation inside the reconcile was read, only its inputs, its counters and its outputs.",
+      "NOT_ESTABLISHED": "Any universal claim across every Claude Code version, every cloud configuration or every project shape. One environment on one date was tested. Do not generalise this into 'plugins do not work in cloud'."
+    },
+
     "vocabulary": {
       "yes": "observed working in a cloud session",
-      "declared-not-delivered": "enabled in this repository's .claude/settings.json; the reconcile ran and did not install it, and reported no failure. Whether a spawn-time reconcile behaves differently is the untested cell above.",
+      "declared-not-delivered": "enabled in this repository's .claude/settings.json and NOT delivered - verified at fresh startup as well as mid-session, in the tested environment on 2026-09-20. The reconcile ran and reported no failure. See claimTiers for what this does and does not establish.",
       "capable-but-not-enabled": "nothing technical prevents it; deliberately left out of this repository's settings",
       "no": "a stated technical blocker makes it unable to work in a cloud session"
     }
@@ -47,29 +72,41 @@
   "plugins": {
     "ecc@ecc": {
       "cloud": "declared-not-delivered",
-      "cloudEvidence": "2026-09-20: enabled in .claude/settings.json, reconcile ran, this plugin was not installed and no failure was reported. Its marketplace `ecc` was never registered either. See cloudObservation.",
+      "cloudEvidence": "2026-09-20, VERIFIED at fresh startup and mid-session: enabled in .claude/settings.json, reconcile ran, this plugin was not installed and no failure was reported. Its marketplace `ecc` was never registered either. See cloudObservation.freshStartupTest and cloudObservation.claimTiers.",
       "enabledInRepoSettings": true,
       "installedLocally": "1.10.0",
       "gitCommitShaLocal": "9523575721cba6285c95d688f08736017e0d2615",
       "upstreamLatest": "2.2.1",
       "note": "Local is pinned at 1.10.0, whose plugin.json declares an explicit 38-file `agents` list and therefore hides 9 agents it ships. Upstream 2.2.1 OMITS the `agents` key entirely, so Claude Code auto-discovers the whole agents/ directory - 68 agents, including all 9. Upgrading locally is a separate, user-owned decision; this manifest does not perform it.",
       "nineHiddenAgents": {
-        "status": "REVIEWED, NOT VERIFIED",
-        "claim": "The 9 agents hidden by the local 1.10.0 pin resolve in a cloud session, because a cloud session installs the current marketplace version rather than the local pin.",
-        "restsOn": "Two reads of the two plugin.json files - that part is checked. The cloud half rests on the premise that a repo-declared plugin installs in a cloud session, which the 2026-09-20 observation contradicts for the cases measured. A plugin that is not installed ships no agents at all, hidden or otherwise.",
-        "toVerify": "In a cloud session with this plugin actually loaded, list the agents Claude Code resolves and check for the 9. Nothing short of that establishes it."
+        "$comment": "The original claim bundled two separate things. They are now separated, because the 2026-09-20 fresh-startup test settled one of them and left the other exactly where it was.",
+
+        "packageContent": {
+          "status": "REVIEWED, NOT VERIFIED",
+          "claim": "Upstream 2.2.1 omits the `agents` key, so Claude Code auto-discovers the whole agents/ directory - 68 agents, including the 9 that the local 1.10.0 pin's explicit 38-file list hides.",
+          "restsOn": "Reading the two plugin.json files and comparing them. That is a real check of a real artifact, but it is a read of a manifest, not an observation of Claude Code resolving 68 agents from it.",
+          "notSettledBy": "The fresh-startup test says nothing about this. It establishes that ECC was not installed, which is a fact about delivery, not about what the package contains.",
+          "toVerify": "Load 2.2.1 somewhere it actually installs, enumerate the agents Claude Code resolves, and check for the 9."
+        },
+
+        "cloudAvailability": {
+          "status": "VERIFIED NEGATIVE for the tested environment, 2026-09-20",
+          "claim": "The 9 agents resolve in a cloud session, because a cloud session installs the current marketplace version rather than the local pin.",
+          "verdict": "They did not. No ECC agents became available at all - hidden, shipped or otherwise - because ECC itself was not installed at fresh startup. The claim's premise was that a repo-declared plugin installs in a cloud session, and that premise is what failed.",
+          "scope": "One Anthropic-hosted cloud environment on one date. See cloudObservation.claimTiers for what that does and does not generalise to."
+        }
       },
       "shipsOwnMcp": true,
       "shipsOwnHooks": "1.10.0 declares none; 2.2.1 adds hook userConfig"
     },
     "superpowers@claude-plugins-official": {
       "cloud": "declared-not-delivered",
-      "cloudEvidence": "2026-09-20: the sharpest case. Its marketplace, claude-plugins-official, WAS registered by the reconcile and this plugin is in that marketplace's manifest - and it still did not install, with failed_count 0. So marketplace reachability does not entail plugin delivery, which is the inference this whole file was built on. See cloudObservation.",
+      "cloudEvidence": "2026-09-20, VERIFIED at fresh startup and mid-session: the sharpest case. Its marketplace, claude-plugins-official, WAS present and this plugin is in that marketplace's manifest - and it still did not install, with failed_count 0 and an empty ListPlugins. So marketplace reachability does not entail plugin delivery, which is the inference this whole file was built on. See cloudObservation.freshStartupTest.",
       "enabledInRepoSettings": true, "installedLocally": "6.3.0"
     },
     "ui-ux-pro-max@ui-ux-pro-max-skill": {
       "cloud": "declared-not-delivered",
-      "cloudEvidence": "2026-09-20: enabled in .claude/settings.json, reconcile ran, not installed, no failure reported. Its marketplace `ui-ux-pro-max-skill` was never registered either. See cloudObservation.",
+      "cloudEvidence": "2026-09-20, VERIFIED at fresh startup and mid-session: enabled in .claude/settings.json, reconcile ran, not installed, no failure reported. Its marketplace `ui-ux-pro-max-skill` was never registered either. See cloudObservation.freshStartupTest.",
       "enabledInRepoSettings": true, "installedLocally": "2.5.0",
       "gitCommitShaLocal": "b7e3af80f6e331f6fb456667b82b12cade7c9d35"
     },

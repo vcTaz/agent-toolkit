@@ -76,11 +76,25 @@ were enforced. What the reconcile then did:
 marketplace's manifest, and it still did not install. So marketplace reachability does not
 entail plugin delivery.
 
-Do not read this as "repository settings are ignored in cloud" — that reading is wrong and was
-made once already. And do not read it as a settled negative: every observation is of a session
-where the settings file appeared mid-life or was absent throughout. A session that **spawns**
-with the file already on the repository's default branch has not been tested. Plan on the
-skills and agents in this repository, which are measured to arrive, rather than on the plugins.
+**Confirmed at fresh startup, 2026-09-20.** The result above was first seen in sessions where
+the settings file appeared mid-life, which left one objection open: perhaps a spawn-time
+reconcile behaves differently. It does not. A clean run against a repository whose *default
+branch* carried the file — present from spawn, clean working tree, no mid-session checkout,
+fetch, install or repair — reported `settings_load_completed` with `source_count: 4` and
+`error_count: 0`, a completed reconcile with `failed_count: 0` and `skipped_count: 0`, neither
+declared marketplace registered, none of the three plugins installed, and an empty
+`ListPlugins`. The same file's `permissions.deny` rules loaded and enforced correctly in that
+very session.
+
+So: **verified** that project-scoped `enabledPlugins` and `extraKnownMarketplaces` did not
+deliver the declared plugins in the tested environment on that date. That the reconcile
+*ignores* project-scoped declarations is the best-supported explanation and is **not proven** —
+only its inputs, counters and outputs were read. And it is **not established** that this holds
+for every Claude Code version or cloud configuration; one environment on one date was tested.
+
+Do not read any of it as "repository settings are ignored in cloud" — that reading is wrong and
+was made once already, and the deny rules in the same file demonstrably work. Plan on the skills
+and agents in this repository, which are measured to arrive, rather than on the plugins.
 
 ## What is already true without any setup
 

@@ -56,11 +56,23 @@ What changed, and why it is recorded here rather than quietly edited into the cl
   rules *are* enforced. Reading the missing plugins as "repo settings do not reach cloud" is
   the opposite error and was made once already.
 
-`docs/host-integration.md` now separates *measured* from *documented*, and names the one cell
-of the plugin question that remains untested — whether a session that **spawns** with the
-settings file already on the default branch behaves differently from one where the file
-appeared mid-life. Until that reports, nothing in this repository should state the plugin
-result as a settled negative.
+`docs/host-integration.md` now separates *measured* from *documented*. The one cell it called
+untested — whether a session that **spawns** with the settings file already on the default
+branch behaves differently from one where the file appeared mid-life — was closed the same day:
+a clean startup run delivered no plugins either, with settings loading without error and the
+reconcile completing without failure.
+
+That leaves a three-way split which this repository should keep intact:
+
+- **Verified:** in the tested Anthropic-hosted cloud environment on 2026-09-20, project-scoped
+  `enabledPlugins` and `extraKnownMarketplaces` did not deliver the declared plugins at fresh
+  startup.
+- **Best-supported but not proven:** that the reconcile ignores project-scoped plugin
+  declarations. Only its inputs, counters and outputs were observed.
+- **Not established:** that this holds across every Claude Code version or cloud configuration.
+
+The habit this section is really about survives the result. The caution was right, the
+correction that replaced it was wrong, and the thing that settled it was neither — it was a run.
 
 ## 3. `rtk`'s own upgrade advice would break it
 
