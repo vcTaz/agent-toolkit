@@ -342,10 +342,79 @@ def check_skill_links():
             fail(link, 'resolves, but the target has no SKILL.md')
 
 
+CANONICAL_TREES = ('roles', 'agents', 'skills', 'workflows')
+
+HOST_DIR_RE = re.compile(r'(?<![\w.-])(local|cloud|manifest|packs|profile|vendor)/')
+HOST_FILE_RE = re.compile(
+    r'(?<![\w-])(settings\.json|settings\.local\.json|settings\.fragment\.json'
+    r'|bootstrap\.sh|doctor\.sh|setup\.sh)')
+
+
+def check_host_invariant():
+    """Nothing in roles/, agents/, skills/ or workflows/ may reference the HOST layer.
+
+    `AGENTS.md` states this as an invariant. Until this function existed it was asserted
+    and never computed, which is the exact failure this repository is about: a claim
+    standing on nobody having contradicted it.
+
+    Two things decide whether this check is worth having, and both are deliberate.
+
+    WHAT COUNTS AS THE HOST LAYER is what the repository map says it is: `local/`,
+    `cloud/`, `manifest/`, `packs/`, `profile/`, `vendor/`, and the settings and install
+    scripts. It is NOT `.claude/agents/` or `.codex/agents/`, which are the ADAPTER tier,
+    and it is NOT `tools/`, which is maintenance tooling every contributor is told to
+    run. Canonical READMEs name all three today and are right to: `roles/README.md`
+    points at the adapters it generates, and tells a contributor to run `tools/check.py`.
+    A token set that flagged those would report this repository as violating its own
+    invariant, and the last test in the host-invariant group exists to catch exactly that
+    if someone widens it later.
+
+    PATHS, NOT WORDS. `roles/README.md` line 8 reads "may require a particular harness,
+    vendor, model or language" -- the invariant being stated. A keyword matcher would
+    flag the sentence that defines the rule. So a directory token must carry its slash
+    and a file token must be a real filename, with a lookbehind that stops `mysettings
+    .json` and `nonlocal/` from matching.
+    """
+    for tree in CANONICAL_TREES:
+        base = ROOT / tree
+        if not base.is_dir():
+            continue
+        for path in sorted(p for p in base.rglob('*') if p.is_file() and not p.is_symlink()):
+            try:
+                text = path.read_text(encoding='utf-8')
+            except (UnicodeDecodeError, OSError):
+                continue                       # not text; nothing to read a reference from
+            for number, line in enumerate(text.splitlines(), 1):
+                found = HOST_DIR_RE.search(line) or HOST_FILE_RE.search(line)
+                if found:
+                    fail(f'{path.relative_to(ROOT)}:{number}',
+                         f'references the host layer ({found.group(0)!r}). The canonical '
+                         'layer may not name it — see the invariants in AGENTS.md. Host '
+                         'specifics belong in an adapter, in docs/platforms/, or in the '
+                         'host file itself.')
+
+
 # --- entry point ---------------------------------------------------------------------
 
 def main():
+    global ROOT
     argv = sys.argv[1:]
+
+    # --root lets the checker run against a tree other than its own. It exists so the
+    # negative tests can plant a violation in a copy and assert this script rejects it;
+    # a rule nobody has watched fail is a rule nobody has tested.
+    if '--root' in argv:
+        index = argv.index('--root')
+        if index + 1 >= len(argv):
+            print('--root needs a directory', file=sys.stderr)
+            return 2
+        candidate = Path(argv[index + 1]).expanduser()
+        if not candidate.is_dir():
+            print(f'--root: not a directory: {candidate}', file=sys.stderr)
+            return 2
+        ROOT = candidate.resolve()
+        argv = argv[:index] + argv[index + 2:]
+
     unknown = [a for a in argv if a != '--sync']
     if unknown:
         print(f'unrecognised argument(s): {unknown}', file=sys.stderr)
@@ -358,6 +427,7 @@ def main():
     if overlap:
         fail('agents/', f'{overlap} also exist in roles/; an id must name exactly one definition')
     check_skills()
+    check_host_invariant()
     check_adapters(roles, agents, sync)
     check_skill_links()
     check_links()

@@ -39,6 +39,7 @@ docs/lineage.md              where these ideas came from
 .claude/skills/   LINKS      real directory; each entry links to skills/ or vendor/
 .agents/skills    LINK    →  skills/
 .claude/settings.json  HOST  repo-scoped settings; the only channel that reaches cloud
+packs/            HOST       specifications for optional skill packs — pins, never content
 manifest/         HOST       what is composed from elsewhere — data, never content
 local/            HOST       install this toolkit into a local Claude Code config
 cloud/            HOST       install it into a cloud Claude Code environment
@@ -69,6 +70,13 @@ may not redefine it.
 Portability is a **review** rule, not a check. `tools/check.py` enforces structure, adapter
 coverage and drift; nothing in it scans canonical text for a harness, vendor or model name.
 Treat portability as reviewed rather than verified, per the expectations below.
+
+The **host-layer** invariant is different: it *is* computed. `check_host_invariant()` scans
+`roles/`, `agents/`, `skills/` and `workflows/` for host paths and fails on any it finds, with
+negative tests in `tools/test.sh` that plant each violation in a copy of this repository and
+require rejection. It matches paths rather than words, because `roles/README.md` uses the word
+"vendor" to state the portability rule itself. Adapter and tooling paths are deliberately not
+in that set — canonical READMEs name them today and are right to.
 
 The `HOST` layer makes neither claim. It defines no concept at all: it exists to attach the
 canonical layer to one particular harness and deliver it.
@@ -159,7 +167,8 @@ drift, symlink targets and link resolution. It fails closed on anything it canno
   The `HOST` layer is the one recorded exception, and its concrete need is stated in
   `docs/host-integration.md`. It remains bounded: shell and JSON only, no new language
   dependency, no runtime the canonical layer can observe, and nothing in `roles/`,
-  `agents/`, `skills/` or `workflows/` may reference it.
+  `agents/`, `skills/` or `workflows/` may reference it. That last clause is enforced by
+  `tools/check.py`, not merely asserted here.
 - **Do not add legacy instruction files** — `.cursorrules`, `.windsurfrules`, `AGENT.md`,
   `.rules` and similar. Some harnesses resolve project instructions by first match and would
   never reach this file.
