@@ -589,6 +589,22 @@ def take_into(argv: list) -> Path:
     return Path(argv[index + 1])
 
 
+def reject_stray(argv: list, mode: str, consumed: set) -> None:
+    """Fail on any argument this mode does not use.
+
+    `main` dispatches on argv[0] alone, so `--pack cloudflare --verify-pack
+    --into <dir>` used to BUILD and ignore the --verify-pack entirely. Someone
+    who meant to verify a pack got it rebuilt instead. The destination guard
+    stops that destroying a non-pack directory, but silently doing the opposite
+    of what was asked is not something to leave in place.
+    """
+    stray = [a for a in argv if a not in consumed]
+    if stray:
+        raise SystemExit(
+            f'{mode} does not take {", ".join(stray)}\n'
+            f'  Did you mean one of these?\n{USAGE}')
+
+
 USAGE = """usage:
   tools/vendor-sync.py --pack <name> --into <dir>    build a pack repository
   tools/vendor-sync.py --verify-pack --into <dir>    verify a built pack, offline
@@ -603,12 +619,15 @@ def main() -> int:
         if len(argv) < 2 or argv[1].startswith('-'):
             raise SystemExit('--pack needs a name, e.g. --pack cloudflare --into ../dir')
         into = take_into(argv)
+        reject_stray(argv, '--pack', {'--pack', argv[1], '--into', str(into)})
         try:
             return build_pack(argv[1], into)
         except ValueError:
             return report_problems()
     if argv and argv[0] == '--verify-pack':
-        rc = verify_pack(take_into(argv))
+        into = take_into(argv)
+        reject_stray(argv, '--verify-pack', {'--verify-pack', '--into', str(into)})
+        rc = verify_pack(into)
         return report_problems() if problems else rc
 
     available = sorted(p.stem for p in PACKS.glob('*.json'))

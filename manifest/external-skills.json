@@ -55,7 +55,10 @@
         "upstream": "cloudflare/skills",
         "license": "Apache-2.0",
         "skills": 13,
-        "verifiedAt": "5b895f63dc5bee7f02c8b03bcb38769994cbacf5"
+        "head": "883a3c47f84e7361e2d0f0cfeaea7c7ccfe842d6",
+        "headNote": "Rebuilt 2026-09-20 under PROVENANCE schemaVersion 2, which records a file mode beside each sha256; the four turnstile-spin scripts regained the executable bit upstream marks. Content is byte-identical to the previous head: all 375 digests match and git reports the four scripts as mode-only changes. Verified offline from a fresh clone of this SHA (--verify-pack, rc 0).",
+        "deliveryVerifiedAt": "5b895f63dc5bee7f02c8b03bcb38769994cbacf5",
+        "deliveryVerifiedNote": "The fresh-cloud delivery measurement above was taken against THIS SHA, not the current head. Skill names, content, layout and symlink topology are unchanged between the two, so the measurement is expected to carry over, but it has not been re-run."
       },
       "frontend": {
         "repo": "vcTaz/claude-skills-frontend",
@@ -63,7 +66,10 @@
         "upstream": "Leonxlnx/taste-skill",
         "license": "MIT",
         "skills": 13,
-        "verifiedAt": "05eec4173f24f51ba3e2ab80963f5f2ab94628dd"
+        "head": "57afa1a64a93c5a69019587853e7cb33a18ab0ec",
+        "headNote": "Rebuilt 2026-09-20 under PROVENANCE schemaVersion 2 for format parity with the cloudflare pack. No file changes mode: upstream marks none of its 14 files executable. Content is byte-identical to the previous head, and git reports no change under skills/ at all. Verified offline from a fresh clone of this SHA (--verify-pack, rc 0).",
+        "deliveryVerifiedAt": "05eec4173f24f51ba3e2ab80963f5f2ab94628dd",
+        "deliveryVerifiedNote": "The fresh-cloud delivery measurement above was taken against THIS SHA, not the current head. Skill names, content, layout and symlink topology are unchanged between the two, so the measurement is expected to carry over, but it has not been re-run."
       }
     }
   }
