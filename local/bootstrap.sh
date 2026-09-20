@@ -24,6 +24,13 @@
 # Machine-specific paths are discovered, never hard-coded: the toolkit root comes from
 # this script's own location, and the Claude config directory from CLAUDE_CONFIG_DIR
 # (falling back to ~/.claude), which is the same variable Claude Code itself honours.
+#
+# WHAT WAS INSTALLED IS RECORDED, not guessed. Every link this script creates is written
+# to .toolkit-install-state.tsv in the config directory, as the destination and the exact
+# target. --uninstall removes a recorded link only while it is still a symlink pointing
+# at the recorded target; a path you have since replaced or repointed is left alone and
+# reported. Pack links point outside the toolkit and cannot be recognised by their target,
+# so before this record existed --uninstall silently left every one of them behind.
 
 set -euo pipefail
 
@@ -40,16 +47,56 @@ for arg in "$@"; do
     --with-plugins)  WITH_PLUGINS=1 ;;
     --with-packs)   WITH_PACKS=1 ;;
     --check)        CHECK_ONLY=1 ;;
-    -h|--help)      sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)      sed -n '2,33p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) printf 'unknown argument: %s\n' "$arg" >&2; exit 2 ;;
   esac
 done
 
-linked=0; skipped=0; backed_up=0; removed=0; problems=0
+linked=0; skipped=0; backed_up=0; removed=0; problems=0; kept=0
 
 say()  { printf '%s\n' "$*"; }
 act()  { if [ "$DRY_RUN" -eq 1 ]; then printf '  would %s\n' "$*"; else printf '  %s\n' "$*"; fi; }
 warn() { printf '  ! %s\n' "$*" >&2; problems=$((problems + 1)); }
+
+# --- the install-state record --------------------------------------------------------
+# One TAB-separated line per link: destination, then the exact target it was created
+# with. Plain text and read with plain shell, deliberately: uninstall must not depend on
+# jq, which manifest/binaries.json classifies as optional.
+STATE_FILE="${CLAUDE_DIR}/.toolkit-install-state.tsv"
+RUN_STATE=""
+
+record_link() {
+  [ "$DRY_RUN" -eq 0 ] || return 0
+  [ -n "$RUN_STATE" ] || RUN_STATE="$(mktemp)"
+  printf '%s\t%s\n' "$1" "$2" >> "$RUN_STATE"
+}
+
+# Merge: what this run linked, plus earlier records whose link is still exactly as
+# recorded. A run without --with-packs must not forget the packs an earlier run linked.
+write_state() {
+  [ "$DRY_RUN" -eq 0 ] || return 0
+  local merged; merged="$(mktemp)"
+  [ -n "$RUN_STATE" ] && cat "$RUN_STATE" >> "$merged"
+  if [ -f "$STATE_FILE" ]; then
+    local dest target
+    while IFS=$'\t' read -r dest target; do
+      [ -n "${dest:-}" ] || continue
+      case "$dest" in '#'*) continue ;; esac
+      [ -n "$RUN_STATE" ] && cut -f1 "$RUN_STATE" | grep -qxF "$dest" && continue
+      [ -L "$dest" ] && [ "$(readlink -- "$dest")" = "$target" ] \
+        && printf '%s\t%s\n' "$dest" "$target" >> "$merged"
+    done < "$STATE_FILE"
+  fi
+  if [ -s "$merged" ]; then
+    mkdir -p -- "$(dirname -- "$STATE_FILE")"
+    sort -u "$merged" > "$STATE_FILE.tmp" && mv -- "$STATE_FILE.tmp" "$STATE_FILE"
+  else
+    rm -f -- "$STATE_FILE"
+  fi
+  rm -f -- "$merged"
+  [ -n "$RUN_STATE" ] && rm -f -- "$RUN_STATE"
+  return 0
+}
 
 # --- link one path, preserving anything already there -------------------------------
 link_one() {
@@ -57,7 +104,8 @@ link_one() {
 
   if [ -L "$dest" ]; then
     if [ "$(readlink -- "$dest")" = "$src" ]; then
-      skipped=$((skipped + 1)); return 0            # already correct — idempotent no-op
+      record_link "$dest" "$src"                    # already correct, but still ours
+      skipped=$((skipped + 1)); return 0            # idempotent no-op
     fi
     # A symlink we do not own. Only replace it if it points inside this toolkit.
     case "$(readlink -f -- "$dest" 2>/dev/null || echo)" in
@@ -79,16 +127,28 @@ link_one() {
     mkdir -p -- "$(dirname -- "$dest")"
     ln -sfn -- "$src" "$dest"
   fi
+  record_link "$dest" "$src"
   linked=$((linked + 1))
 }
 
-unlink_one() {
-  local dest="$1" label="$2"
-  [ -L "$dest" ] || return 0
-  case "$(readlink -f -- "$dest" 2>/dev/null || echo)" in
-    "$TOOLKIT_ROOT"/*) act "remove $label"; [ "$DRY_RUN" -eq 0 ] && rm -- "$dest"; removed=$((removed + 1)) ;;
-    *) : ;;                                          # not ours; leave it
-  esac
+# Remove one link only if it is still exactly what was recorded. A path the user has
+# since replaced with their own file, or repointed somewhere else, is theirs now.
+unlink_recorded() {
+  local dest="$1" target="$2" label="$3"
+  if [ ! -L "$dest" ]; then
+    if [ -e "$dest" ]; then
+      say "  $label: replaced by your own file since install — left alone"
+      kept=$((kept + 1))
+    fi
+    return 0
+  fi
+  if [ "$(readlink -- "$dest")" != "$target" ]; then
+    say "  $label: now points at $(readlink -- "$dest") — left alone"
+    kept=$((kept + 1)); return 0
+  fi
+  act "remove $label"
+  [ "$DRY_RUN" -eq 0 ] && rm -- "$dest"
+  removed=$((removed + 1))
   return 0
 }
 
@@ -99,8 +159,7 @@ do_agents() {
   for f in "$TOOLKIT_ROOT"/.claude/agents/*.md; do
     [ -e "$f" ] || continue
     name="$(basename -- "$f")"
-    if [ "$UNINSTALL" -eq 1 ]; then unlink_one "$CLAUDE_DIR/agents/$name" "$name"
-    else link_one "$f" "$CLAUDE_DIR/agents/$name" "$name"; fi
+    link_one "$f" "$CLAUDE_DIR/agents/$name" "$name"
   done
 }
 
@@ -110,8 +169,7 @@ do_skills() {
   for d in "$TOOLKIT_ROOT"/skills/*/; do
     [ -d "$d" ] || continue
     name="$(basename -- "$d")"
-    if [ "$UNINSTALL" -eq 1 ]; then unlink_one "$CLAUDE_DIR/skills/$name" "$name"
-    else link_one "${d%/}" "$CLAUDE_DIR/skills/$name" "$name"; fi
+    link_one "${d%/}" "$CLAUDE_DIR/skills/$name" "$name"
   done
 }
 
@@ -132,20 +190,77 @@ do_packs() {
     var="PACK_$(printf '%s' "$name" | tr '[:lower:]-' '[:upper:]_')_DIR"
     dir="${!var-}"
     if [ -z "$dir" ]; then
-      [ "$UNINSTALL" -eq 1 ] || say "  $name: not checked out — set $var to link it"
+      say "  $name: not checked out — set $var to link it"
+      continue
     elif [ ! -d "$dir/skills" ]; then
       warn "$name: $var=$dir has no skills/ — build it with tools/vendor-sync.py --pack"
       continue
     fi
     while IFS= read -r skill; do
       [ -n "$skill" ] || continue
-      if [ "$UNINSTALL" -eq 1 ]; then
-        unlink_one "$CLAUDE_DIR/skills/$skill" "$skill"
-      elif [ -n "$dir" ] && [ -d "$dir/skills/$skill" ]; then
+      # An explicit if, not `[ -d ] && link_one`: under `set -e` a trailing false test is
+      # the loop's exit status, and a pack missing its last skill would abort the whole
+      # run silently, after linking everything before it.
+      if [ -d "$dir/skills/$skill" ]; then
         link_one "$dir/skills/$skill" "$CLAUDE_DIR/skills/$skill" "$skill"
+      else
+        say "  $name/$skill: not in $var — skipped"
       fi
     done < <(jq -r '.skills | keys[]' "$spec")
   done
+  return 0
+}
+
+# --- uninstall, entirely from the record ---------------------------------------------
+# No pack directory is consulted and no target is guessed. PACK_<NAME>_DIR is documented
+# for --with-packs and is normally unset here, which is exactly why guessing fails.
+do_uninstall() {
+  say "removing links recorded in ${STATE_FILE#"$HOME"/}"
+  local dest target n=0
+  if [ -f "$STATE_FILE" ]; then
+    while IFS=$'\t' read -r dest target; do
+      [ -n "${dest:-}" ] || continue
+      case "$dest" in '#'*) continue ;; esac
+      n=$((n + 1))
+      unlink_recorded "$dest" "$target" "$(basename -- "$dest")"
+    done < "$STATE_FILE"
+    say "  $n recorded"
+  else
+    say "  no install record — falling back to links that point into this toolkit"
+  fi
+
+  # An install made before the record existed leaves nothing to read. A link whose target
+  # resolves inside this toolkit is provably ours, so those are still recoverable; a pack
+  # link is not, and is reported rather than guessed at.
+  local f d name dest2
+  for f in "$TOOLKIT_ROOT"/.claude/agents/*.md "$TOOLKIT_ROOT"/skills/*/; do
+    [ -e "$f" ] || continue
+    name="$(basename -- "${f%/}")"
+    case "$f" in *".claude/agents/"*) dest2="$CLAUDE_DIR/agents/$name" ;;
+                 *) dest2="$CLAUDE_DIR/skills/$name" ;; esac
+    [ -L "$dest2" ] || continue
+    case "$(readlink -f -- "$dest2" 2>/dev/null || echo)" in
+      "$TOOLKIT_ROOT"/*) act "remove $name (unrecorded, but points into this toolkit)"
+                         [ "$DRY_RUN" -eq 0 ] && rm -- "$dest2"
+                         removed=$((removed + 1)) ;;
+    esac
+  done
+
+  if [ "$DRY_RUN" -eq 0 ] && [ -f "$STATE_FILE" ]; then
+    # Keep only what is still ours: a symlink still pointing at the recorded target. A
+    # path the user has taken over is no longer a link this script owns, so this script
+    # stops claiming it.
+    local remaining; remaining="$(mktemp)"
+    while IFS=$'\t' read -r dest target; do
+      [ -n "${dest:-}" ] || continue
+      case "$dest" in '#'*) continue ;; esac
+      if [ -L "$dest" ] && [ "$(readlink -- "$dest")" = "$target" ]; then
+        printf '%s\t%s\n' "$dest" "$target" >> "$remaining"
+      fi
+    done < "$STATE_FILE"
+    if [ -s "$remaining" ]; then mv -- "$remaining" "$STATE_FILE"
+    else rm -f -- "$remaining" "$STATE_FILE"; fi
+  fi
 }
 
 
@@ -212,14 +327,19 @@ if [ ! -d "$CLAUDE_DIR" ]; then
   fi
 fi
 
-do_agents; say ""
-do_skills
-if [ "$WITH_PACKS" -eq 1 ] || [ "$UNINSTALL" -eq 1 ]; then say ""; do_packs; fi
-if [ "$WITH_PLUGINS" -eq 1 ] && [ "$UNINSTALL" -eq 0 ]; then say ""; do_plugins; fi
+if [ "$UNINSTALL" -eq 1 ]; then
+  do_uninstall
+else
+  do_agents; say ""
+  do_skills
+  if [ "$WITH_PACKS" -eq 1 ]; then say ""; do_packs; fi
+  if [ "$WITH_PLUGINS" -eq 1 ]; then say ""; do_plugins; fi
+  write_state
+fi
 
 say ""
 if [ "$UNINSTALL" -eq 1 ]; then
-  say "removed $removed link(s). Nothing else was touched."
+  say "removed $removed link(s), left $kept alone. Nothing else was touched."
 else
   say "linked $linked, already correct $skipped, backed up $backed_up, problems $problems"
   [ "$backed_up" -gt 0 ] && say "backups: $BACKUP_DIR"
