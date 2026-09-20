@@ -29,8 +29,18 @@
 # to .toolkit-install-state.tsv in the config directory, as the destination and the exact
 # target. --uninstall removes a recorded link only while it is still a symlink pointing
 # at the recorded target; a path you have since replaced or repointed is left alone and
-# reported. Pack links point outside the toolkit and cannot be recognised by their target,
-# so before this record existed --uninstall silently left every one of them behind.
+# reported.
+#
+# WITH NO RECORD -- an install made by an older copy of this script, which is every
+# install in existence until this lands -- links are recognised at the far end instead:
+# a skill pack identifies itself by PACK.json + PROVENANCE.json at its root, a checkout
+# of this toolkit by AGENTS.md + tools/check.py. That catches a link made by a DIFFERENT
+# checkout, which comparing against this script's own location cannot. A link into
+# neither is somebody else's and is never touched.
+#
+# The closing summary is COMPUTED, not asserted: before claiming nothing else was
+# touched, the config directory is re-read for links this toolkit demonstrably created
+# and still left behind. The claim is withheld when that count is not zero.
 
 set -euo pipefail
 
@@ -47,12 +57,12 @@ for arg in "$@"; do
     --with-plugins)  WITH_PLUGINS=1 ;;
     --with-packs)   WITH_PACKS=1 ;;
     --check)        CHECK_ONLY=1 ;;
-    -h|--help)      sed -n '2,33p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)      sed -n '2,43p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) printf 'unknown argument: %s\n' "$arg" >&2; exit 2 ;;
   esac
 done
 
-linked=0; skipped=0; backed_up=0; removed=0; problems=0; kept=0
+linked=0; skipped=0; backed_up=0; removed=0; problems=0; kept=0; stranded=0
 
 say()  { printf '%s\n' "$*"; }
 act()  { if [ "$DRY_RUN" -eq 1 ]; then printf '  would %s\n' "$*"; else printf '  %s\n' "$*"; fi; }
@@ -133,6 +143,31 @@ link_one() {
 
 # Remove one link only if it is still exactly what was recorded. A path the user has
 # since replaced with their own file, or repointed somewhere else, is theirs now.
+# What does $1 point into -- a skill PACK, a checkout of this TOOLKIT, or neither?
+# Answered from the far end of the link, by the metadata each kind carries: a pack root
+# holds PACK.json and PROVENANCE.json, a toolkit checkout holds AGENTS.md and
+# tools/check.py. Nothing is guessed from a path and no PACK_<NAME>_DIR is read -- those
+# are unset at uninstall, which is the whole reason guessing fails. This also recognises
+# a link made by a DIFFERENT checkout of this toolkit, which $TOOLKIT_ROOT cannot.
+# Echoes "pack", "toolkit" or nothing.
+link_owner() {
+  local resolved="" here="" i=0
+  [ -L "$1" ] || return 0
+  resolved="$(readlink -f -- "$1" 2>/dev/null || echo)"
+  [ -n "$resolved" ] || return 0
+  here="$resolved"
+  while [ "$i" -lt 5 ] && [ "$here" != "/" ] && [ -n "$here" ]; do
+    if [ -f "$here/PACK.json" ] && [ -f "$here/PROVENANCE.json" ]; then
+      printf 'pack\n'; return 0
+    fi
+    if [ -f "$here/AGENTS.md" ] && [ -f "$here/tools/check.py" ]; then
+      printf 'toolkit\n'; return 0
+    fi
+    here="$(dirname -- "$here")"; i=$((i + 1))
+  done
+  return 0
+}
+
 unlink_recorded() {
   local dest="$1" target="$2" label="$3"
   if [ ! -L "$dest" ]; then
@@ -214,36 +249,52 @@ do_packs() {
 # --- uninstall, entirely from the record ---------------------------------------------
 # No pack directory is consulted and no target is guessed. PACK_<NAME>_DIR is documented
 # for --with-packs and is normally unset here, which is exactly why guessing fails.
+DECIDED=""
+already_decided() { [ -n "$DECIDED" ] && grep -qxF -- "$1" "$DECIDED"; }
+
 do_uninstall() {
   say "removing links recorded in ${STATE_FILE#"$HOME"/}"
+  DECIDED="$(mktemp)"
   local dest target n=0
   if [ -f "$STATE_FILE" ]; then
     while IFS=$'\t' read -r dest target; do
       [ -n "${dest:-}" ] || continue
       case "$dest" in '#'*) continue ;; esac
       n=$((n + 1))
+      printf '%s\n' "$dest" >> "$DECIDED"
       unlink_recorded "$dest" "$target" "$(basename -- "$dest")"
     done < "$STATE_FILE"
     say "  $n recorded"
   else
-    say "  no install record — falling back to links that point into this toolkit"
+    say "  no install record — falling back to links this toolkit can still recognise"
   fi
 
-  # An install made before the record existed leaves nothing to read. A link whose target
-  # resolves inside this toolkit is provably ours, so those are still recoverable; a pack
-  # link is not, and is reported rather than guessed at.
-  local f d name dest2
-  for f in "$TOOLKIT_ROOT"/.claude/agents/*.md "$TOOLKIT_ROOT"/skills/*/; do
-    [ -e "$f" ] || continue
-    name="$(basename -- "${f%/}")"
-    case "$f" in *".claude/agents/"*) dest2="$CLAUDE_DIR/agents/$name" ;;
-                 *) dest2="$CLAUDE_DIR/skills/$name" ;; esac
+  # An install made before the record existed leaves nothing to read, and every install
+  # that exists today is one of those, because this fix is not merged yet. Two kinds are
+  # still recoverable without guessing: a link whose target resolves inside this toolkit,
+  # and a link whose target is inside something that identifies itself as a pack. Both are
+  # recognised from the link, never from a PACK_<NAME>_DIR that is not set here.
+  #
+  # The record pass above already decided about every path it holds -- including paths it
+  # deliberately LEFT ALONE. Re-deciding them here would delete what was just reported as
+  # kept, and would double-count under --dry-run, where nothing is removed and both passes
+  # therefore see the same link twice.
+  # Before this scan an upgrade -- install with an older bootstrap.sh, pull, uninstall --
+  # left every pack link behind while the summary said nothing else was touched.
+  # Measured: 26 of 26 survived.
+  local dest2 name owner
+  for dest2 in "$CLAUDE_DIR"/skills/* "$CLAUDE_DIR"/agents/*; do
     [ -L "$dest2" ] || continue
-    case "$(readlink -f -- "$dest2" 2>/dev/null || echo)" in
-      "$TOOLKIT_ROOT"/*) act "remove $name (unrecorded, but points into this toolkit)"
-                         [ "$DRY_RUN" -eq 0 ] && rm -- "$dest2"
-                         removed=$((removed + 1)) ;;
+    already_decided "$dest2" && continue
+    owner="$(link_owner "$dest2")"
+    [ -n "$owner" ] || continue
+    name="$(basename -- "$dest2")"
+    case "$owner" in
+      pack)    act "remove $name (unrecorded, but points into a skill pack)" ;;
+      toolkit) act "remove $name (unrecorded, but points into a checkout of this toolkit)" ;;
     esac
+    [ "$DRY_RUN" -eq 0 ] && rm -- "$dest2"
+    removed=$((removed + 1))
   done
 
   if [ "$DRY_RUN" -eq 0 ] && [ -f "$STATE_FILE" ]; then
@@ -261,6 +312,22 @@ do_uninstall() {
     if [ -s "$remaining" ]; then mv -- "$remaining" "$STATE_FILE"
     else rm -f -- "$remaining" "$STATE_FILE"; fi
   fi
+
+  # The summary used to say "Nothing else was touched" unconditionally, which was a claim
+  # about the whole config directory made without looking at it. Look at it. Anything
+  # still here that this toolkit demonstrably created -- a link into the toolkit, or into
+  # something that identifies itself as a pack -- and that was neither removed nor
+  # deliberately left alone is counted, so the summary cannot assert a clean undo it did
+  # not achieve.
+  if [ "$DRY_RUN" -eq 0 ]; then
+    local leftover
+    for leftover in "$CLAUDE_DIR"/skills/* "$CLAUDE_DIR"/agents/*; do
+      [ -L "$leftover" ] || continue
+      already_decided "$leftover" && continue
+      [ -n "$(link_owner "$leftover")" ] && stranded=$((stranded + 1))
+    done
+  fi
+  rm -f -- "$DECIDED"; DECIDED=""
 }
 
 
@@ -339,7 +406,13 @@ fi
 
 say ""
 if [ "$UNINSTALL" -eq 1 ]; then
-  say "removed $removed link(s), left $kept alone. Nothing else was touched."
+  if [ "$stranded" -gt 0 ]; then
+    say "removed $removed link(s), left $kept alone."
+    warn "$stranded link(s) this toolkit created are still in place and were not recognised."
+    warn "Remove them by hand, or re-run from the checkout that installed them."
+  else
+    say "removed $removed link(s), left $kept alone. Nothing else was touched."
+  fi
 else
   say "linked $linked, already correct $skipped, backed up $backed_up, problems $problems"
   [ "$backed_up" -gt 0 ] && say "backups: $BACKUP_DIR"

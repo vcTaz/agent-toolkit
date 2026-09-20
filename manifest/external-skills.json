@@ -22,11 +22,11 @@
     },
     "ui-ux-pro-max": {
       "source": "nextlevelbuilder/ui-ux-pro-max-skill",
-      "reason": "A real directory in ~/.claude/skills duplicating what the ui-ux-pro-max plugin already ships. The plugin is declared in .claude/settings.json and installs in cloud, so the skill arrives that way. Vendoring it would fork a plugin's own content for no gain."
+      "reason": "A real directory in ~/.claude/skills duplicating what the ui-ux-pro-max plugin already ships. Vendoring it would fork a plugin's own content for no gain. LOCALLY the plugin delivers it, which is why it is not packaged. IN CLOUD it does not: this sentence said the plugin was declared in .claude/settings.json and installs in cloud, and both halves were false -- that file declares only $schema and permissions, the plugin keys live in profile/plugins.json, and ui-ux-pro-max@ui-ux-pro-max-skill was measured NOT INSTALLED on 2026-09-20 (docs/host-integration.md, profile/plugins.json cloudObservation). A cloud project that wants this skill must install the plugin through Project settings, or it gets nothing."
     },
     "ecc skills (181)": {
       "source": "affaan-m/ECC",
-      "reason": "Delivered by the ecc plugin, declared in .claude/settings.json."
+      "reason": "Delivered by the ecc plugin LOCALLY, which is why it is not packaged. This sentence said the plugin is declared in .claude/settings.json; it is not -- the plugin keys live in profile/plugins.json, and ecc@ecc was measured NOT INSTALLED in a cloud session on 2026-09-20 (docs/host-integration.md, profile/plugins.json cloudObservation). In cloud these 181 skills arrive only if the plugin is installed through Project settings."
     }
   },
   "multiAgentFanOut": {

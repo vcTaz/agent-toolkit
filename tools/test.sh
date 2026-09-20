@@ -549,6 +549,70 @@ else
     [ -L "$cfg/skills/adversarial-review" ] \
         && no "a canonical skill link survived --uninstall" \
         || ok "canonical skill links are removed too"
+
+    # THE UPGRADE PATH, which is every install that exists while this is unmerged:
+    # linked by a bootstrap.sh that wrote no record, then uninstalled by this one. The
+    # fallback used to cover only links resolving inside $TOOLKIT_ROOT, so all 26 pack
+    # links survived AND the summary still said "Nothing else was touched". A pack is
+    # now recognised at the far end of the link by its own PACK.json + PROVENANCE.json,
+    # and a toolkit checkout by its AGENTS.md + tools/check.py -- which also catches a
+    # link made by a DIFFERENT checkout, where $TOOLKIT_ROOT cannot help.
+    cfg2="$TMPROOT/cfg-norecord"
+    mkdir -p "$cfg2/skills" "$cfg2/agents" "$TMPROOT/elsewhere/my-skill"
+    printf -- '---\nname: mine\ndescription: not yours\n---\n' \
+      > "$TMPROOT/elsewhere/my-skill/SKILL.md"
+    printf '{"pack":"cycle"}\n' > "$packdir/PACK.json"
+    printf '{"vendoredBy":"tools/vendor-sync.py","pack":"cycle"}\n' > "$packdir/PROVENANCE.json"
+    ln -s "$packdir/skills/$first"          "$cfg2/skills/$first"
+    ln -s "$ROOT/skills/adversarial-review" "$cfg2/skills/adversarial-review"
+    ln -s "$ROOT/.claude/agents/critic.md"  "$cfg2/agents/critic.md"
+    ln -s "$TMPROOT/elsewhere/my-skill"     "$cfg2/skills/my-own-skill"
+    # A link made by a DIFFERENT checkout of this toolkit. $TOOLKIT_ROOT cannot recognise
+    # it, which is why the pre-fix fallback left it -- and why a checkout is identified by
+    # its own AGENTS.md + tools/check.py rather than by a path comparison.
+    mkdir -p "$TMPROOT/other-checkout/tools" "$TMPROOT/other-checkout/skills/other-skill"
+    : > "$TMPROOT/other-checkout/AGENTS.md"
+    : > "$TMPROOT/other-checkout/tools/check.py"
+    printf -- '---\nname: other-skill\ndescription: fixture\n---\n' \
+      > "$TMPROOT/other-checkout/skills/other-skill/SKILL.md"
+    ln -s "$TMPROOT/other-checkout/skills/other-skill" "$cfg2/skills/other-skill"
+    [ -f "$cfg2/.toolkit-install-state.tsv" ] && rm -f "$cfg2/.toolkit-install-state.tsv"
+
+    out="$( unset PACK_CLOUDFLARE_DIR
+            CLAUDE_CONFIG_DIR="$cfg2" "$ROOT/local/bootstrap.sh" --uninstall 2>&1 )"
+    [ -L "$cfg2/skills/$first" ] \
+        && no "no record: a pack link survived --uninstall" \
+        || ok "no record: the pack link is removed, recognised by the pack's own metadata"
+    [ -L "$cfg2/skills/adversarial-review" ] || [ -L "$cfg2/agents/critic.md" ] \
+        && no "no record: a toolkit link survived --uninstall" \
+        || ok "no record: toolkit links are removed too"
+    [ -L "$cfg2/skills/other-skill" ] \
+        && no "no record: a link into another checkout of this toolkit survived" \
+        || ok "no record: a link into another toolkit checkout is removed too"
+    [ -L "$cfg2/skills/my-own-skill" ] \
+        && ok "no record: a link of the user's own, into neither, is left alone" \
+        || no "no record: --uninstall removed the user's own unrelated symlink"
+    printf '%s' "$out" | grep -q 'Nothing else was touched' \
+        && ok "no record: the summary may claim a clean undo, because it achieved one" \
+        || no "no record: the summary withheld the claim although nothing was stranded — got: $out"
+
+    # --dry-run must remove nothing and must not count a path twice. It reported
+    # "removed 41 link(s)" over a 27-link install, because the record pass and the
+    # fallback both counted every path when neither deleted anything.
+    cfg3="$TMPROOT/cfg-dry"
+    CLAUDE_CONFIG_DIR="$cfg3" PACK_CLOUDFLARE_DIR="$packdir" \
+      "$ROOT/local/bootstrap.sh" --with-packs >/dev/null 2>&1
+    live="$(find "$cfg3/skills" "$cfg3/agents" -maxdepth 1 -type l 2>/dev/null | wc -l)"
+    out="$( unset PACK_CLOUDFLARE_DIR
+            CLAUDE_CONFIG_DIR="$cfg3" "$ROOT/local/bootstrap.sh" --uninstall --dry-run 2>&1 )"
+    claimed="$(printf '%s' "$out" | sed -n 's/^removed \([0-9]*\) link(s).*/\1/p')"
+    still="$(find "$cfg3/skills" "$cfg3/agents" -maxdepth 1 -type l 2>/dev/null | wc -l)"
+    [ "$still" -eq "$live" ] \
+        && ok "--dry-run --uninstall removes nothing ($still links before and after)" \
+        || no "--dry-run --uninstall removed links: $live -> $still"
+    [ -n "$claimed" ] && [ "$claimed" -le "$live" ] \
+        && ok "--dry-run --uninstall counts no path twice ($claimed <= $live)" \
+        || no "--dry-run --uninstall claimed $claimed of $live links"
   fi
 fi
 
@@ -763,6 +827,43 @@ PY
   [ -e "$TMPROOT/cfg-packs/skills/wrangler" ] \
       && no "--dry-run CREATED a link — a dry run must not write" \
       || ok "--with-packs --dry-run wrote nothing"
+fi
+
+# ---------------------------------------------------------------------------------------
+group "no file may claim .claude/settings.json declares plugins"
+
+# The settings file declared three plugins until 2026-09-20; the keys moved to
+# profile/plugins.json, and the same day a cloud session measured zero of them installed.
+# Two `reason` fields in manifest/external-skills.json went on asserting both the
+# declaration and "installs in cloud", and those two fields are the recorded
+# justification for NOT packaging ui-ux-pro-max and the 181 ecc skills -- a packaging
+# decision resting on a delivery route this repository has measured to be absent. The
+# same sentence had already been found and fixed once, in cloud/README.md.
+
+if ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent — settings-claim check cannot run"
+else
+  declared="$(python3 -c "import json;print(','.join(json.load(open('$ROOT/.claude/settings.json'))))" 2>/dev/null)"
+  case ",$declared," in
+    *,enabledPlugins,*|*,extraKnownMarketplaces,*)
+      ok "settings.json declares plugins, so a file saying so is correct" ;;
+    *)
+      ok "settings.json declares no plugins (keys: $declared)"
+      # Options BEFORE `--`: after it every word is an operand, so `--exclude=...`
+      # became a search path and this check matched its own source.
+      hits="$(grep -rIn --exclude-dir=.git --exclude=test.sh \
+                -- 'declared in .claude/settings.json' "$ROOT" 2>/dev/null \
+              | grep -v 'sentence said' || true)"
+      [ -z "$hits" ] \
+          && ok "no file asserts that .claude/settings.json declares a plugin" \
+          || no "a file still asserts settings.json declares a plugin: $hits"
+      hits="$(grep -rIn --exclude-dir=.git --exclude=test.sh \
+                -- 'installs in cloud' "$ROOT" 2>/dev/null \
+              | grep -v 'sentence said' || true)"
+      [ -z "$hits" ] \
+          && ok "no file asserts a repository-declared plugin installs in cloud" \
+          || no "a file still asserts a plugin installs in cloud: $hits" ;;
+  esac
 fi
 
 # ---------------------------------------------------------------------------------------
