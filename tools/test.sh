@@ -573,14 +573,25 @@ else
     # A link made by a DIFFERENT checkout of this toolkit. $TOOLKIT_ROOT cannot recognise
     # it, which is why the pre-fix fallback left it -- and why a checkout is identified by
     # its own AGENTS.md + tools/check.py rather than by a path comparison.
-    mkdir -p "$TMPROOT/other-checkout/tools" "$TMPROOT/other-checkout/skills/other-skill"
+    # Two links into it, because the answer differs and both answers matter. A checkout of
+    # this toolkit installs THIS toolkit's skill names, so a link at one of those names is
+    # plausibly one of ours and is removed. A link at a name no version of this toolkit
+    # installs is the user's own, wherever it points, and is left alone.
+    mine="$(basename -- "$(find "$ROOT/skills" -mindepth 1 -maxdepth 1 -type d | sort | head -1)")"
+    mkdir -p "$TMPROOT/other-checkout/tools" \
+             "$TMPROOT/other-checkout/skills/$mine" \
+             "$TMPROOT/other-checkout/skills/other-skill"
     printf '# AGENTS.md\n' > "$TMPROOT/other-checkout/AGENTS.md"
     # A real checkout, so the marker must really be there: empty files are what the
     # foreign-link cases below use, and they must NOT be recognised.
     cp "$ROOT/tools/check.py" "$TMPROOT/other-checkout/tools/check.py"
-    printf -- '---\nname: other-skill\ndescription: fixture\n---\n' \
-      > "$TMPROOT/other-checkout/skills/other-skill/SKILL.md"
-    ln -s "$TMPROOT/other-checkout/skills/other-skill" "$cfg2/skills/other-skill"
+    for s in "$mine" other-skill; do
+      printf -- '---\nname: %s\ndescription: fixture\n---\n' "$s" \
+        > "$TMPROOT/other-checkout/skills/$s/SKILL.md"
+    done
+    rm -f "$cfg2/skills/$mine"
+    ln -s "$TMPROOT/other-checkout/skills/$mine"        "$cfg2/skills/$mine"
+    ln -s "$TMPROOT/other-checkout/skills/other-skill"  "$cfg2/skills/other-skill"
     [ -f "$cfg2/.toolkit-install-state.tsv" ] && rm -f "$cfg2/.toolkit-install-state.tsv"
 
     out="$( unset PACK_CLOUDFLARE_DIR
@@ -591,9 +602,12 @@ else
     [ -L "$cfg2/skills/adversarial-review" ] || [ -L "$cfg2/agents/critic.md" ] \
         && no "no record: a toolkit link survived --uninstall" \
         || ok "no record: toolkit links are removed too"
-    [ -L "$cfg2/skills/other-skill" ] \
+    [ -L "$cfg2/skills/$mine" ] \
         && no "no record: a link into another checkout of this toolkit survived" \
         || ok "no record: a link into another toolkit checkout is removed too"
+    [ -L "$cfg2/skills/other-skill" ] \
+        && ok "no record: a link at a name we never install is left alone, even inside a checkout" \
+        || no "no record: --uninstall removed a link at a name this toolkit does not install"
     [ -L "$cfg2/skills/my-own-skill" ] \
         && ok "no record: a link of the user's own, into neither, is left alone" \
         || no "no record: --uninstall removed the user's own unrelated symlink"
@@ -914,6 +928,173 @@ else
   [ "$rc" -ne 0 ] \
       && ok "and the run exits non-zero" \
       || no "the run reported success over a leftover it created"
+fi
+
+# ---------------------------------------------------------------------------------------
+group "bootstrap.sh: install and uninstall ask ONE question of ONE input"
+
+# link_owner_of_dir walks a bounded number of levels. The installer used to ask it about
+# "$dir" and the uninstaller about "$dir/skills/<skill>", two levels deeper, so the two
+# windows differed by two: a PACK_*_DIR three levels below the pack root was ACCEPTED on
+# install and unattributable on uninstall. Measured at 46d94d8: 13 links left behind under
+# "removed 14 link(s), left 0 alone. Nothing else was touched." -- the original MAJOR 1
+# output verbatim, exit 0 included.
+if [ ! -x "$ROOT/local/bootstrap.sh" ]; then
+  skip "local/bootstrap.sh not executable"
+elif ! command -v jq >/dev/null 2>&1; then
+  skip "jq absent — --with-packs cannot read the pack specs"
+else
+  d1first="$(jq -r '.skills | keys[0]' "$ROOT/packs/cloudflare.json" 2>/dev/null)"
+  if [ -z "$d1first" ]; then
+    skip "could not read a skill name from packs/cloudflare.json"
+  else
+    depth_bad=0; depth_detail=""
+    for depth in 0 1 2 3 4; do
+      pkd="$TMPROOT/depth$depth"; rm -rf "$pkd"; mkdir -p "$pkd/skills/$d1first"
+      printf -- '---\nname: %s\ndescription: fixture\n---\n' "$d1first" \
+        > "$pkd/skills/$d1first/SKILL.md"
+      printf '{"pack":"cloudflare"}\n' > "$pkd/PACK.json"
+      printf '{"vendoredBy":"tools/vendor-sync.py","pack":"cloudflare"}\n' > "$pkd/PROVENANCE.json"
+      sub="$pkd"; i=0
+      while [ "$i" -lt "$depth" ]; do sub="$sub/n$i"; i=$((i + 1)); done
+      if [ "$depth" -gt 0 ]; then mkdir -p "$sub"; cp -a "$pkd/skills" "$sub/skills"; fi
+      cfgd="$TMPROOT/cfg-depth$depth"; rm -rf "$cfgd"
+      PACK_CLOUDFLARE_DIR="$sub" CLAUDE_CONFIG_DIR="$cfgd" \
+        "$ROOT/local/bootstrap.sh" --with-packs >/dev/null 2>&1
+      # The no-record case is the one the fallback exists for, and the one that failed.
+      rm -f "$cfgd/.toolkit-install-state.tsv"
+      ( unset PACK_CLOUDFLARE_DIR
+        CLAUDE_CONFIG_DIR="$cfgd" "$ROOT/local/bootstrap.sh" --uninstall >/dev/null 2>&1 )
+      left="$(find "$cfgd/skills" "$cfgd/agents" -maxdepth 1 -type l 2>/dev/null | wc -l | tr -d ' ')"
+      if [ "$left" -ne 0 ]; then
+        depth_bad=$((depth_bad + 1)); depth_detail="$depth_detail depth=$depth:$left"
+      fi
+      rm -rf "$pkd" "$cfgd"
+    done
+    [ "$depth_bad" -eq 0 ] \
+        && ok "no PACK_*_DIR depth leaves a link --uninstall cannot attribute (0-4)" \
+        || no "links survived --uninstall at$depth_detail"
+  fi
+fi
+
+# ---------------------------------------------------------------------------------------
+group "bootstrap.sh: the remover applies the same three-way gate it documents"
+
+# Shape plus owner was not enough. A skill directory of the USER's own, inside their own
+# pack checkout, linked at its own matching name, satisfied both -- and was deleted under
+# "Nothing else was touched". local/README.md promised a name gate the remover never
+# applied; only the broken-link counter did.
+if [ ! -x "$ROOT/local/bootstrap.sh" ]; then
+  skip "local/bootstrap.sh not executable"
+else
+  pk3="$TMPROOT/pack-with-mine"; cfg3g="$TMPROOT/cfg-gate"; rm -rf "$pk3" "$cfg3g"
+  mkdir -p "$pk3/skills/my-private-skill"
+  printf -- '---\nname: my-private-skill\ndescription: mine\n---\n' \
+    > "$pk3/skills/my-private-skill/SKILL.md"
+  printf '{"pack":"cloudflare"}\n' > "$pk3/PACK.json"
+  printf '{"vendoredBy":"tools/vendor-sync.py","pack":"cloudflare"}\n' > "$pk3/PROVENANCE.json"
+  CLAUDE_CONFIG_DIR="$cfg3g" "$ROOT/local/bootstrap.sh" >/dev/null 2>&1
+  ln -s "$pk3/skills/my-private-skill" "$cfg3g/skills/my-private-skill"
+  rm -f "$cfg3g/.toolkit-install-state.tsv"
+  rc=0
+  out="$(CLAUDE_CONFIG_DIR="$cfg3g" "$ROOT/local/bootstrap.sh" --uninstall 2>&1)" || rc=$?
+  [ -L "$cfg3g/skills/my-private-skill" ] \
+      && ok "a link at a name this toolkit does not install survives, whatever it points into" \
+      || no "--uninstall deleted the user's own skill link inside their pack checkout"
+  n3g="$(printf '%s' "$out" | sed -n 's/^removed \([0-9]*\) link(s).*/\1/p')"
+  [ "$rc" -eq 0 ] && [ -n "$n3g" ] && [ "$n3g" -gt 0 ] \
+    && printf '%s' "$out" | grep -q 'Nothing else was touched' \
+      && ok "and it is neither removed nor counted against the clean undo" \
+      || no "the preserved link disturbed the summary (rc=$rc removed=${n3g:-?})"
+fi
+
+# ---------------------------------------------------------------------------------------
+group "no file may promise that --uninstall touches only what is inside this repository"
+
+# Excludes its own file: the group title states the claim in order to forbid it, and
+# the first run of this guard duly reported test.sh. Options go before `--` or the
+# exclusion becomes a search path -- that mistake has been made here before.
+# The claim class MAJOR 3 is about, in a second subject. F4 deleted this sentence from
+# local/README.md; an identical one survived in docs/host-integration.md, in a file that
+# round's fix never opened. Both halves are false: a pack link resolves OUTSIDE by
+# definition and is removed. Fixing the file a finding names is not fixing the claim.
+rev_hits=0
+while IFS= read -r hit; do
+  [ -n "$hit" ] || continue
+  # A passage that says the sentence WAS said and was wrong is the correction, not the claim.
+  printf '%s' "$hit" | grep -qiE 'until|was false|said|no longer|used to|rather than' && continue
+  no "claims --uninstall touches only what is inside the repo: $hit"
+  rev_hits=$((rev_hits + 1))
+done <<EOF
+$(grep -rniE 'uninstall[^.]{0,80}only[^.]{0,80}(inside|within) this (repository|repo|toolkit)' \
+    --include=*.md --include=*.sh --include=*.py --include=*.json \
+    --exclude=test.sh -- "$ROOT" 2>/dev/null \
+  | grep -v '/\.git/' | sed "s|$ROOT/||")
+EOF
+[ "$rev_hits" -eq 0 ] \
+    && ok "no file promises --uninstall stays inside this repository" \
+    || no "$rev_hits file(s) carry the reversibility claim F4 removed"
+
+# ---------------------------------------------------------------------------------------
+group "vendor-sync.py: --verify-pack is exact in BOTH directions"
+
+# Everything else walks PACK.json's skill list and asks whether each declared skill is
+# intact -- which says nothing about a skill that is present and NOT declared. A 14th
+# skill directory plus its own .claude/skills entry verified CLEAN, and packs/README.md
+# calls those entries the only route by which a pack delivers anything to a Project.
+if ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent"
+else
+  vpd="$TMPROOT/exact-pack"; rm -rf "$vpd"
+  ( cd "$ROOT" && python3 - "$vpd" <<'PY'
+import importlib.util, io, json, pathlib, sys, tarfile
+
+spec = importlib.util.spec_from_file_location('vs', 'tools/vendor-sync.py')
+vs = importlib.util.module_from_spec(spec); spec.loader.exec_module(vs)
+
+def archive():
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode='w:gz') as tar:
+        for name, body in [('up/skills/demo/SKILL.md',
+                            '---\nname: demo\ndescription: d\n---\nbody\n'),
+                           ('up/LICENSE', 'MIT\n')]:
+            info = tarfile.TarInfo(name); data = body.encode()
+            info.size = len(data); info.mode = 0o644
+            tar.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+pack = {'pack': 'demo', 'packRepo': 'x/demo',
+        'upstream': {'repo': 'x/y', 'url': 'https://example.invalid', 'ref': 'a' * 40,
+                     'license': 'MIT', 'licenseFile': 'LICENSE', 'noticeFile': None},
+        'skills': {'demo': 'skills/demo'}, 'layout': {'claudeEntries': True}}
+vs.fetch_tree = lambda repo, ref: archive()
+vs.load_pack = lambda name: pack
+vs.problems.clear()
+vs.build_pack('demo', pathlib.Path(sys.argv[1]))
+PY
+  ) >/dev/null 2>&1
+  if [ ! -f "$vpd/PACK.json" ]; then
+    skip "could not build the fixture pack"
+  else
+    ( cd "$ROOT" && python3 tools/vendor-sync.py --verify-pack --into "$vpd" ) >/dev/null 2>&1
+    [ $? -eq 0 ] && ok "the fixture pack verifies clean" \
+                 || no "the fixture pack does not verify clean to begin with"
+
+    mkdir -p "$vpd/skills/undeclared"
+    printf -- '---\nname: undeclared\ndescription: not in the spec\n---\nbody\n' \
+      > "$vpd/skills/undeclared/SKILL.md"
+    ( cd "$ROOT" && python3 tools/vendor-sync.py --verify-pack --into "$vpd" ) >/dev/null 2>&1
+    [ $? -ne 0 ] && ok "a skill present but not declared in PACK.json is rejected" \
+                 || no "--verify-pack passed a pack carrying an undeclared skill"
+
+    ln -s ../../skills/undeclared "$vpd/.claude/skills/undeclared"
+    vpout="$( cd "$ROOT" && python3 tools/vendor-sync.py --verify-pack --into "$vpd" 2>&1 )"
+    vprc=$?
+    [ "$vprc" -ne 0 ] && printf '%s' "$vpout" | grep -q 'harness entry' \
+        && ok "and its harness entry is named separately, as the delivery route" \
+        || no "the undeclared .claude/skills entry was not reported (rc=$vprc)"
+    rm -rf "$vpd"
+  fi
 fi
 
 # ---------------------------------------------------------------------------------------

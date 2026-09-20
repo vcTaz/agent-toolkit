@@ -4,8 +4,9 @@
 # Idempotent: running it twice changes nothing the second time.
 # Additive: it never deletes your content. Anything it would replace is backed up first.
 # Reversible: --uninstall removes what its own record names, and -- only where there is no
-#             record -- links SHAPED like the ones it creates (NAME -> .../NAME) into a
-#             pack or a toolkit checkout. Never anything else.
+#             record -- links that satisfy all three: SHAPED like the ones it creates
+#             (NAME -> .../NAME), AT a name it installs, INTO a pack or a toolkit
+#             checkout. Never anything else.
 #
 #   ./local/bootstrap.sh              link agents + skills, then report
 #   ./local/bootstrap.sh --dry-run    show every action, change nothing
@@ -274,12 +275,19 @@ installs_name() {
   printf '%s\n' "$INSTALLED_NAMES" | grep -qxF -- "$1"
 }
 
-link_owner() {
+# What owns the thing a link points AT. The installer asks this about the path it is about
+# to point a link at; the uninstaller asks it about the path a link already points at. Same
+# function, same shape of input, so acceptance and recognition cannot disagree.
+owner_of_link_target() {
   local resolved=""
-  [ -L "$1" ] || return 0
   resolved="$(readlink -f -- "$1" 2>/dev/null || echo)"
   [ -n "$resolved" ] || return 0
   link_owner_of_dir "$resolved"
+}
+
+link_owner() {
+  [ -L "$1" ] || return 0
+  owner_of_link_target "$1"
 }
 
 unlink_recorded() {
@@ -332,7 +340,7 @@ do_packs() {
   command -v jq >/dev/null 2>&1 || { warn "jq not found — cannot read the pack specs"; return 0; }
   say "pack skills -> ${CLAUDE_DIR#"$HOME"/}/skills/"
 
-  local spec name var dir skill
+  local spec name var dir skill probe
   for spec in "$specs"/*.json; do
     [ -e "$spec" ] || continue
     name="$(basename "$spec" .json)"
@@ -344,15 +352,26 @@ do_packs() {
     elif [ ! -d "$dir/skills" ]; then
       warn "$name: $var=$dir has no skills/ — build it with tools/vendor-sync.py --pack"
       continue
-    elif [ "$(link_owner_of_dir "$dir")" != "pack" ]; then
+    elif probe="$(jq -r '.skills | keys[0] // empty' "$spec")"
+         [ "$(owner_of_link_target "$dir/skills/$probe")" != "pack" ]; then
       # The installer's acceptance must not be broader than the uninstaller's
       # recognition, or it creates links nothing can later attribute. It did: any
       # directory with a skills/ subdirectory was linked, while link_owner needs
       # PACK.json and a PROVENANCE.json naming the tool that wrote it. The result was a
       # link this script created, left behind by --uninstall, under a summary that said
       # nothing else was touched.
-      warn "$name: $var=$dir is not a pack this tooling built — no PACK.json and"
-      warn "  PROVENANCE.json naming tools/vendor-sync.py. Refusing to link from it,"
+      #
+      # It is asked here about "$dir/skills/<a skill of this pack>" -- the EXACT path the
+      # uninstaller will resolve a link to -- not about "$dir". link_owner_of_dir walks a
+      # bounded number of levels, so asking it from two different starting points is two
+      # different questions: starting at the link target spends two of those levels
+      # getting back to "$dir". Measured at 0342e52, a PACK_*_DIR three levels below the
+      # pack root was accepted here and unattributable there -- 13 links left behind under
+      # "removed 14 link(s) ... Nothing else was touched", the original MAJOR 1 output
+      # verbatim. One question, one input, or they drift again.
+      warn "$name: $var=$dir is not a pack this tooling built, or its pack metadata is"
+      warn "  too far above $dir/skills for --uninstall to find. A pack root carries"
+      warn "  PACK.json and a PROVENANCE.json naming tools/vendor-sync.py. Refusing,"
       warn "  because --uninstall could not recognise those links afterwards."
       continue
     fi
@@ -417,6 +436,14 @@ do_uninstall() {
     # themselves at their own chosen name, into their own pack checkout, was deleted by
     # a run whose record was complete and never mentioned it.
     same_name "$dest2" || continue
+    # ...AND at a name this script actually installs. Shape plus owner was not enough: a
+    # skill directory of the user's own, inside their own pack checkout, linked at its own
+    # matching name, satisfied both and was deleted under a clean-undo claim. This script
+    # only ever creates links at its own skill and agent names and at the names in
+    # packs/*.json, so anything else at those two ends is somebody else's arrangement.
+    # The same three-way gate the broken-link counter uses -- shape, name, owner -- so
+    # there is one rule here and not two.
+    installs_name "${dest2##*/}" || continue
     owner="$(link_owner "$dest2")"
     [ -n "$owner" ] || continue
     name="$(basename -- "$dest2")"
@@ -461,6 +488,9 @@ do_uninstall() {
       # us: a link at their chosen name into their own pack is not one we failed to
       # remove, it is one we correctly left alone.
       same_name "$leftover" || continue
+      # Same three-way gate as the remover, or this counts against us a link we correctly
+      # declined to remove.
+      installs_name "${leftover##*/}" || continue
       if [ "$DRY_RUN" -eq 0 ] && [ -n "$(link_owner "$leftover")" ]; then
         stranded=$((stranded + 1)); continue
       fi
@@ -475,8 +505,7 @@ do_uninstall() {
       # user's own passed that test and made this script report a failed undo over an
       # uninstall that had in fact removed every link it owned. It must ALSO be a name
       # this toolkit installs.
-      if [ ! -e "$leftover" ] && same_name "$leftover" \
-         && installs_name "${leftover##*/}"; then
+      if [ ! -e "$leftover" ]; then
         broken=$((broken + 1))
         say "  ${leftover##*/}: points at $(readlink -- "$leftover"), which no longer exists — cannot tell whose it is, left alone"
       fi

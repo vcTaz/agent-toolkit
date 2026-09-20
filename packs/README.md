@@ -27,11 +27,18 @@ python3 tools/vendor-sync.py --pack cloudflare --into ../claude-skills-cloudflar
 python3 tools/vendor-sync.py --verify-pack --into ../claude-skills-cloudflare
 ```
 
-The build fetches the pinned upstream tarball, extracts only the mapped skills, copies the
+The build fetches the pinned upstream revision, extracts only the mapped skills, copies the
 upstream `LICENSE`, writes `PROVENANCE.json` and a copy of the spec as `PACK.json`, and lays
-out the harness entry points. `--verify-pack` is offline and exact: it re-hashes every file, re-reads its mode, and
-compares both against `PROVENANCE.json`. A file whose bytes match but whose mode does not is
-reported as MODE DRIFT rather than passing.
+out the harness entry points. It asks for a tarball first and falls back to a shallow
+`git fetch` plus `git archive`, printing which route it took — in the environment this was
+built in the tarball host answers 403 and the fallback is the path that actually runs.
+
+`--verify-pack` is offline and exact in both directions: it re-hashes every file, re-reads
+its mode, and compares both against `PROVENANCE.json`, **and** it rejects a skill directory
+or a `.claude/skills/` entry that `PACK.json` does not declare. A file whose bytes match but
+whose mode does not is reported as MODE DRIFT rather than passing. The second direction was
+added on 2026-09-20: until then a 14th skill with its own entry verified clean, and an
+entry is the only route by which a pack delivers anything to a Project.
 
 ## What a built pack looks like, and why
 

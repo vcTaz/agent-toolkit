@@ -178,6 +178,15 @@ def main() -> int:
     # job is to say what that file contains.
     notes = root / '.claude/SETTINGS-NOTES.md'
     if notes.exists():
+        # Fail closed if the rule cannot find its subject. The heading is matched
+        # literally, so renaming it to "## What this file holds" would silently retire
+        # this pass while leaving the false row in place -- a check that quietly stops
+        # checking is worse than no check.
+        if not any(l.strip().lower().startswith('## what is here')
+                   for l in notes.read_text().splitlines()):
+            problems.append(f'{notes}: no "## What is here" heading — the rule that every '
+                            'key listed there must be in settings.json cannot locate its '
+                            'table. Restore the heading or update this check.')
         in_table = False
         for n, line in enumerate(notes.read_text().splitlines(), 1):
             if line.startswith('#'):

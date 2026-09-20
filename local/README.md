@@ -52,7 +52,10 @@ before anything moves.
 - **The undo is computed, not asserted.** After removing, the script re-reads the config
   directory for links it can still attribute to itself and for broken links it cannot judge
   — the target is gone, so there is nothing to read. It names them, withholds
-  `Nothing else was touched`, and exits non-zero. `--dry-run` runs that read-only scan too.
+  `Nothing else was touched`, and exits non-zero. `--dry-run` previews the broken-link
+  half of that scan, so it cannot promise a clean undo the real run will not deliver;
+  the attributable-leftover half needs the removals to have happened and is a backstop
+  for the real run only.
 - **No hard-coded paths.** The toolkit root comes from the script's own location; the
   config directory from `CLAUDE_CONFIG_DIR`, falling back to `~/.claude` — the same
   variable Claude Code honours. Nothing assumes a username or a home directory.

@@ -528,6 +528,27 @@ def verify_pack(into: Path) -> int:
                 if resolved != here.resolve():
                     fail(link, f'points at {resolved}, expected {here}')
 
+    # EXACT means both directions. Everything above walks spec['skills'] and asks whether
+    # each declared skill is present and unchanged -- which says nothing about a skill that
+    # is present and NOT declared. A 14th skill directory plus its own .claude/skills entry
+    # verified clean, and packs/README.md calls those entries the only route by which a
+    # pack delivers anything to a Project. So an unrecorded skill passed the integrity gate
+    # and would have been delivered to every Project the pack is attached to.
+    declared_skills = set(spec['skills'])
+    skills_dir = into / 'skills'
+    if skills_dir.is_dir():
+        present = {d.name for d in skills_dir.iterdir() if d.is_dir() or d.is_symlink()}
+        for extra in sorted(present - declared_skills):
+            fail(skills_dir / extra, 'present in the pack but not in PACK.json. A pack '
+                                     'carries what its specification names and nothing '
+                                     'else. Remove it, or declare it and rebuild.')
+    if entries is not None:
+        present = {e.name for e in entries.iterdir()}
+        for extra in sorted(present - declared_skills):
+            fail(entries / extra, 'a harness entry for a skill this pack does not declare. '
+                                  'Entries are how a Project loads a skill, so this one '
+                                  'would deliver unrecorded content.')
+
     container = into / '.agents' / 'skills'
     if not container.is_symlink():
         fail(container, 'expected a container symlink to skills/')
