@@ -48,17 +48,23 @@ no plugin hooks to run either way. See "Plugins declared here did not arrive" be
 | Under `.claude/` | Count | Form | Reaches cloud |
 |---|---|---|---|
 | `agents/` | 8 | real files | yes |
-| `skills/` → `skills/` | 6 | entry symlinks | yes |
-| `skills/` → `vendor/` | **27** | entry symlinks | yes |
+| `skills/` → `skills/` | **6** | entry symlinks | yes |
 | `commands/` | 0 | — | n/a |
 | `settings.json` | 1 | real file | yes — but see the two rows below for what it then does |
 | ├ `permissions.deny` | 17 rules | — | **measured:** enforced in a single-repo session; not read at all in a multi-repo project |
-| └ `enabledPlugins` / `extraKnownMarketplaces` | 3 + 2 | — | **measured:** read, and delivered nothing. See below |
+| `enabledPlugins` / `extraKnownMarketplaces` | **0** | — | removed 2026-09-20; they were read and delivered nothing. See below |
 
-The 27 are third-party skills committed under `vendor/` from pinned upstream commits, with
-their licences — 13 Cloudflare (Apache-2.0), 13 taste-skill (MIT), 1 orca (MIT). They are
-committed rather than referenced because a manifest entry delivers nothing to a cloud
-session. See `vendor/README.md`.
+Six skills, and no third-party content. Until 2026-09-20 this repository also carried 27
+third-party skills committed under a `vendor/` directory. They now live in **optional pack
+repositories** — `vcTaz/claude-skills-cloudflare` (13, Apache-2.0) and
+`vcTaz/claude-skills-frontend` (13, MIT) — attached to the Projects that want them and to no
+others. `orca-cli` was dropped; see `manifest/external-skills.json`. The specifications are
+in `packs/`, and `packs/README.md` explains the shape a pack must have to deliver anything.
+
+Pack delivery is **verified**, not assumed: on 2026-09-20 both packs were tested in separate
+fresh cloud sessions with this repository absent, each discovering 13 of 13 skills, and a
+representative skill invoked through the Skill tool with its body injected from the pack's own
+`.claude/skills` base directory.
 
 ### Plugins declared here did not arrive
 

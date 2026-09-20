@@ -1,25 +1,22 @@
 #!/usr/bin/env python3
-"""Materialise third-party skills from their pinned upstream commits.
+"""Build an optional skill pack from its pinned upstream commit.
 
-Third-party content is not authored here. This script is the only supported way to put
-it anywhere, so that what exists is always reproducible from a named upstream revision
-rather than copied from somebody's laptop.
-
-Two destinations, one mechanism:
-
-    python3 tools/vendor-sync.py            verify vendored content against the pins
-    python3 tools/vendor-sync.py --sync     (re)materialise it from the pins
-    python3 tools/vendor-sync.py --update <source>   move a pin to upstream HEAD
+Third-party content is not authored here and is no longer stored here. Each pack is its
+own repository, built from a specification in `packs/` so that what exists is always
+reproducible from a named upstream revision rather than copied from somebody's laptop.
 
     python3 tools/vendor-sync.py --pack <name> --into <dir>    build a pack repository
     python3 tools/vendor-sync.py --verify-pack --into <dir>    verify one, offline
+    python3 tools/vendor-sync.py --update <pack>               move a pin to upstream HEAD
 
-`vendor/` is the old destination and is on its way out; `packs/` is the new one. Both
-ride the same fetch, the same traversal refusal and the same staged-then-promoted swap,
-because the failure modes they guard against are identical.
+This file used to materialise the same content into a `vendor/` directory committed
+here. That directory is gone: the packs are attached per Project instead, so a Project
+that wants none of them pays for none of them. The extraction, the traversal refusal and
+the staged-then-promoted swap are unchanged, because the failure modes they guard
+against did not move.
 
 Stdlib only, like tools/check.py: urllib and tarfile, no dependency to install.
-Network is required for --sync, --update and --pack; both verifications are offline.
+Network is required for --pack and --update; verification is offline.
 """
 import hashlib
 import io
@@ -35,8 +32,6 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-VENDOR = ROOT / 'vendor'
-SOURCES = VENDOR / 'sources.json'
 PACKS = ROOT / 'packs'
 TARBALL = 'https://codeload.github.com/{repo}/tar.gz/{ref}'
 API_HEAD = 'https://api.github.com/repos/{repo}/commits?per_page=1'
@@ -165,100 +160,6 @@ def frontmatter_name(skill_md: Path) -> str:
         return ''
     found = re.search(r'^name:\s*(.+?)\s*$', block.group(1), re.M)
     return found.group(1).strip('\'"') if found else ''
-
-
-def sync_source(name: str, spec: dict, sync: bool) -> None:
-    dest_root = VENDOR / name
-    if not sync:
-        prov_path = dest_root / 'PROVENANCE.json'
-        if not prov_path.is_file():
-            fail(dest_root, 'no PROVENANCE.json; run tools/vendor-sync.py --sync')
-            return
-        prov = json.loads(prov_path.read_text())
-        if prov.get('ref') != spec['ref']:
-            fail(prov_path, f"pinned at {prov.get('ref')!r}, sources.json says {spec['ref']!r}")
-        for skill in spec['skills']:
-            here = dest_root / skill
-            if not (here / 'SKILL.md').is_file():
-                fail(here, 'vendored skill missing SKILL.md')
-                continue
-            recorded = prov['skills'].get(skill)
-            if recorded is None:
-                fail(here, 'not recorded in PROVENANCE.json')
-            elif recorded != digest_tree(here):
-                fail(here, 'CONTENT DRIFT: differs from the vendored revision. '
-                           'Re-run --sync, or update the pin deliberately.')
-        return
-
-    print(f'  {name}: fetching {spec["repo"]}@{spec["ref"][:12]}')
-    blob = fetch_tree(spec['repo'], spec['ref'])
-    archive = tarfile.open(fileobj=io.BytesIO(blob), mode='r:*')
-
-    # Build into a staging tree and swap it in only once everything succeeded. The
-    # previous version deleted the existing tree first, so a truncated download, a
-    # hostile member or a disk error left no vendored content at all and nothing to
-    # roll back to.
-    staging = VENDOR / f'.{name}.staging'
-    if staging.exists():
-        shutil.rmtree(staging)
-    staging.mkdir(parents=True)
-
-    try:
-        for skill in extract_skills(archive, spec['skills'], staging):
-            fail(f'{name}/{skill}',
-                 f'nothing found at {spec["skills"][skill]} in {spec["ref"][:12]}')
-    except Exception:
-        shutil.rmtree(staging, ignore_errors=True)
-        raise
-
-    try:
-        # The licence travels with the content. Apache-2.0 and MIT both require it.
-        root = archive.getnames()[0].split('/', 1)[0]
-        for key, out_name in (('licenseFile', 'LICENSE'), ('noticeFile', 'NOTICE')):
-            if not spec.get(key):
-                continue
-            try:
-                member = archive.getmember(f'{root}/{spec[key]}')
-            except KeyError:
-                fail(f'{name}/{spec[key]}', 'declared in sources.json but absent upstream')
-                continue
-            extracted = archive.extractfile(member)
-            if extracted is not None:
-                (staging / out_name).write_bytes(extracted.read())
-
-        (staging / 'PROVENANCE.json').write_text(json.dumps({
-            'source': spec['repo'],
-            'url': f'https://github.com/{spec["repo"]}',
-            'ref': spec['ref'],
-            'license': spec['license'],
-            'vendoredBy': 'tools/vendor-sync.py',
-            'note': 'Third-party content, not authored in this repository. Do not edit here; '
-                    'change the pin in vendor/sources.json and re-run --sync.',
-            'skills': {s: digest_tree(staging / s) for s in spec['skills']
-                       if (staging / s).is_dir()},
-            'upstreamPaths': dict(spec['skills']),
-        }, indent=2, sort_keys=True) + '\n')
-    except Exception:
-        shutil.rmtree(staging, ignore_errors=True)
-        raise
-
-    # Promote. The old tree is kept until the new one is in place, and restored if the
-    # swap itself fails, so an interrupted sync can never leave nothing behind.
-    previous = VENDOR / f'.{name}.previous'
-    shutil.rmtree(previous, ignore_errors=True)
-    try:
-        if dest_root.exists():
-            dest_root.rename(previous)
-        staging.rename(dest_root)
-    except Exception:
-        if previous.exists() and not dest_root.exists():
-            previous.rename(dest_root)
-        shutil.rmtree(staging, ignore_errors=True)
-        raise
-    shutil.rmtree(previous, ignore_errors=True)
-
-    total = sum(len(v) for v in json.loads((dest_root / 'PROVENANCE.json').read_text())['skills'].values())
-    print(f'    {len(spec["skills"])} skills, {total} files, {spec["license"]}')
 
 
 # Everything the builder owns inside a pack repository. Anything else in the destination
@@ -501,17 +402,27 @@ def verify_pack(into: Path) -> int:
     return 0
 
 
-def update_pin(name: str, spec: dict) -> int:
-    data = json.loads(fetch(API_HEAD.format(repo=spec['repo'])))
-    head = data[0]['sha']
-    if head == spec['ref']:
+def update_pin(name: str) -> int:
+    """Move a pack's pin to upstream HEAD. Deliberate, never automatic.
+
+    A pin is the whole point of a pack: it is what makes a build reproducible and what
+    stops upstream changing under a Project that did not ask. So this rewrites the spec
+    and stops, leaving the rebuild, the verification and the push to a separate act.
+    """
+    path = PACKS / f'{name}.json'
+    spec = load_pack(name)
+    head = json.loads(fetch(API_HEAD.format(repo=spec['upstream']['repo'])))[0]['sha']
+    if head == spec['upstream']['ref']:
         print(f'{name}: already at upstream HEAD {head[:12]}')
         return 0
-    document = json.loads(SOURCES.read_text())
-    document['sources'][name]['ref'] = head
-    document['sources'][name]['refNote'] = f'Moved to upstream HEAD by --update: {head[:12]}.'
-    SOURCES.write_text(json.dumps(document, indent=2) + '\n')
-    print(f'{name}: pin moved {spec["ref"][:12]} -> {head[:12]}. Now run --sync.')
+    previous = spec['upstream']['ref']
+    spec['upstream']['ref'] = head
+    spec['upstream']['refNote'] = (
+        f'Moved to upstream HEAD by --update on this run: {previous[:12]} -> {head[:12]}. '
+        'The reason for the move belongs here; replace this sentence with it.')
+    path.write_text(json.dumps(spec, indent=2) + '\n')
+    print(f'{name}: pin moved {previous[:12]} -> {head[:12]}. '
+          f'Now rebuild with --pack {name} --into <dir> and verify before pushing.')
     return 0
 
 
@@ -531,11 +442,16 @@ def take_into(argv: list) -> Path:
     return Path(argv[index + 1])
 
 
+USAGE = """usage:
+  tools/vendor-sync.py --pack <name> --into <dir>    build a pack repository
+  tools/vendor-sync.py --verify-pack --into <dir>    verify a built pack, offline
+  tools/vendor-sync.py --update <pack>               move a pin to upstream HEAD
+"""
+
+
 def main() -> int:
     argv = sys.argv[1:]
 
-    # Pack modes first: they read packs/, not vendor/, and must keep working after
-    # vendor/ is gone.
     if argv and argv[0] == '--pack':
         if len(argv) < 2 or argv[1].startswith('-'):
             raise SystemExit('--pack needs a name, e.g. --pack cloudflare --into ../dir')
@@ -548,30 +464,16 @@ def main() -> int:
         rc = verify_pack(take_into(argv))
         return report_problems() if problems else rc
 
-    document = json.loads(SOURCES.read_text())
-    sources = document['sources']
-
+    available = sorted(p.stem for p in PACKS.glob('*.json'))
     if argv and argv[0] == '--update':
-        if len(argv) != 2 or argv[1] not in sources:
-            print(f'--update needs one of: {", ".join(sources)}', file=sys.stderr)
+        if len(argv) != 2 or argv[1] not in available:
+            print(f'--update needs one of: {", ".join(available)}', file=sys.stderr)
             return 2
-        return update_pin(argv[1], sources[argv[1]])
+        return update_pin(argv[1])
 
-    sync = argv == ['--sync']
-    if argv and not sync:
-        print(f'unrecognised argument(s): {argv}', file=sys.stderr)
-        return 2
-
-    print('syncing vendor/' if sync else 'verifying vendor/')
-    for name, spec in sources.items():
-        sync_source(name, spec, sync)
-
-    if problems:
-        return report_problems()
-    total = sum(len(s['skills']) for s in sources.values())
-    print(f'ok: {total} vendored skills across {len(sources)} sources '
-          f'{"synced" if sync else "verified"}')
-    return 0
+    print(USAGE, file=sys.stderr)
+    print(f'packs: {", ".join(available) or "none"}', file=sys.stderr)
+    return 2
 
 
 if __name__ == '__main__':

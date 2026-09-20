@@ -1,25 +1,24 @@
 {
-  "$comment": "Third-party skills and where they come from. Content for the 27 skills listed under vendor/sources.json is COMMITTED to this repository under vendor/ and reaches cloud sessions through .claude/skills/. This file records anything NOT vendored, plus the multi-agent install behaviour worth knowing about.",
-  "schemaVersion": 2,
+  "$comment": "Third-party skills and where they come from. NONE is stored in this repository: the 26 that used to sit under vendor/ now live in optional pack repositories, specified by packs/ and attached per Project. This file records what is NOT packaged, plus the multi-agent install behaviour worth knowing about.",
+  "schemaVersion": 3,
   "verifiedAgainst": {
-    "date": "2026-09-19"
-  },
-  "vendored": {
-    "where": "vendor/ \u2014 see vendor/README.md and vendor/sources.json",
-    "count": 27,
-    "sources": {
-      "cloudflare/skills": "Apache-2.0, 13 skills",
-      "Leonxlnx/taste-skill": "MIT, 13 skills",
-      "stablyai/orca": "MIT, 1 skill"
-    },
-    "cloudPath": ".claude/skills/<name> -> vendor/<source>/<name>, loaded from the clone"
+    "date": "2026-09-20"
   },
   "notVendored": {
+    "orca-cli": {
+      "source": "stablyai/orca",
+      "license": "MIT",
+      "lastPin": "fb322046e82b0e60ff2949f8360f0e0f071f42d4",
+      "droppedOn": "2026-09-20",
+      "reason": "DROPPED from the toolkit, on evidence from the tree rather than from a README. Its SKILL.md is a 46-line discovery stub whose entire body resolves an `orca` executable and then asks it for the real guide, so without the binary there is no degraded mode -- there is nothing. No orca, orca-ide or orca-dev was on PATH and ORCA_CLI_COMMAND was unset in the environment where it would most often load. Nothing in this repository depended on it. At 642 description characters it was the second most expensive description of the 27, and it is the only one with no upstream plugin: stablyai/orca ships no .claude-plugin at all.",
+      "stillWorksWhere": "A machine with Orca installed. That is a local-install concern; link it from an Orca checkout if you want it there.",
+      "toReinstate": "add a packs/orca.json with the pin above and build it like any other pack"
+    },
     "find-skills": {
       "source": "vercel-labs/skills",
       "license": "MIT",
       "installedAt": "${HOME}/.agents/skills/find-skills",
-      "reason": "Present in ~/.agents/skills but NOT linked into ~/.claude/skills, so it is not available to Claude Code locally either. Vendoring it would add a capability rather than port one. Add it to vendor/sources.json if that changes."
+      "reason": "Present in ~/.agents/skills but NOT linked into ~/.claude/skills, so it is not available to Claude Code locally either. Vendoring it would add a capability rather than port one. Add a pack spec under packs/ if that changes."
     },
     "ui-ux-pro-max": {
       "source": "nextlevelbuilder/ui-ux-pro-max-skill",
@@ -42,6 +41,30 @@
       "~/.copilot/skills"
     ],
     "lockFile": "${HOME}/.agents/.skill-lock.json",
-    "lockFileNote": "Records source and a folder hash but NO commit pin, which is why vendor/sources.json resolves pins independently."
+    "lockFileNote": "Records source and a folder hash but NO commit pin, which is why each pack spec resolves its pin independently."
+  },
+  "packs": {
+    "where": "packs/ holds the specifications; the content lives in its own repository",
+    "count": 26,
+    "attachment": "per Project, never automatic. A Project that attaches neither pays for neither.",
+    "delivery": ".claude/skills/<name> -> skills/<name> inside the PACK repository. VERIFIED 2026-09-20 in two separate fresh cloud sessions with this repository absent: 13/13 skills discovered per pack, entries resolving, and a representative skill (wrangler, minimalist-ui) invoked through the Skill tool with its body injected from the pack's own .claude/skills base directory. Harness delivery, not filesystem readability.",
+    "repositories": {
+      "cloudflare": {
+        "repo": "vcTaz/claude-skills-cloudflare",
+        "spec": "packs/cloudflare.json",
+        "upstream": "cloudflare/skills",
+        "license": "Apache-2.0",
+        "skills": 13,
+        "verifiedAt": "5b895f63dc5bee7f02c8b03bcb38769994cbacf5"
+      },
+      "frontend": {
+        "repo": "vcTaz/claude-skills-frontend",
+        "spec": "packs/frontend.json",
+        "upstream": "Leonxlnx/taste-skill",
+        "license": "MIT",
+        "skills": 13,
+        "verifiedAt": "05eec4173f24f51ba3e2ab80963f5f2ab94628dd"
+      }
+    }
   }
 }

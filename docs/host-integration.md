@@ -65,7 +65,8 @@ landing between observations is ruled out.
 | The same holds at **fresh startup**, with the file present from spawn on the default branch | **measured — CONTRADICTED** | The clean-startup run below. This was the one cell the mid-session experiments could not reach, and it agrees with them |
 | Cloud pre-installs `gh` | **measured — CONTRADICTED** | `command -v gh` and `command -v hub` both return nothing and nothing gh-shaped is on `PATH`, although the official installed-tools list names it. `manifest/binaries.json` now records `cloudPreinstalled: false` |
 | Cloud pre-installs git, jq, yq, ripgrep, tmux, node, python3, uv | **measured — holds** | All present; Node 22 on `PATH` |
-| `.claude/skills/` entry symlinks are followed in cloud | **measured — holds** | 33 skills loaded in the smoke test |
+| `.claude/skills/` entry symlinks are followed in cloud | **measured — holds** | 33 skills loaded in the smoke test, when this repository still carried 33. Re-confirmed independently on 2026-09-20 in two fresh sessions against the pack repositories, with this repository absent: 13 of 13 discovered in each |
+| An attached repository's skills are **loaded by the harness**, not merely readable on disk | **measured — holds** | In those same two sessions `wrangler` and `minimalist-ui` were invoked through the Skill tool, and the harness injected each body with its own `.claude/skills/<name>` base directory |
 
 ### The fresh-startup cell, closed 2026-09-20
 
@@ -160,23 +161,31 @@ Still **not** established, and therefore not depended on:
 | **Why** the reconcile delivers nothing — whether it ignores project-scoped plugin declarations | best-supported explanation, not proven | The observation is verified and does not depend on the cause being right. Do not state the mechanism as fact |
 | Whether this holds across other Claude Code versions, cloud configurations or project shapes | not established | One environment on one date was tested. The `cloud` values in `profile/plugins.json` are scoped to it |
 
-## Vendoring, and why it is not a contradiction
+## Third-party skills, and why they are no longer here
 
-`AGENTS.md` says the canonical layer is ours and portable. `vendor/` is neither, and that is
-why it is a separate top level with its own README, licences and provenance rather than
-something mixed into `skills/`.
+Until 2026-09-20 this repository committed 27 third-party skills under a `vendor/` directory.
+It did so because the alternatives genuinely do not work: a cloud session is not documented to
+read `~/.claude/skills/`, a manifest entry is documentation rather than delivery, and the
+repo-declared plugin route was measured that same day to deliver nothing. Committing the
+content was the only route anyone had demonstrated.
 
-It exists because the alternatives do not work. A cloud session does not read
-`~/.claude/skills/`; a manifest entry is documentation, not delivery; and the account-skill
-upload route has no documented bulk mechanism. Committing the content is the only supported
-path, and all three upstreams permit redistribution — verified by fetching each `LICENSE`,
-since GitHub's own detection reports none for all three.
+What changed is that a *second* route was demonstrated. The content now lives in optional pack
+repositories, built by `tools/vendor-sync.py --pack` from the specifications in `packs/`, and
+each is attached only to the Projects that want it. Both were tested in fresh cloud sessions
+with this repository absent, and both delivered — including a skill invoked through the Skill
+tool with its body injected from the pack's own `.claude/skills` base directory. That is what
+licensed the removal; without it, the committed copies would still be the only thing known to
+work.
 
-The bound is that `tools/vendor-sync.py` is the only way content gets there. What is
-committed is always reproducible from a named upstream commit, verifiable offline against
-per-file hashes, and never hand-edited. `tools/check.py` excludes `vendor/` from the link
-checker for the same reason: three links are broken upstream in `cloudflare/skills` at the
-current pin, and this repository has no authority to fix them.
+The bound is unchanged and now applies to the pack repositories: the builder is the only way
+content gets into one. What it produces is reproducible from a named upstream commit,
+verifiable offline against per-file hashes, and never hand-edited. Each pack carries its own
+`LICENSE`, fetched from upstream rather than trusted from a metadata field, because GitHub's
+own detection reports none for either source.
+
+The gain is that this repository is now what it claims to be. It was 500 tracked files, of
+which 398 were content nobody here wrote; it is now 78, and every skill in `.claude/skills/`
+resolves into the canonical `skills/`.
 
 ## The sandbox boundary
 

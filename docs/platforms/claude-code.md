@@ -31,14 +31,15 @@ entries do the linking, and `tools/check.py` fails if either drifts:
 
 ```text
 .claude/skills/              real directory
-.claude/skills/<name>   →    ../../skills/<name>      canonical skills
-.claude/skills/<name>   →    ../../vendor/<up>/<name> third-party, pinned upstreams
+.claude/skills/<name>   →    ../../skills/<name>      the six canonical skills
 .agents/skills          →    ../skills                container symlink (see below)
 ```
 
-Measured 2026-09-20 in a cloud session: the entry symlinks are followed, and 33 skills
-appeared in the session's skill list. Whether the vendored entries stay in that directory is
-an open question and not settled here.
+Measured 2026-09-20 in a cloud session: the entry symlinks are followed, and every skill this
+repository carries appeared in the session's skill list. The same shape was confirmed twice
+more that day against the optional pack repositories, in fresh sessions with this repository
+absent — see `packs/README.md`. Third-party skills are no longer in this directory; they are
+attached per Project instead, which is what that open question resolved to.
 
 `.agents/skills` **is** a container symlink to `skills/`, for Codex and the other clients that
 implement the Agent Skills convention. That asymmetry is deliberate: the Agent Skills

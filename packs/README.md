@@ -13,6 +13,13 @@ A pack is attached to a Project that wants it, and to no other. That is the whol
 tier: the context cost of a skill's description is paid by the Projects that use it, not by
 every reader of this repository.
 
+**Delivery is verified, not assumed.** On 2026-09-20 both packs were tested in separate fresh
+cloud sessions with this repository absent: 13 of 13 skills discovered in each, every entry a
+resolving symlink, and a representative skill — `wrangler` and `minimalist-ui` — invoked
+through the Skill tool with its body injected from the pack's own `.claude/skills` base
+directory. That is harness delivery rather than filesystem readability, and it is what
+licensed removing the committed copies from this repository.
+
 ## Building a pack
 
 ```bash
@@ -57,9 +64,10 @@ skill behind upstream HEAD on purpose, and the spec says so.
 
 Honest limits, both recorded here rather than discovered later:
 
-- **Until a pack is built and pushed, its content exists nowhere you control.** A spec is a
-  promise; the vendored copy was an artifact. This is the price of the split and the reason
-  `vendor/` is not removed from this repository until both packs exist and have been tested.
+- **A spec is a promise; only a built pack is an artifact.** If a pack repository is deleted
+  or never rebuilt after a pin moves, the content exists nowhere this repository controls.
+  That is the price of the split, and it is why both packs were built, pushed and tested
+  before the committed copies were removed from here.
 - **Integrity is not identity.** `PROVENANCE.json` proves a pack matches what was recorded at
   build time. It does not prove the recorded tree matches upstream. That was equally true of
-  `vendor/`, and `tools/vendor-sync.py` says so in the same words.
+  the committed copies, and `tools/vendor-sync.py` says so in the same words.
