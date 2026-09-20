@@ -40,12 +40,25 @@
 #
 # The closing summary is COMPUTED, not asserted: before claiming nothing else was
 # touched, the config directory is re-read for links this toolkit demonstrably created
-# and still left behind. The claim is withheld when that count is not zero.
+# and still left behind, and for BROKEN links, whose targets are gone and which therefore
+# cannot be attributed to anyone -- they are named and left alone, never guessed at. The
+# claim is withheld when either count is non-zero, and the run exits 1, because an
+# uninstall that did not undo cleanly should not report success.
 
 set -euo pipefail
 
 TOOLKIT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+# Canonicalise it. Every recorded destination and every path compared later is built from
+# this string, so "$HOME/.claude", "$HOME/.claude/" and a symlink to the same directory
+# must not be three different keys. They were: uninstalling through a trailing slash made
+# the record pass and the fallback disagree about the same path, which deleted a link
+# reported as "left alone" and made --dry-run claim 27 removals over 14 links.
+if [ -d "$CLAUDE_DIR" ]; then
+  CLAUDE_DIR="$(cd -- "$CLAUDE_DIR" && pwd -P)"
+else
+  CLAUDE_DIR="${CLAUDE_DIR%/}"
+fi
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_DIR="${CLAUDE_DIR}/backups/toolkit-bootstrap-${STAMP}"
 
@@ -57,12 +70,12 @@ for arg in "$@"; do
     --with-plugins)  WITH_PLUGINS=1 ;;
     --with-packs)   WITH_PACKS=1 ;;
     --check)        CHECK_ONLY=1 ;;
-    -h|--help)      sed -n '2,43p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)      sed -n '2,46p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) printf 'unknown argument: %s\n' "$arg" >&2; exit 2 ;;
   esac
 done
 
-linked=0; skipped=0; backed_up=0; removed=0; problems=0; kept=0; stranded=0
+linked=0; skipped=0; backed_up=0; removed=0; problems=0; kept=0; stranded=0; broken=0
 
 say()  { printf '%s\n' "$*"; }
 act()  { if [ "$DRY_RUN" -eq 1 ]; then printf '  would %s\n' "$*"; else printf '  %s\n' "$*"; fi; }
@@ -143,6 +156,11 @@ link_one() {
 
 # Remove one link only if it is still exactly what was recorded. A path the user has
 # since replaced with their own file, or repointed somewhere else, is theirs now.
+# A token present in this toolkit's tools/check.py and unlikely anywhere else. Renaming it
+# there would silently stop uninstall recognising a checkout, so tools/test.sh asserts that
+# this exact string is still in that file.
+TOOLKIT_MARKER='CANONICAL_TREES'
+
 # What does $1 point into -- a skill PACK, a checkout of this TOOLKIT, or neither?
 # Answered from the far end of the link, by the metadata each kind carries: a pack root
 # holds PACK.json and PROVENANCE.json, a toolkit checkout holds AGENTS.md and
@@ -157,10 +175,19 @@ link_owner() {
   [ -n "$resolved" ] || return 0
   here="$resolved"
   while [ "$i" -lt 5 ] && [ "$here" != "/" ] && [ -n "$here" ]; do
-    if [ -f "$here/PACK.json" ] && [ -f "$here/PROVENANCE.json" ]; then
+    # The markers are READ, not merely counted. Two empty files named PACK.json and
+    # PROVENANCE.json used to be enough to delete somebody else's symlink, and an empty
+    # AGENTS.md beside an empty tools/check.py was enough to call their repository a
+    # checkout of this toolkit. A pack is identified the way tools/vendor-sync.py
+    # identifies one -- by PROVENANCE.json naming the tool that wrote it -- and a toolkit
+    # checkout by a token that only this checker contains.
+    if [ -f "$here/PACK.json" ] && [ -f "$here/PROVENANCE.json" ] \
+       && grep -q '"vendoredBy"[[:space:]]*:[[:space:]]*"tools/vendor-sync\.py' \
+                  "$here/PROVENANCE.json" 2>/dev/null; then
       printf 'pack\n'; return 0
     fi
-    if [ -f "$here/AGENTS.md" ] && [ -f "$here/tools/check.py" ]; then
+    if [ -f "$here/AGENTS.md" ] && [ -f "$here/tools/check.py" ] \
+       && grep -q "$TOOLKIT_MARKER" "$here/tools/check.py" 2>/dev/null; then
       printf 'toolkit\n'; return 0
     fi
     here="$(dirname -- "$here")"; i=$((i + 1))
@@ -324,7 +351,18 @@ do_uninstall() {
     for leftover in "$CLAUDE_DIR"/skills/* "$CLAUDE_DIR"/agents/*; do
       [ -L "$leftover" ] || continue
       already_decided "$leftover" && continue
-      [ -n "$(link_owner "$leftover")" ] && stranded=$((stranded + 1))
+      if [ -n "$(link_owner "$leftover")" ]; then
+        stranded=$((stranded + 1)); continue
+      fi
+      # A BROKEN link: its target is gone, so there is nothing left to read and nothing
+      # to attribute it by. Deleting it would be guessing about somebody else's path;
+      # ignoring it lets the summary claim a clean undo over links this script may well
+      # have created -- which it did, silently, when a pack checkout was moved away.
+      # Count it, name it, and let the summary withhold the claim.
+      if [ ! -e "$leftover" ]; then
+        broken=$((broken + 1))
+        say "  ${leftover##*/}: points at $(readlink -- "$leftover"), which no longer exists — cannot tell whose it is, left alone"
+      fi
     done
   fi
   rm -f -- "$DECIDED"; DECIDED=""
@@ -406,10 +444,20 @@ fi
 
 say ""
 if [ "$UNINSTALL" -eq 1 ]; then
-  if [ "$stranded" -gt 0 ]; then
+  if [ "$stranded" -gt 0 ] || [ "$broken" -gt 0 ]; then
     say "removed $removed link(s), left $kept alone."
-    warn "$stranded link(s) this toolkit created are still in place and were not recognised."
-    warn "Remove them by hand, or re-run from the checkout that installed them."
+    # Explicit ifs, not a `[ ] && warn && warn` chain: a false test as the last command of
+    # a block is the block's exit status, and under `set -e` that has already cost this
+    # script one silent abort. warn() also increments `problems`, so the run exits 1 --
+    # an uninstall that did not undo cleanly should not report success.
+    if [ "$stranded" -gt 0 ]; then
+      warn "$stranded link(s) this toolkit created are still in place and were not recognised."
+    fi
+    if [ "$broken" -gt 0 ]; then
+      warn "$broken broken link(s) remain. Their targets are gone, so this script cannot tell"
+      warn "whether it created them. Check them and remove by hand the ones that are its."
+    fi
+    warn "This run did NOT undo cleanly."
   else
     say "removed $removed link(s), left $kept alone. Nothing else was touched."
   fi
