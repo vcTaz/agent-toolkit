@@ -33,12 +33,22 @@ out the harness entry points. It asks for a tarball first and falls back to a sh
 `git fetch` plus `git archive`, printing which route it took — in the environment this was
 built in the tarball host answers 403 and the fallback is the path that actually runs.
 
-`--verify-pack` is offline and exact in both directions: it re-hashes every file, re-reads
-its mode, and compares both against `PROVENANCE.json`, **and** it rejects a skill directory
-or a `.claude/skills/` entry that `PACK.json` does not declare. A file whose bytes match but
-whose mode does not is reported as MODE DRIFT rather than passing. The second direction was
-added on 2026-09-20: until then a 14th skill with its own entry verified clean, and an
-entry is the only route by which a pack delivers anything to a Project.
+`--verify-pack` is offline and works in both directions. It re-hashes and re-reads the mode
+of every file under a declared skill, and of `LICENSE`, `NOTICE`, `PACK.json` and
+`README.md`, comparing both against `PROVENANCE.json`. A file whose bytes match but whose
+mode does not is reported as MODE DRIFT rather than passing. `PROVENANCE.json` is the one
+file a pack cannot self-verify, since it cannot hash itself; a tampered one is caught by its
+`ref` disagreeing with `PACK.json`.
+
+The other direction is that the pack may contain **nothing else**: an undeclared skill
+directory, a loose file under `skills/`, an entry under `.claude/` or `.agents/` that is not
+the skills link, or any extra file at the pack root is rejected. Both directions were added
+on 2026-09-20 and 2026-09-21, and each closed a measured hole: until the first, a 14th skill
+with its own entry verified clean; until the second, so did a `.claude/agents/<name>.md`, a
+root `CLAUDE.md`, and a `LICENSE` whose text had been replaced with "All rights reserved".
+
+A pack built before whole-pack provenance existed has no `files` key and **fails** with a
+message saying to rebuild it — rather than passing while unable to check those files.
 
 ## What a built pack looks like, and why
 

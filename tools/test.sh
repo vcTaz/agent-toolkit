@@ -611,9 +611,17 @@ else
     [ -L "$cfg2/skills/my-own-skill" ] \
         && ok "no record: a link of the user's own, into neither, is left alone" \
         || no "no record: --uninstall removed the user's own unrelated symlink"
+    # The `other-skill` link above is attributable (it points into a toolkit checkout) and
+    # was correctly NOT removed, because its name is not one this toolkit installs. The
+    # closing sweep is deliberately broader than the remover, so it reports that link and
+    # withholds the claim rather than staying silent about something it declined to touch.
+    # That is the trade made after a name-gate failure stranded 13 pack links in silence.
+    printf '%s' "$out" | grep -q 'not a name this toolkit installs' \
+        && ok "no record: a link it declined to remove is named, not passed over in silence" \
+        || no "no record: the declined link was not reported — got: $out"
     printf '%s' "$out" | grep -q 'Nothing else was touched' \
-        && ok "no record: the summary may claim a clean undo, because it achieved one" \
-        || no "no record: the summary withheld the claim although nothing was stranded — got: $out"
+        && no "no record: the summary claimed a clean undo over a link it left behind" \
+        || ok "no record: and the clean-undo claim is withheld while it is there"
 
     # --dry-run must remove nothing and must not count a path twice. It reported
     # "removed 41 link(s)" over a 27-link install, because the record pass and the
@@ -1002,38 +1010,62 @@ else
       && ok "a link at a name this toolkit does not install survives, whatever it points into" \
       || no "--uninstall deleted the user's own skill link inside their pack checkout"
   n3g="$(printf '%s' "$out" | sed -n 's/^removed \([0-9]*\) link(s).*/\1/p')"
-  [ "$rc" -eq 0 ] && [ -n "$n3g" ] && [ "$n3g" -gt 0 ] \
-    && printf '%s' "$out" | grep -q 'Nothing else was touched' \
-      && ok "and it is neither removed nor counted against the clean undo" \
-      || no "the preserved link disturbed the summary (rc=$rc removed=${n3g:-?})"
+  [ -n "$n3g" ] && [ "$n3g" -gt 0 ] \
+      && ok "and the toolkit's own links are still removed around it" \
+      || no "the preserved link stopped the run removing its own (removed=${n3g:-?})"
+  # It is REPORTED rather than silently skipped. The remover declines it on the name gate;
+  # the closing sweep sees a superset of what the remover acts on, precisely so that a
+  # gate failure cannot be silent -- which is how a reformatted pack spec stranded 13
+  # links under "Nothing else was touched" at a91ec08.
+  printf '%s' "$out" | grep -q 'not a name this toolkit installs' \
+      && ok "and it is named in the summary rather than passed over" \
+      || no "the preserved link was not reported (rc=$rc) — got: $out"
 fi
 
 # ---------------------------------------------------------------------------------------
-group "no file may promise that --uninstall touches only what is inside this repository"
+group "the claim scan covers the undo family as well as the plugin family"
 
-# Excludes its own file: the group title states the claim in order to forbid it, and
-# the first run of this guard duly reported test.sh. Options go before `--` or the
-# exclusion becomes a search path -- that mistake has been made here before.
-# The claim class MAJOR 3 is about, in a second subject. F4 deleted this sentence from
-# local/README.md; an identical one survived in docs/host-integration.md, in a file that
-# round's fix never opened. Both halves are false: a pack link resolves OUTSIDE by
-# definition and is removed. Fixing the file a finding names is not fixing the claim.
-rev_hits=0
-while IFS= read -r hit; do
-  [ -n "$hit" ] || continue
-  # A passage that says the sentence WAS said and was wrong is the correction, not the claim.
-  printf '%s' "$hit" | grep -qiE 'until|was false|said|no longer|used to|rather than' && continue
-  no "claims --uninstall touches only what is inside the repo: $hit"
-  rev_hits=$((rev_hits + 1))
-done <<EOF
-$(grep -rniE 'uninstall[^.]{0,80}only[^.]{0,80}(inside|within) this (repository|repo|toolkit)' \
-    --include=*.md --include=*.sh --include=*.py --include=*.json \
-    --exclude=test.sh -- "$ROOT" 2>/dev/null \
-  | grep -v '/\.git/' | sed "s|$ROOT/||")
-EOF
-[ "$rev_hits" -eq 0 ] \
-    && ok "no file promises --uninstall stays inside this repository" \
-    || no "$rev_hits file(s) carry the reversibility claim F4 removed"
+# This started as a shell grep in this file, and the critic walked past it nine ways:
+# "inside this checkout", "inside the repository", "never ... outside", a sentence with no
+# word "uninstall" at all, a full stop inside the match window, a second file named
+# test.sh (--exclude is a basename glob), a .toml adapter and an extensionless file
+# (neither in the --include list), and the word "said" anywhere on the line retiring the
+# hit. It is now a rule in tools/_claim_scan.py, which walks every text file by relative
+# path and scans by paragraph. These ten plants prove the rule fires; the suite's own
+# PROBLEMS 0 assertion proves the tree is clean.
+if ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent — cannot run the claim scan"
+else
+  undo_tree="$TMPROOT/undo-scan"; rm -rf "$undo_tree"; mkdir -p "$undo_tree"
+  ( cd "$ROOT" && tar -c --exclude=./.git . ) | ( cd "$undo_tree" && tar -x )
+  undo_missed=0; undo_n=0
+  while IFS='|' read -r target text; do
+    [ -n "$target" ] || continue
+    undo_n=$((undo_n + 1))
+    mkdir -p "$undo_tree/$(dirname "$target")"
+    cp -- "$undo_tree/$target" "$undo_tree/$target.bak" 2>/dev/null || : > "$undo_tree/$target.bak"
+    printf '\n%s\n' "$text" >> "$undo_tree/$target"
+    got="$( cd "$undo_tree" && python3 tools/_claim_scan.py 2>/dev/null \
+            | sed -n 's/^PROBLEMS //p' )"
+    [ "${got:-0}" -gt 0 ] || { undo_missed=$((undo_missed + 1)); printf '        missed: %s\n' "$text"; }
+    mv -- "$undo_tree/$target.bak" "$undo_tree/$target" 2>/dev/null || rm -f -- "$undo_tree/$target"
+  done <<'PLANTS'
+docs/host-integration.md|`--uninstall` removes only links resolving inside this checkout.
+docs/host-integration.md|`--uninstall` removes only links resolving inside the repository.
+docs/host-integration.md|`--uninstall` never touches anything outside this repository.
+docs/host-integration.md|The undo removes only links resolving inside this repository.
+docs/host-integration.md|`--uninstall` is safe. It removes only links resolving inside this repository.
+docs/host-integration.md|As said above, `--uninstall` removes only links resolving inside this repository.
+local/test.sh|# --uninstall removes only links resolving inside this repository.
+.codex/agents/critic.toml|# --uninstall removes only links resolving inside this repository.
+local/INSTALL|--uninstall removes only links resolving inside this repository.
+local/README.md|`--uninstall` removes only links resolving inside this repository.
+PLANTS
+  [ "$undo_missed" -eq 0 ] \
+      && ok "$undo_n phrasings and locations of the undo claim are all caught" \
+      || no "$undo_missed of $undo_n phrasings of the undo claim were missed"
+  rm -rf "$undo_tree"
+fi
 
 # ---------------------------------------------------------------------------------------
 group "vendor-sync.py: --verify-pack is exact in BOTH directions"
@@ -1094,6 +1126,187 @@ PY
         && ok "and its harness entry is named separately, as the delivery route" \
         || no "the undeclared .claude/skills entry was not reported (rc=$vprc)"
     rm -rf "$vpd"
+  fi
+fi
+
+# ---------------------------------------------------------------------------------------
+group "bootstrap.sh: a gate failure is loud, never a silent leftover"
+
+# The name gate added to the remover was a REGRESSION until this. Three ways it went wrong,
+# all measured at a91ec08, all producing the original MAJOR 1 output -- "removed 14 link(s),
+# left 0 alone. Nothing else was touched.", exit 0 -- over links this script had created.
+if [ ! -x "$ROOT/local/bootstrap.sh" ]; then
+  skip "local/bootstrap.sh not executable"
+elif ! command -v jq >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
+  skip "jq or python3 absent — the gate's own fixtures need them"
+else
+  g6first="$(jq -r '.skills | keys[0]' "$ROOT/packs/cloudflare.json" 2>/dev/null)"
+  g6second="$(jq -r '.skills | keys[1]' "$ROOT/packs/cloudflare.json" 2>/dev/null)"
+  g6pack="$TMPROOT/g6-pack"; rm -rf "$g6pack"
+  mkdir -p "$g6pack/skills/$g6first"
+  printf -- '---\nname: %s\ndescription: fixture\n---\n' "$g6first" \
+    > "$g6pack/skills/$g6first/SKILL.md"
+  printf '{"pack":"cloudflare"}\n' > "$g6pack/PACK.json"
+  printf '{"vendoredBy":"tools/vendor-sync.py","pack":"cloudflare"}\n' > "$g6pack/PROVENANCE.json"
+
+  # (a) A pack spec reformatted with json.dumps. Valid JSON, accepted by check.py, and the
+  #     line-oriented sed that used to read the names finds none in it.
+  g6tree="$TMPROOT/g6-tree"; rm -rf "$g6tree"; mkdir -p "$g6tree"
+  ( cd "$ROOT" && tar -c --exclude=./.git . ) | ( cd "$g6tree" && tar -x )
+  python3 -c 'import json,sys;p=sys.argv[1];b=json.load(open(p));open(p,"w").write(json.dumps(b))' \
+    "$g6tree/packs/cloudflare.json"
+  python3 "$g6tree/tools/check.py" --root "$g6tree" >/dev/null 2>&1 \
+      && ok "a compactly-reformatted pack spec is still accepted by check.py" \
+      || no "the fixture is wrong: check.py rejects the reformatted spec"
+  g6cfg="$TMPROOT/g6-cfg-a"; rm -rf "$g6cfg"
+  PACK_CLOUDFLARE_DIR="$g6pack" CLAUDE_CONFIG_DIR="$g6cfg" \
+    "$g6tree/local/bootstrap.sh" --with-packs >/dev/null 2>&1
+  rm -f "$g6cfg/.toolkit-install-state.tsv"
+  ( unset PACK_CLOUDFLARE_DIR
+    CLAUDE_CONFIG_DIR="$g6cfg" "$g6tree/local/bootstrap.sh" --uninstall >/dev/null 2>&1 )
+  g6left="$(find "$g6cfg/skills" "$g6cfg/agents" -maxdepth 1 -type l 2>/dev/null | wc -l | tr -d ' ')"
+  [ "$g6left" -eq 0 ] \
+      && ok "the name gate reads JSON, not formatting: nothing is stranded" \
+      || no "$g6left link(s) stranded by a reformatted pack spec"
+
+  # (b) No jq and no python3, on a spec the sed fallback cannot read. It must fall back to
+  #     the broader rule and SAY SO, not narrow the gate to nothing in silence.
+  g6bin="$TMPROOT/g6-nobin"; rm -rf "$g6bin"; mkdir -p "$g6bin"
+  for b in jq python3; do printf '#!/bin/sh\nexit 127\n' > "$g6bin/$b"; chmod +x "$g6bin/$b"; done
+  g6cfg="$TMPROOT/g6-cfg-b"; rm -rf "$g6cfg"
+  PACK_CLOUDFLARE_DIR="$g6pack" CLAUDE_CONFIG_DIR="$g6cfg" \
+    "$g6tree/local/bootstrap.sh" --with-packs >/dev/null 2>&1
+  rm -f "$g6cfg/.toolkit-install-state.tsv"
+  g6out="$( unset PACK_CLOUDFLARE_DIR
+            PATH="$g6bin:$PATH" CLAUDE_CONFIG_DIR="$g6cfg" \
+              "$g6tree/local/bootstrap.sh" --uninstall 2>&1 )"
+  g6left="$(find "$g6cfg/skills" "$g6cfg/agents" -maxdepth 1 -type l 2>/dev/null | wc -l | tr -d ' ')"
+  printf '%s' "$g6out" | grep -q 'could not read the skill names' \
+      && ok "an unreadable spec says so instead of narrowing the gate silently" \
+      || no "the gate failed without a word — got: $g6out"
+  [ "$g6left" -eq 0 ] \
+      && ok "and it falls back to the broader rule, so nothing is stranded" \
+      || no "$g6left link(s) stranded when the gate could not be computed"
+  rm -rf "$g6tree" "$g6bin"
+
+  # (c) The spec drops a skill between install and uninstall -- the upgrade path the
+  #     no-record fallback exists for. The link cannot be removed on the name gate, so it
+  #     must at least be NAMED and the clean-undo claim withheld.
+  g6after="$TMPROOT/g6-after"; rm -rf "$g6after"; mkdir -p "$g6after"
+  ( cd "$ROOT" && tar -c --exclude=./.git . ) | ( cd "$g6after" && tar -x )
+  python3 -c 'import json,sys
+p=sys.argv[1]; b=json.load(open(p)); b["skills"].pop(sys.argv[2], None)
+open(p,"w").write(json.dumps(b, indent=2) + "\n")' "$g6after/packs/cloudflare.json" "$g6first"
+  g6cfg="$TMPROOT/g6-cfg-c"; rm -rf "$g6cfg"
+  PACK_CLOUDFLARE_DIR="$g6pack" CLAUDE_CONFIG_DIR="$g6cfg" \
+    "$ROOT/local/bootstrap.sh" --with-packs >/dev/null 2>&1
+  rm -f "$g6cfg/.toolkit-install-state.tsv"
+  rc=0
+  g6out="$( unset PACK_CLOUDFLARE_DIR
+            CLAUDE_CONFIG_DIR="$g6cfg" "$g6after/local/bootstrap.sh" --uninstall 2>&1 )" || rc=$?
+  printf '%s' "$g6out" | grep -q "$g6first" \
+      && ok "a link the current specs no longer name is reported, not skipped in silence" \
+      || no "the dropped skill's link vanished from the summary — got: $g6out"
+  [ "$rc" -ne 0 ] && ! printf '%s' "$g6out" | grep -q 'Nothing else was touched' \
+      && ok "and the clean-undo claim is withheld, exit non-zero" \
+      || no "the run claimed a clean undo over a link it left behind (rc=$rc)"
+  rm -rf "$g6after"
+
+  # (d) The installer probes ONE skill and must not generalise the answer to the others.
+  #     A per-skill symlink resolving further from the pack root than the probe does was
+  #     linked here and unattributable at uninstall. Tested as the INVARIANT rather than at
+  #     one magic depth: at every depth, whatever the installer chose to link must come
+  #     back out.
+  deep_bad=0; deep_detail=""
+  for deep in 1 2 3 4 5 6; do
+    g6deep="$TMPROOT/g6-deep$deep"; rm -rf "$g6deep"
+    inner="$g6deep/store"; i=0
+    while [ "$i" -lt "$deep" ]; do inner="$inner/n$i"; i=$((i + 1)); done
+    mkdir -p "$g6deep/skills/$g6first" "$inner/deep-skill"
+    printf -- '---\nname: %s\ndescription: fixture\n---\n' "$g6first" \
+      > "$g6deep/skills/$g6first/SKILL.md"
+    printf -- '---\nname: %s\ndescription: fixture\n---\n' "$g6second" \
+      > "$inner/deep-skill/SKILL.md"
+    ln -s "$inner/deep-skill" "$g6deep/skills/$g6second"
+    printf '{"pack":"cloudflare"}\n' > "$g6deep/PACK.json"
+    printf '{"vendoredBy":"tools/vendor-sync.py","pack":"cloudflare"}\n' > "$g6deep/PROVENANCE.json"
+    g6cfg="$TMPROOT/g6-cfg-d$deep"; rm -rf "$g6cfg"
+    PACK_CLOUDFLARE_DIR="$g6deep" CLAUDE_CONFIG_DIR="$g6cfg" \
+      "$ROOT/local/bootstrap.sh" --with-packs >/dev/null 2>&1
+    rm -f "$g6cfg/.toolkit-install-state.tsv"
+    ( unset PACK_CLOUDFLARE_DIR
+      CLAUDE_CONFIG_DIR="$g6cfg" "$ROOT/local/bootstrap.sh" --uninstall >/dev/null 2>&1 )
+    g6left="$(find "$g6cfg/skills" "$g6cfg/agents" -maxdepth 1 -type l 2>/dev/null | wc -l | tr -d ' ')"
+    [ "$g6left" -eq 0 ] || { deep_bad=$((deep_bad + 1)); deep_detail="$deep_detail depth=$deep:$g6left"; }
+    rm -rf "$g6deep" "$g6cfg"
+  done
+  [ "$deep_bad" -eq 0 ] \
+      && ok "whatever the installer links comes back out, at every skill-target depth" \
+      || no "links survived at$deep_detail"
+  rm -rf "$g6deep" "$g6pack"
+fi
+
+# ---------------------------------------------------------------------------------------
+group "vendor-sync.py: a built pack carries only what the build writes"
+
+# --verify-pack walked PACK.json's skill list and asked nothing about the rest of the tree.
+# Four routes carried undeclared content past it, and the licence -- fetched from upstream
+# rather than trusted from a metadata field -- was checked only for existence, so replacing
+# its text with "All rights reserved" verified clean.
+if ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent"
+else
+  vpx="$TMPROOT/inventory-pack"; rm -rf "$vpx"
+  ( cd "$ROOT" && python3 - "$vpx" <<'PY'
+import importlib.util, io, pathlib, sys, tarfile
+spec = importlib.util.spec_from_file_location('vs', 'tools/vendor-sync.py')
+vs = importlib.util.module_from_spec(spec); spec.loader.exec_module(vs)
+
+def archive():
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode='w:gz') as tar:
+        for name, body in [('up/skills/demo/SKILL.md',
+                            '---\nname: demo\ndescription: d\n---\nbody\n'),
+                           ('up/LICENSE', 'MIT\n')]:
+            info = tarfile.TarInfo(name); data = body.encode()
+            info.size = len(data); info.mode = 0o644
+            tar.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+pack = {'pack': 'demo', 'packRepo': 'x/demo',
+        'upstream': {'repo': 'x/y', 'url': 'https://example.invalid', 'ref': 'a' * 40,
+                     'license': 'MIT', 'licenseFile': 'LICENSE', 'noticeFile': None},
+        'skills': {'demo': 'skills/demo'}, 'layout': {'claudeEntries': True}}
+vs.fetch_tree = lambda repo, ref: archive()
+vs.load_pack = lambda name: pack
+vs.problems.clear(); vs.build_pack('demo', pathlib.Path(sys.argv[1]))
+PY
+  ) >/dev/null 2>&1
+  if [ ! -f "$vpx/PACK.json" ]; then
+    skip "could not build the inventory fixture pack"
+  else
+    ( cd "$ROOT" && python3 tools/vendor-sync.py --verify-pack --into "$vpx" ) >/dev/null 2>&1
+    [ $? -eq 0 ] && ok "the fixture pack verifies clean" \
+                 || no "the inventory fixture does not verify clean to begin with"
+
+    printf 'All rights reserved. No licence granted.\n' > "$vpx/LICENSE.tampered"
+    cp "$vpx/LICENSE" "$vpx/LICENSE.orig"; mv "$vpx/LICENSE.tampered" "$vpx/LICENSE"
+    ( cd "$ROOT" && python3 tools/vendor-sync.py --verify-pack --into "$vpx" ) >/dev/null 2>&1
+    [ $? -ne 0 ] && ok "a rewritten LICENSE is rejected, not merely counted as present" \
+                 || no "--verify-pack passed a pack whose licence had been replaced"
+    mv "$vpx/LICENSE.orig" "$vpx/LICENSE"
+
+    inv_bad=0
+    for probe in '.claude/agents/evil.md' 'CLAUDE.md' 'skills/LOOSE.md' '.agents/AGENTS.md'; do
+      mkdir -p "$vpx/$(dirname "$probe")"; printf 'x\n' > "$vpx/$probe"
+      ( cd "$ROOT" && python3 tools/vendor-sync.py --verify-pack --into "$vpx" ) >/dev/null 2>&1
+      [ $? -ne 0 ] || { inv_bad=$((inv_bad + 1)); printf '        passed: %s\n' "$probe"; }
+      rm -f "$vpx/$probe"
+    done
+    [ "$inv_bad" -eq 0 ] \
+        && ok "4 routes for undeclared content into a Project are all rejected" \
+        || no "$inv_bad of 4 undeclared-content routes verified clean"
+    rm -rf "$vpx"
   fi
 fi
 
