@@ -1,0 +1,39 @@
+{
+  "$comment": "Specification for an optional skill pack. No third-party content is stored in this repository; tools/vendor-sync.py --pack builds the pack repository from this pin. Nothing here is attached to a Project by default.",
+  "schemaVersion": 1,
+  "pack": "cloudflare",
+  "packRepo": "vcTaz/claude-skills-cloudflare",
+  "packVisibility": "private",
+  "upstream": {
+    "repo": "cloudflare/skills",
+    "url": "https://github.com/cloudflare/skills",
+    "ref": "f96bff754e428838818017f75817f0f9428acd48",
+    "refNote": "Pinned to the commit the local install was verified byte-identical to (375/375 files, 2026-09-19). HELD DELIBERATELY during the pack migration: upstream HEAD b052c32b carries 14 skill directories against this pin's 13, the extra one being nextjs-on-cloudflare. Moving the pin adds a skill that has never been in use here, so an upstream update is a separate change with its own evidence.",
+    "license": "Apache-2.0",
+    "licenseFile": "LICENSE",
+    "noticeFile": null
+  },
+  "skills": {
+    "agents-sdk": "skills/agents-sdk",
+    "cloudflare": "skills/cloudflare",
+    "cloudflare-email-service": "skills/cloudflare-email-service",
+    "cloudflare-one": "skills/cloudflare-one",
+    "cloudflare-one-migrations": "skills/cloudflare-one-migrations",
+    "durable-objects": "skills/durable-objects",
+    "sandbox-migrate-to-next": "skills/sandbox-migrate-to-next",
+    "sandbox-next": "skills/sandbox-next",
+    "sandbox-stable": "skills/sandbox-stable",
+    "turnstile-spin": "skills/turnstile-spin",
+    "web-perf": "skills/web-perf",
+    "workers-best-practices": "skills/workers-best-practices",
+    "wrangler": "skills/wrangler"
+  },
+  "layout": {
+    "$comment": "The built pack repository MUST ship .claude/skills/<name> entries. Verified 2026-09-20 by treeless clone at upstream HEAD: cloudflare/skills ships zero such entries, so a repository carrying only skills/<name>/SKILL.md in upstream layout attaches to a Project and delivers nothing, with no error.",
+    "content": "skills/<name>/",
+    "claudeEntries": ".claude/skills/<name> -> ../../skills/<name>",
+    "codexContainer": ".agents/skills -> skills",
+    "provenance": "PROVENANCE.json (upstream repo, ref, licence, per-file sha256)",
+    "spec": "PACK.json (a copy of this file, so the pack verifies offline on its own)"
+  }
+}
