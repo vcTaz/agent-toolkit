@@ -10,7 +10,8 @@ Claude Code does not read it natively. Everything in it applies.
 - **Roles** are available as subagents in `.claude/agents/` — `explorer`, `specialist`,
   `implementer`, `critic`, `validator`, `synthesizer`, `final-reviewer`. The same definitions
   work as Agent Teams teammate types, where enabled — Agent Teams is experimental and off by
-  default.
+  default. `orchestrator` is there too, from `agents/` rather than `roles/`, so the directory
+  holds **eight** subagents and not seven.
 - **Skills** are discovered through `.claude/skills/`, which is a **real directory whose
   entries are symlinks** — not a symlink to `skills/`. Only a `<skill-name>` entry is
   documented as symlinkable, so the container must stay a real directory; `tools/check.py`

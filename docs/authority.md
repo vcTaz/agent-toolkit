@@ -17,8 +17,9 @@ Which file wins when two disagree.
             ↓  may explain, never define
 4.  docs/platforms/*.md                 USAGE — how to drive the above on one harness
 
-    manifest/  local/  cloud/           HOST — delivery, alongside the chain and
-    .claude/settings.json                      outside it; defines nothing
+    manifest/  packs/  profile/        HOST — delivery, alongside the chain and
+    local/  cloud/                            outside it; defines nothing.
+    .claude/settings.json                     tools/check.py enforces this set
 ```
 
 `docs/concepts/orchestration.md` sits at level 1 rather than level 2 for a derived reason:
@@ -56,7 +57,7 @@ unchanged and still correct.
 | `AGENTS.md` | repository map, invariants, contribution rules, pointers | role definitions, platform mechanics, long prose |
 | `roles/` `skills/` `workflows/` | the definition of a concept | anything requiring a specific harness, vendor, model or language |
 | `agents/` | the definition of an agent that is not a role, including the harness mechanics it cannot be written without | a definition that would satisfy the three-part role bar; a reference to the `HOST` layer |
-| `manifest/` `local/` `cloud/` `.claude/settings.json` | delivery and installation — shell and JSON data | any definition, and anything the canonical layer is expected to read |
+| `manifest/` `packs/` `profile/` `local/` `cloud/` `.claude/settings.json` | delivery and installation — shell and JSON data | any definition, and anything the canonical layer is expected to read |
 | `docs/concepts/` | why the canonical layer is shaped this way | a second, competing definition |
 | `.claude/` `.codex/` | identifiers, tool limits, model/effort, permissions, a few operating notes, a marked verbatim copy | a reworded version of a role's responsibilities |
 | `docs/platforms/` | how to use the above on one harness, with its limitations | any definition |

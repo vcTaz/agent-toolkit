@@ -39,17 +39,19 @@ Answer each item. If something is absent, say "none" — do not guess or fill in
 
 3. AGENTS
    - List every subagent type available to you.
-   - Confirm whether these seven are present: explorer, specialist, implementer, critic,
-     validator, synthesizer, final-reviewer
+   - Confirm whether these eight are present: explorer, specialist, implementer, critic,
+     validator, synthesizer, final-reviewer, orchestrator
    - For each, say whether it came from this repository, from a plugin, or is built in.
 
 4. COMMANDS
    - List the custom slash commands available, and where each came from.
 
 5. PLUGINS
-   - List every plugin loaded, with its version and marketplace.
-   - Confirm whether ecc, superpowers and ui-ux-pro-max loaded.
-   - If any plugin declared in .claude/settings.json did NOT load, say which and why.
+   - List every plugin loaded, with its version and marketplace, and for each say
+     whether it came from the account, from Project settings, or from somewhere else.
+   - This repository declares NO plugins. Do not expect any from it. If a plugin does
+     appear that is attributable to a repository, say so: that would contradict the
+     2026-09-20 measurement and is the interesting result.
 
 6. MCP
    - List every MCP tool available, and for each say whether it is a claude.ai connector
@@ -105,9 +107,9 @@ local setup. Be blunt; a clean pass on everything is not the expected result.
 |---|---|
 | Instructions | This repo's `CLAUDE.md` → `AGENTS.md`, plus your app repo's, one per repository |
 | Skills | **6** from this repo and no more, plus ~181 `ecc:*`, plus account skills. A pack repository, if attached, adds its own 13 |
-| Agents | The 7 roles, plus ~38 `ecc:*` |
+| Agents | The 7 roles and the orchestrator — **8** from this repo — plus ~38 `ecc:*` |
 | Commands | ~79 `ecc:*`; this repo ships none of its own |
-| Plugins | `ecc`, `superpowers`, `ui-ux-pro-max` |
+| Plugins | **None from this repository.** It declares none, and repository-declared plugins were measured on 2026-09-20 not to be delivered. Whatever the account or Project settings provide |
 | MCP | claude.ai connectors certainly. Whether the ecc plugin's five stdio servers run is **genuinely unknown** — that is the point of asking |
 | Permissions | Applied in a one-repo project; **not applied** in a multi-repo project |
 | Binaries | All nine present, none MISSING |
@@ -117,11 +119,17 @@ local setup. Be blunt; a clean pass on everything is not the expected result.
 | Symptom | Likely cause |
 |---|---|
 | All 6 skills absent, agents present | `.claude/skills/` entry symlinks not followed, despite being the documented form and despite two fresh-session pack tests following them on 2026-09-20. Report it: it would contradict a measured result |
-| Third-party skills present from this repo | `vendor/` has come back, or an entry points outside `skills/`. `tools/check.py` and `tools/test.sh` both fail on that |
+| Third-party skills present from this repo | `vendor/` has come back, or an entry points outside `skills/`. `tools/test.sh` fails on a reintroduced `vendor/`; `tools/check.py` catches the stray entry but not the directory, so run both |
 | Both absent | The repository is not attached to the project, or the Claude GitHub App is not installed on it |
-| Plugins absent | No network access to the marketplace, or the marketplace source is unreachable |
+| Plugins absent | Expected for anything this repository could declare — it declares none, and repository-declared plugins were measured not to arrive. For an account or Project-settings plugin: no network access to the marketplace, or the marketplace source is unreachable |
 | Deny rules absent | Expected in a multi-repo project. Re-declare them in **Project settings** |
 | A binary MISSING | The environment image changed; add it to the setup script |
 
-Record the result. This file documents an expectation, not a verified outcome — until a
-thread has actually run it, cloud behaviour here is **statically validated only**.
+Record the result. This file documents an **expectation**, and running it is what turns any
+row into an outcome. Some rows already rest on a measurement and say so — skill-entry
+symlinks being followed, deny rules being enforced, repository-declared plugins not being
+delivered, and both packs delivering in a fresh session, all measured in Anthropic's hosted
+cloud environment on 2026-09-19 and 2026-09-20. Every other row is still derived from the
+documentation and from local inspection. A measurement taken then, there, is not a claim
+about another environment or a later version, so re-running this after an environment change
+is worth doing even for the rows that carry a date.

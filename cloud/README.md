@@ -1,8 +1,19 @@
 # Using this toolkit with Claude Projects and cloud Claude Code
 
 Verified against Claude Code 2.1.278 and the official documentation on **2026-09-19**.
-**Statically validated only — no cloud session has executed any of this.** Where this file
-disagrees with the documentation, the documentation is right and this is stale.
+Where this file disagrees with the documentation, the documentation is right and this is
+stale.
+
+**Some of this has been measured in a cloud session and some has not, and the two are
+marked apart throughout.** Until 2026-09-20 this line said no cloud session had executed
+any of it, which stopped being true that day: `cloud/SMOKE-TEST.md` was run, the plugin
+result below was measured, and both skill packs were tested in fresh sessions. Every
+statement here that rests on a measurement says when it was taken; anything that does not
+say so is still derived from the documentation and from local inspection, and is the part
+[cloud/SMOKE-TEST.md](SMOKE-TEST.md) exists to close. What was measured was measured in
+Anthropic's hosted cloud environment on those dates, which is not a claim about any other
+environment or any later version. [docs/known-discrepancies.md](../docs/known-discrepancies.md)
+records what has already been found wrong.
 
 ## The mechanism
 
@@ -156,10 +167,15 @@ Every step is manual and account-side unless marked otherwise. Start: **New Clau
 
 ### Configure what repos cannot carry
 
-6. **Plugins** — the repo's `.claude/settings.json` declares `ecc`, `superpowers` and
-   `ui-ux-pro-max` with their marketplaces, and those load automatically. Use
-   **Project settings → Plugins** only to override a conflict between repositories, or to
-   add a plugin you do not want committed.
+6. **Plugins** — **this repository declares none, and a repository cannot deliver them.**
+   It used to declare `ecc`, `superpowers` and `ui-ux-pro-max` with their marketplaces in
+   `.claude/settings.json`; measured on 2026-09-20 in a fresh session, the file was read
+   and its deny rules enforced while **zero** of those plugins installed. The two keys
+   were removed on 2026-09-20 and now live in `profile/plugins.json`, which
+   `local/bootstrap.sh --with-plugins` applies on a machine, where they do work. See
+   *Plugins declared here did not arrive* above for the measurement.
+   **Project settings → Plugins** is the only route that reaches a cloud session, so add
+   anything you want there.
 7. **Permissions** — if this is a **multi-repo** project, re-declare the deny rules in
    **Project settings**, because repository `permissions` are not read. Copy them from
    `.claude/settings.json` in this repo.
