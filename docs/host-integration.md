@@ -184,8 +184,9 @@ verifiable offline against per-file hashes, and never hand-edited. Each pack car
 own detection reports none for either source.
 
 The gain is that this repository is now what it claims to be. It was 500 tracked files, of
-which 398 were content nobody here wrote; it is now 81, and every skill in `.claude/skills/`
-resolves into the canonical `skills/`.
+which 398 were content nobody here wrote; it is now 82, and every skill in `.claude/skills/`
+resolves into the canonical `skills/`. That count is asserted against `git ls-files` by
+`tools/test.sh`, because it read 78 and then 81 while the tree was neither.
 
 ## The sandbox boundary
 
