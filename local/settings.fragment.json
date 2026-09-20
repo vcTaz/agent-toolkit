@@ -1,5 +1,11 @@
 {
-  "$comment": "Machine-local Claude Code settings, as a portable template. NOT auto-applied by bootstrap.sh - see local/README.md for the merge procedure. Absolute /home/<user> paths have been rewritten to $HOME, which the shell expands when a hook command runs, so this fragment is machine-independent.",
+  "$comment": "Machine-local Claude Code settings, as a template. NOT auto-applied by bootstrap.sh - see local/README.md for the merge procedure. Absolute /home/<user> paths have been rewritten to $HOME, which the shell expands when a hook command runs, so the PATHS are machine-independent. The fragment as a whole is NOT: its hook commands invoke scripts this repository does not ship, listed in `requires` below. Copy it onto a machine without them and those hooks fail at every trigger. The earlier wording claimed machine-independence outright, which is true of the path rewriting and false of the fragment.",
+  "requires": {
+    "$comment": "Prerequisites this repository does NOT contain. A tool reading this file sees them here; a human reads them in local/README.md.",
+    "$HOME/.claude/scripts/hooks/": ["auto-tmux-dev.js", "post-bash-command-log.js", "run-with-flags-shell.sh", "run-with-flags.js", "session-start-bootstrap.js"],
+    "ecc plugin (scripts/hooks/ inside the installed plugin)": "resolved at run time from CLAUDE_PLUGIN_ROOT or a ~/.claude/plugins cache; the Stop and SessionEnd hooks degrade to a warning and pass the payload through when it cannot be resolved",
+    "binaries": ["node", "jq"]
+  },
   "prefs": {
     "theme": "dark",
     "tui": "fullscreen",
