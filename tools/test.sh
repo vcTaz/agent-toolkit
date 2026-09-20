@@ -1169,6 +1169,24 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------
+group "the tracked-file count in the docs is the tree's actual count"
+
+# It read 78, then 81, while the tree was neither. A number in prose that nobody computes
+# drifts every time a file is added -- this one drifted twice in two days -- so compute it.
+if ! git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  skip "not a git repository — cannot count tracked files"
+else
+  actual="$(git -C "$ROOT" ls-files | wc -l | tr -d ' ')"
+  claimed="$(sed -n 's/.*it is now \([0-9][0-9]*\),.*/\1/p' "$ROOT/docs/host-integration.md")"
+  [ -n "$claimed" ] \
+      && ok "docs/host-integration.md states a tracked-file count ($claimed)" \
+      || no "no tracked-file count found in docs/host-integration.md — did the wording change?"
+  [ "$claimed" = "$actual" ] \
+      && ok "and it matches the tree ($actual tracked files)" \
+      || no "docs say $claimed tracked files; the tree has $actual"
+fi
+
+# ---------------------------------------------------------------------------------------
 group "hygiene"
 
 syntax_bad=0
