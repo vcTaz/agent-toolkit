@@ -200,6 +200,78 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------
+group "host-layer invariant: canonical text may not reference the HOST layer"
+
+# AGENTS.md states the rule; these assert the checker computes it. Each case plants one
+# violation in a COPY of this repository and requires check.py to reject it. The copy
+# matters: a fixture tree invented from nothing would fail a dozen unrelated checks, and
+# a finding lost in that noise proves nothing.
+#
+# The control case is not decoration. "vendor" appears in roles/README.md line 8 -- "may
+# require a particular harness, vendor, model or language" -- which is the invariant
+# being STATED. A keyword matcher would flag the sentence that defines the rule. That is
+# why the check matches path-shaped tokens and why the control is a required test.
+
+if ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent — host-invariant tests cannot run"
+else
+  fixture="$TMPROOT/fixture"
+  mkdir -p "$fixture"
+  ( cd "$ROOT" && tar -c --exclude=./.git . ) | ( cd "$fixture" && tar -x )
+
+  run_checker() { python3 "$ROOT/tools/check.py" --root "$fixture" 2>&1; }
+  saved="$TMPROOT/saved-canonical-file"
+
+  # file | planted line | what it is
+  plant_and_check() {
+    local file="$1" line="$2" label="$3" expect="$4"
+    cp "$fixture/$file" "$saved"
+    printf '\n%s\n' "$line" >> "$fixture/$file"
+    local out; out="$(run_checker)"
+    cp "$saved" "$fixture/$file"
+    if printf '%s' "$out" | grep -q 'references the host layer'; then
+      if [ "$expect" = reject ]; then ok "$label"
+      else no "FALSE POSITIVE: $label"; fi
+    else
+      if [ "$expect" = reject ]; then no "not rejected: $label"
+      else ok "$label"; fi
+    fi
+  }
+
+  plant_and_check roles/README.md \
+    'A role may consult `local/bootstrap.sh` before starting.' \
+    'roles/ naming local/bootstrap.sh is rejected' reject
+  plant_and_check skills/adversarial-review/SKILL.md \
+    'Read `.claude/settings.json` first.' \
+    'skills/ naming .claude/settings.json is rejected' reject
+  plant_and_check workflows/README.md \
+    'Dependencies are listed in `manifest/binaries.json`.' \
+    'workflows/ naming manifest/binaries.json is rejected' reject
+  plant_and_check agents/README.md \
+    'The orchestrator reads `packs/frontend.json` to decide.' \
+    'agents/ naming packs/frontend.json is rejected' reject
+  plant_and_check roles/README.md \
+    'Run `cloud/setup.sh` before assuming this role.' \
+    'roles/ naming cloud/setup.sh is rejected' reject
+  plant_and_check skills/README.md \
+    'Machine specifics live in `profile/plugins.json`.' \
+    'skills/ naming profile/plugins.json is rejected' reject
+
+  plant_and_check roles/README.md \
+    'A local decision, made in the cloud, by a vendor, matching a profile and a manifest.' \
+    'ordinary prose using local/cloud/vendor/profile/manifest is NOT flagged' allow
+
+  # The adapter trees and tools/ are NOT the host layer, and canonical READMEs name them
+  # today. If this fails, the token set has been widened past what AGENTS.md asserts.
+  out="$(run_checker)"
+  if printf '%s' "$out" | grep -q 'references the host layer'; then
+    no "the unmodified repository is reported as violating its own invariant"
+  else
+    ok "the unmodified repository passes the invariant it asserts"
+  fi
+fi
+
+# ---------------------------------------------------------------------------------------
 group "hygiene"
 
 syntax_bad=0

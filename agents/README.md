@@ -23,8 +23,8 @@ a move to another harness unchanged, because a host agent's definition has to sa
 dispatches.
 
 Portability is a review rule rather than a check: `tools/check.py` enforces structure, adapter
-coverage and drift, and nothing in it scans for a harness or vendor name. See
-`docs/authority.md`.
+coverage and drift, and nothing in it scans for a harness or vendor name. The host-layer
+invariant is the one canonical-text rule it does compute. See `docs/authority.md`.
 
 ## Roles versus agents
 
