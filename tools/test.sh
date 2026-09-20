@@ -520,6 +520,11 @@ else
       printf -- '---\nname: %s\ndescription: fixture\n---\n' "$s" \
         > "$packdir/skills/$s/SKILL.md"
     done
+    # A fixture pack must carry real pack metadata from the start: do_packs refuses to
+    # link out of a directory --uninstall could not recognise afterwards. Written here
+    # rather than after the first install, which is where these two lines used to be.
+    printf '{"pack":"cycle"}\n' > "$packdir/PACK.json"
+    printf '{"vendoredBy":"tools/vendor-sync.py","pack":"cycle"}\n' > "$packdir/PROVENANCE.json"
 
     CLAUDE_CONFIG_DIR="$cfg" PACK_CLOUDFLARE_DIR="$packdir" \
       "$ROOT/local/bootstrap.sh" --with-packs >/dev/null 2>&1
@@ -561,8 +566,6 @@ else
     mkdir -p "$cfg2/skills" "$cfg2/agents" "$TMPROOT/elsewhere/my-skill"
     printf -- '---\nname: mine\ndescription: not yours\n---\n' \
       > "$TMPROOT/elsewhere/my-skill/SKILL.md"
-    printf '{"pack":"cycle"}\n' > "$packdir/PACK.json"
-    printf '{"vendoredBy":"tools/vendor-sync.py","pack":"cycle"}\n' > "$packdir/PROVENANCE.json"
     ln -s "$packdir/skills/$first"          "$cfg2/skills/$first"
     ln -s "$ROOT/skills/adversarial-review" "$cfg2/skills/adversarial-review"
     ln -s "$ROOT/.claude/agents/critic.md"  "$cfg2/agents/critic.md"
@@ -700,7 +703,9 @@ else
       n="$(find "$TMPROOT/cfg-sp/x/skills" "$TMPROOT/cfg-sp/x/agents" -maxdepth 1 -type l 2>/dev/null | wc -l)"
       c="$( cd "$TMPROOT" && CLAUDE_CONFIG_DIR="$spell" "$ROOT/local/bootstrap.sh" \
               --uninstall --dry-run 2>&1 | sed -n 's/^removed \([0-9]*\) link(s).*/\1/p' )"
-      if [ "$n" -gt 0 ] && [ -n "$c" ] && [ "$c" -le "$n" ]; then :
+      # -eq, not -le: `removed 0` is the pre-fix failure mode this test exists to
+      # catch, and -le admitted it. The preview must name every link installed.
+      if [ "$n" -gt 0 ] && [ -n "$c" ] && [ "$c" -eq "$n" ]; then :
       else spellings_bad=$((spellings_bad + 1)); fi
     done
     [ "$spellings_bad" -eq 0 ] \
@@ -721,9 +726,14 @@ else
     [ -L "$cfg7/skills/a-name-of-my-own" ] \
         && ok "a link at the user's own name is not ours, whatever it points into" \
         || no "--uninstall deleted a link whose name it never assigned"
-    printf '%s' "$out" | grep -q 'Nothing else was touched' \
+    # Three conditions, because the summary line alone carries no information: it
+    # prints just as happily over a run that removed nothing. The run must have
+    # exited 0, removed the links it owns, and still claimed a clean undo.
+    n7="$(printf '%s' "$out" | sed -n 's/^removed \([0-9]*\) link(s).*/\1/p')"
+    [ "$rc" -eq 0 ] && [ -n "$n7" ] && [ "$n7" -gt 0 ] \
+      && printf '%s' "$out" | grep -q 'Nothing else was touched' \
         && ok "and it is not counted against the clean-undo claim either" \
-        || no "the user's own link was counted as one we failed to remove — got: $out"
+        || no "the user's own link was counted as one we failed to remove (rc=$rc removed=${n7:-?}) — got: $out"
 
     # A dead symlink of the USER's own must not make a clean uninstall report failure.
     cfg8="$TMPROOT/cfg-theirdead"; mkdir -p "$cfg8/skills"
@@ -758,6 +768,152 @@ else
         && ok "bootstrap.sh's toolkit marker ($marker) is still in tools/check.py" \
         || no "bootstrap.sh looks for '$marker' in tools/check.py and it is not there"
   fi
+fi
+
+# ---------------------------------------------------------------------------------------
+group "bootstrap.sh: canonical_path normalises a path that does not exist yet"
+
+# The install record stores an absolute destination per link, and --uninstall matches on
+# that string. So two runs that spell CLAUDE_CONFIG_DIR differently must canonicalise to
+# the SAME string or the record is useless. The function is extracted from the production
+# script and executed, not reimplemented here: a copy would stop testing the real one.
+cp_fn="$TMPROOT/canonical_path.sh"
+sed -n '/^canonical_path() {/,/^}/p' "$ROOT/local/bootstrap.sh" > "$cp_fn"
+if ! grep -q '^canonical_path() {' "$cp_fn"; then
+  no "could not extract canonical_path() from local/bootstrap.sh"
+else
+  ok "canonical_path() extracted from the production script"
+
+  # Every row below is a spelling the previous implementation got WRONG, measured against
+  # b5181f7: it returned '//', '//ztk', '//ztk/./x' and '/tmp/a/../b' respectively. A
+  # doubled leading slash and a literal '.' or '..' component are different STRINGS from
+  # the one a later run produces once the directory exists, which is the whole failure.
+  cp_bad=0
+  while IFS='|' read -r inp want; do
+    [ -n "$inp" ] || continue
+    got="$(bash -c ". '$cp_fn'; canonical_path '$inp'" 2>/dev/null)"
+    [ "$got" = "$want" ] || { cp_bad=$((cp_bad + 1)); printf '        %s -> %s, wanted %s\n' "$inp" "$got" "$want"; }
+  done <<'ROWS'
+//|/
+///|/
+/ztk|/ztk
+/ztk/./x|/ztk/x
+/tmp/a/../b|/tmp/b
+/tmp//x//y|/tmp/x/y
+/tmp/|/tmp
+ROWS
+  [ "$cp_bad" -eq 0 ] \
+      && ok "7 spellings of a not-yet-existing path each canonicalise to one form" \
+      || no "$cp_bad of 7 spellings canonicalised wrongly"
+
+  # bootstrap.sh runs under `set -euo pipefail`, while the one call site sits on the
+  # left of an `||`, where errexit is suppressed. So nothing else in this suite would
+  # notice if the function started returning non-zero on an ordinary path -- the next
+  # caller added would be the one to find out. This pins it.
+  #
+  # Honest about what it is: this is NOT a regression test for a defect that was here.
+  # The `[ ... ] && resolved=""` it replaced was checked against this same assertion and
+  # PASSED, because bash does not abort on a failing `&&` list mid-body. It would abort
+  # if that list were the function's last command.
+  cp_rc=0
+  cp_out="$(bash -euo pipefail -c ". '$cp_fn'; canonical_path /tmp/a/../b; :" 2>&1)" || cp_rc=$?
+  [ "$cp_rc" -eq 0 ] && [ "$cp_out" = "/tmp/b" ] \
+      && ok "canonical_path succeeds when called under set -e outside a condition" \
+      || no "canonical_path aborted under set -e (rc=$cp_rc, out='$cp_out')"
+
+  # An ancestor it cannot enter. The previous version let the failed `cd` substitute an
+  # EMPTY prefix and returned 0, so the suffix alone became the answer: measured at
+  # b5181f7, CLAUDE_CONFIG_DIR under an unreadable directory resolved to a path rooted at
+  # / that had nothing to do with the one asked for, and the script would have installed
+  # there. Needs an unprivileged user, because root enters anything.
+  if [ "$(id -u)" -eq 0 ] && command -v setpriv >/dev/null 2>&1 \
+     && getent passwd nobody >/dev/null 2>&1; then
+    locked="$TMPROOT/locked"; mkdir -p "$locked/inner"; chmod 755 "$TMPROOT"; chmod 000 "$locked"
+    cp_out="$(setpriv --reuid=65534 --regid=65534 --clear-groups \
+                bash -c ". '$cp_fn'; canonical_path '$locked/inner/x'" 2>/dev/null)"; cp_rc=$?
+    chmod 755 "$locked"
+    [ "$cp_rc" -ne 0 ] && [ -z "$cp_out" ] \
+        && ok "an ancestor it cannot enter is a failure, not a path rooted at /" \
+        || no "an unenterable ancestor returned rc=$cp_rc and '$cp_out' instead of failing"
+  else
+    skip "no unprivileged user available — cannot make an ancestor unenterable"
+  fi
+fi
+
+# ---------------------------------------------------------------------------------------
+group "bootstrap.sh: --with-packs refuses a PACK_*_DIR that is not a pack"
+
+# The installer's acceptance rule and the uninstaller's recognition rule have to be the
+# SAME rule. Linking out of a directory carrying no PACK.json + PROVENANCE.json creates
+# links --uninstall cannot attribute afterwards -- links that would then be counted as a
+# failed undo forever. Refuse at install time instead.
+if [ ! -x "$ROOT/local/bootstrap.sh" ]; then
+  skip "local/bootstrap.sh not executable"
+elif ! command -v jq >/dev/null 2>&1; then
+  skip "jq absent — --with-packs cannot read the pack specs"
+else
+  notpack="$TMPROOT/not-a-pack"; cfgnp="$TMPROOT/cfg-notpack"
+  npfirst="$(jq -r '.skills | keys[0]' "$ROOT/packs/cloudflare.json" 2>/dev/null)"
+  if [ -z "$npfirst" ]; then
+    skip "could not read a skill name from packs/cloudflare.json"
+  else
+    mkdir -p "$notpack/skills/$npfirst"
+    printf -- '---\nname: %s\ndescription: fixture\n---\n' "$npfirst" \
+      > "$notpack/skills/$npfirst/SKILL.md"
+    # Real content of somebody's own, so a wrong answer here is a real loss.
+    printf 'my own notes\n' > "$notpack/README.md"
+
+    rc=0
+    out="$(CLAUDE_CONFIG_DIR="$cfgnp" PACK_CLOUDFLARE_DIR="$notpack" \
+           "$ROOT/local/bootstrap.sh" --with-packs 2>&1)" || rc=$?
+    [ "$rc" -ne 0 ] && ok "--with-packs exits non-zero on a PACK_*_DIR that is not a pack" \
+                    || no "--with-packs accepted a directory with no pack metadata (rc=$rc)"
+    printf '%s' "$out" | grep -q 'is not a pack this tooling built' \
+        && ok "and it says which variable and why" \
+        || no "the refusal did not name the variable: $out"
+    [ -e "$cfgnp/skills/$npfirst" ] || [ -L "$cfgnp/skills/$npfirst" ] \
+        && no "it linked out of a directory --uninstall could not recognise" \
+        || ok "nothing was linked out of it"
+    [ -f "$notpack/README.md" ] \
+        && ok "the refused directory is untouched" \
+        || no "the refused directory lost content"
+  fi
+fi
+
+# ---------------------------------------------------------------------------------------
+group "bootstrap.sh: a broken link is judged by name as well as by shape"
+
+# A BROKEN link cannot be judged at the far end -- the target is gone. Shape alone was not
+# enough: `ln -s <target>` with no second argument creates NAME -> .../NAME, so ANY dead
+# symlink of the user's own passed that test and made a clean uninstall report a failed
+# undo. It must also be a name this toolkit installs.
+if [ ! -x "$ROOT/local/bootstrap.sh" ]; then
+  skip "local/bootstrap.sh not executable"
+else
+  # Theirs: correct shape, a name this toolkit never installs.
+  cfgbn="$TMPROOT/cfg-brokenname"; mkdir -p "$cfgbn/skills"
+  ln -s "$TMPROOT/gone-away/my-notes" "$cfgbn/skills/my-notes"
+  CLAUDE_CONFIG_DIR="$cfgbn" "$ROOT/local/bootstrap.sh" >/dev/null 2>&1
+  rc=0
+  out="$(CLAUDE_CONFIG_DIR="$cfgbn" "$ROOT/local/bootstrap.sh" --uninstall 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'Nothing else was touched' \
+      && ok "a dead link at a name this toolkit never installs is not its failed undo" \
+      || no "a foreign dead link at our shape was counted against the undo (rc=$rc): $out"
+  [ -L "$cfgbn/skills/my-notes" ] \
+      && ok "and it is left alone" || no "--uninstall removed a foreign dead link"
+
+  # Ours: same shape, a name this toolkit DOES install. This one must still be counted,
+  # or the name gate would have turned the F5 fix into a way of hiding real leftovers.
+  cfgbo="$TMPROOT/cfg-brokenours"; mkdir -p "$cfgbo/skills"
+  ln -s "$TMPROOT/gone-away/adversarial-review" "$cfgbo/skills/adversarial-review"
+  rc=0
+  out="$(CLAUDE_CONFIG_DIR="$cfgbo" "$ROOT/local/bootstrap.sh" --uninstall 2>&1)" || rc=$?
+  printf '%s' "$out" | grep -q 'Nothing else was touched' \
+      && no "a dead link at one of our own names was passed off as a clean undo" \
+      || ok "a dead link at one of our own names still withholds the clean-undo claim"
+  [ "$rc" -ne 0 ] \
+      && ok "and the run exits non-zero" \
+      || no "the run reported success over a leftover it created"
 fi
 
 # ---------------------------------------------------------------------------------------
@@ -951,6 +1107,9 @@ PY
   # never read it.
   fake="$TMPROOT/fake-pack/skills/wrangler"; mkdir -p "$fake"
   printf -- '---\nname: wrangler\ndescription: fixture\n---\n' > "$fake/SKILL.md"
+  printf '{"pack":"cloudflare"}\n' > "$TMPROOT/fake-pack/PACK.json"
+  printf '{"vendoredBy":"tools/vendor-sync.py","pack":"cloudflare"}\n' \
+    > "$TMPROOT/fake-pack/PROVENANCE.json"
 
   out="$(CLAUDE_CONFIG_DIR="$TMPROOT/cfg-packs" "$ROOT/local/bootstrap.sh" --dry-run 2>&1)"
   printf '%s' "$out" | grep -q 'wrangler' \
