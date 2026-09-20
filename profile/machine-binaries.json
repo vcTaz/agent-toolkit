@@ -1,0 +1,46 @@
+{
+  "$comment": "Binaries and repositories that exist on one machine. NOTHING in this toolkit depends on any of them, which is why they are here and not in manifest/binaries.json: that file records what the toolkit needs, this one records what one person has. local/doctor.sh --profile checks these; a default run never mentions them.",
+  "schemaVersion": 1,
+  "movedFrom": "manifest/binaries.json on 2026-09-20, keys machineLocal and relatedRepos",
+  "machineLocal": {
+    "rtk": {
+      "purpose": "Token-reducing CLI proxy; invoked by a PreToolUse Bash hook on every command.",
+      "repo": "https://github.com/rtk-ai/rtk",
+      "installedVersion": "0.42.1",
+      "sha256": "10445d460a1bea8314163bece8b69a336f715823bc225acd28ef6654aa052a31",
+      "artifact": "rtk-x86_64-unknown-linux-musl.tar.gz",
+      "install": "curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh",
+      "minimumForHook": "0.23.0",
+      "WARNING": "Do NOT run 'cargo install rtk'. The crates.io crate named 'rtk' is a DIFFERENT project (reachingforthejack/rtk, 'Rust Type Kit'). Installing it replaces the working binary with one that has no 'rewrite' subcommand and silently disables the PreToolUse hook on every Bash call."
+    },
+    "srt": {
+      "purpose": "Anthropic Sandbox Runtime. The OS-enforced boundary claude-safe runs Claude Code inside.",
+      "package": "@anthropic-ai/sandbox-runtime",
+      "installedVersion": "0.0.76",
+      "install": "npm install -g @anthropic-ai/sandbox-runtime",
+      "scope": "machine-local",
+      "reason": "Cloud sessions use Anthropic's own per-session VM isolation. This is a separate, non-equivalent boundary and must not be assumed to carry over."
+    },
+    "bwrap": {
+      "purpose": "bubblewrap; the kernel-namespace primitive srt builds on.",
+      "install": "apt-get install -y bubblewrap",
+      "scope": "machine-local"
+    },
+    "socat": {
+      "purpose": "Required by claude-safe's policy plumbing.",
+      "install": "apt-get install -y socat",
+      "scope": "machine-local"
+    }
+  },
+  "relatedRepos": {
+    "claude-safe": {
+      "localPath": "${HOME}/claude-safe",
+      "remote": null,
+      "RISK": "Has no git remote as of 2026-09-19. The hardened launcher, its threat model and its six test suites exist on exactly one disk.",
+      "installs": [
+        "${HOME}/.local/bin/claude-safe",
+        "${HOME}/.local/bin/claude-safe-verify"
+      ]
+    }
+  }
+}

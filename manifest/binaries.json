@@ -1,5 +1,5 @@
 {
-  "$comment": "External executables this setup depends on. CORRECTED 2026-09-20 against a live cloud session: `cloudPreinstalled` now records what `command -v` returned in that session, not what the documentation lists. Earlier revisions of this file were wrong twice in opposite directions - once claiming ripgrep and uv were absent when they are present, once claiming gh is present when it is not.",
+  "$comment": "External executables this setup depends on. CORRECTED 2026-09-20 against a live cloud session: `cloudPreinstalled` now records what `command -v` returned in that session, not what the documentation lists. Earlier revisions of this file were wrong twice in opposite directions - once claiming ripgrep and uv were absent when they are present, once claiming gh is present when it is not. Machine-specific binaries and related repositories moved to profile/machine-binaries.json on 2026-09-20; what remains is what the toolkit itself needs.",
   "schemaVersion": 2,
   "$tiers": "core = the toolkit cannot work without it. feature = an optional flag or a nicety degrades without it. reference = recorded because it exists on the maintainer's machine or in a cloud image; NOTHING here depends on it, so its absence is never a failure. local/doctor.sh FAILs only on core.",
   "verifiedAgainst": {
@@ -27,7 +27,7 @@
     "node": {
       "scope": "both",
       "tier": "reference",
-      "neededFor": "NOTHING IN THIS TOOLKIT. Recorded because the machine-local hooks in local/settings.fragment.json invoke it. Cloud ships 20, 21 and 22; 22 on PATH. Local observed 24.21.0.",
+      "neededFor": "NOTHING IN THIS TOOLKIT. Recorded because the machine-local hooks in profile/settings.fragment.json invoke it. Cloud ships 20, 21 and 22; 22 on PATH. Local observed 24.21.0.",
       "cloudPreinstalled": true
     },
     "python3": {
@@ -54,47 +54,6 @@
       "tier": "reference",
       "neededFor": "NOTHING IN THIS TOOLKIT. Recorded as cloud-preinstalled reference data only.",
       "cloudPreinstalled": true
-    }
-  },
-  "machineLocal": {
-    "rtk": {
-      "purpose": "Token-reducing CLI proxy; invoked by a PreToolUse Bash hook on every command.",
-      "repo": "https://github.com/rtk-ai/rtk",
-      "installedVersion": "0.42.1",
-      "sha256": "10445d460a1bea8314163bece8b69a336f715823bc225acd28ef6654aa052a31",
-      "artifact": "rtk-x86_64-unknown-linux-musl.tar.gz",
-      "install": "curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh",
-      "minimumForHook": "0.23.0",
-      "WARNING": "Do NOT run 'cargo install rtk'. The crates.io crate named 'rtk' is a DIFFERENT project (reachingforthejack/rtk, 'Rust Type Kit'). Installing it replaces the working binary with one that has no 'rewrite' subcommand and silently disables the PreToolUse hook on every Bash call."
-    },
-    "srt": {
-      "purpose": "Anthropic Sandbox Runtime. The OS-enforced boundary claude-safe runs Claude Code inside.",
-      "package": "@anthropic-ai/sandbox-runtime",
-      "installedVersion": "0.0.76",
-      "install": "npm install -g @anthropic-ai/sandbox-runtime",
-      "scope": "machine-local",
-      "reason": "Cloud sessions use Anthropic's own per-session VM isolation. This is a separate, non-equivalent boundary and must not be assumed to carry over."
-    },
-    "bwrap": {
-      "purpose": "bubblewrap; the kernel-namespace primitive srt builds on.",
-      "install": "apt-get install -y bubblewrap",
-      "scope": "machine-local"
-    },
-    "socat": {
-      "purpose": "Required by claude-safe's policy plumbing.",
-      "install": "apt-get install -y socat",
-      "scope": "machine-local"
-    }
-  },
-  "relatedRepos": {
-    "claude-safe": {
-      "localPath": "${HOME}/claude-safe",
-      "remote": null,
-      "RISK": "Has no git remote as of 2026-09-19. The hardened launcher, its threat model and its six test suites exist on exactly one disk.",
-      "installs": [
-        "${HOME}/.local/bin/claude-safe",
-        "${HOME}/.local/bin/claude-safe-verify"
-      ]
     }
   }
 }

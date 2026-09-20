@@ -41,6 +41,7 @@ docs/lineage.md              where these ideas came from
 .claude/settings.json  HOST  repo-scoped settings; the only channel that reaches cloud
 packs/            HOST       specifications for optional skill packs — pins, never content
 manifest/         HOST       what is composed from elsewhere — data, never content
+profile/          HOST       one machine's own composition — never required
 local/            HOST       install this toolkit into a local Claude Code config
 cloud/            HOST       install it into a cloud Claude Code environment
 tools/check.py               structural checks and adapter sync
@@ -185,6 +186,7 @@ drift, symlink targets and link resolution. It fails closed on anything it canno
 | use this with anything else | `docs/platforms/generic-harness.md` |
 | add an agent | `agents/README.md` |
 | install it on a machine | `local/README.md` |
+| see what is machine-specific | `profile/README.md` |
 | use it with cloud Claude Code | `cloud/README.md` |
 | understand the host layer | `docs/host-integration.md` |
 | change something safely | `docs/authority.md` |

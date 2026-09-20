@@ -16,7 +16,7 @@ On a fresh machine, do all of it at once:
 |---|---|
 | *(none)* | 8 agents + 6 toolkit skills |
 | `--with-vendored` | the 27 third-party skills committed under `vendor/` |
-| `--with-plugins` | marketplaces and plugins from `manifest/plugins.json` |
+| `--with-plugins` | marketplaces and plugins from `profile/plugins.json` |
 
 **`--with-vendored` is opt-in on purpose.** On a machine where those skills were installed
 by their own CLI, they already exist, and linking would replace working installs — backed
@@ -36,7 +36,7 @@ fresh machine it is simply what you want.
   variable Claude Code honours. Nothing assumes a username or a home directory.
 - **Dry-runnable.** `--dry-run` prints every action and performs none.
 
-## `settings.fragment.json`
+## `profile/settings.fragment.json`
 
 A portable template of this machine's Claude Code settings: preferences, the 17
 `permissions.deny` rules, and 33 hook entries with every absolute `/home/<user>` path

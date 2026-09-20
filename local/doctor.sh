@@ -1,11 +1,28 @@
 #!/usr/bin/env bash
 # doctor.sh — verify this toolkit's local installation. Read-only: changes nothing.
 #
+#   ./local/doctor.sh              the toolkit only
+#   ./local/doctor.sh --profile    also check the machine-specific material in profile/
+#
 # Exit 0 when everything the manifest claims is actually true, 1 otherwise.
 # Every check reports PASS, WARN or FAIL with the reason, and nothing is inferred:
 # a check that cannot run reports SKIP rather than passing quietly.
+#
+# The profile checks are OFF by default and a default run never mentions them. A machine
+# with no rtk, no srt and no plugins is a correct machine as far as this toolkit is
+# concerned -- warning about them unprompted is the same defect the binary tiers fixed,
+# one level up.
 
 set -uo pipefail
+
+PROFILE=0
+for arg in "$@"; do
+  case "$arg" in
+    --profile) PROFILE=1 ;;
+    -h|--help) sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) printf 'unrecognised argument: %s\n' "$arg" >&2; exit 2 ;;
+  esac
+done
 
 TOOLKIT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
@@ -69,10 +86,19 @@ else
   done
 fi
 
-head_ "machine-local binaries (informational)"
+if [ "$PROFILE" -eq 0 ]; then
+  printf '\nprofile checks skipped — pass --profile for the machine-specific ones\n'
+  profile_checks() { :; }
+else
+  profile_checks() { profile_body; }
+fi
+
+profile_body() {
+
+head_ "machine-local binaries (profile, informational)"
 for bin in rtk srt bwrap socat; do
   if command -v "$bin" >/dev/null 2>&1; then pass "$bin -> $(command -v "$bin")"
-  else warn "$bin not on PATH — see manifest/binaries.json"; fi
+  else warn "$bin not on PATH — see profile/machine-binaries.json"; fi
 done
 
 head_ "rtk version guard"
@@ -97,7 +123,7 @@ rtk_hook="${CLAUDE_DIR}/hooks/rtk-rewrite.sh"
 if [ -f "$rtk_hook" ]; then
   # Comment lines are excluded: the fix itself documents the trap by naming it.
   if grep -vE '^[[:space:]]*#' "$rtk_hook" | grep -qE '\bcargo[[:space:]]+install[[:space:]]+rtk\b'; then
-    warn "rtk-rewrite.sh advises 'cargo install rtk' on the version-too-old path. That crate is a DIFFERENT project (Rust Type Kit); following it replaces rtk with a binary that has no 'rewrite' subcommand and silently disables this hook. Latent only: it fires below 0.23.0. The file is integrity-protected by rtk (.rtk-hook.sha256), so editing it makes rtk refuse to run until the baseline is updated too -- see docs/known-discrepancies.md before changing anything"
+    warn "rtk-rewrite.sh advises 'cargo install rtk' on the version-too-old path. That crate is a DIFFERENT project (Rust Type Kit); following it replaces rtk with a binary that has no 'rewrite' subcommand and silently disables this hook. Latent only: it fires below 0.23.0. The file is integrity-protected by rtk (.rtk-hook.sha256), so editing it makes rtk refuse to run until the baseline is updated too -- see profile/known-discrepancies.md before changing anything"
   elif grep -q 'rtk-ai/rtk' "$rtk_hook"; then
     pass "rtk-rewrite.sh points at the correct upstream installer"
   else
@@ -117,8 +143,12 @@ if command -v jq >/dev/null 2>&1 && [ -f "$CLAUDE_DIR/plugins/installed_plugins.
   done < <(jq -r '.plugins | to_entries[]
                   | .key as $k | ($k | split("@")[1]) as $mk
                   | select(.value.installedLocally != null) | $k' \
-             "$TOOLKIT_ROOT/manifest/plugins.json")
+             "$TOOLKIT_ROOT/profile/plugins.json")
 else skip "cannot read installed_plugins.json"; fi
+
+}
+
+profile_checks
 
 head_ "secret hygiene (this repository)"
 if git -C "$TOOLKIT_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
