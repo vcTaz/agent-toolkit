@@ -124,7 +124,7 @@ for arg in "$@"; do
   esac
 done
 
-linked=0; skipped=0; backed_up=0; removed=0; problems=0; kept=0; stranded=0; broken=0
+linked=0; skipped=0; backed_up=0; removed=0; problems=0; kept=0; stranded=0; broken=0; unclaimed=0
 
 say()  { printf '%s\n' "$*"; }
 act()  { if [ "$DRY_RUN" -eq 1 ]; then printf '  would %s\n' "$*"; else printf '  %s\n' "$*"; fi; }
@@ -256,10 +256,37 @@ link_owner_of_dir() {
 # every pack specification. Read from the specs with sed, not jq, because --uninstall must
 # work without it. Used only to decide whether a BROKEN link -- whose target is gone, so
 # nothing can be read at the far end -- might be one of ours.
+# The skill names a pack specification declares. jq first, python3 second, and a line-
+# oriented sed only if neither is here -- because that sed reads the file's FORMATTING, not
+# its JSON. Measured at a91ec08: rewriting packs/cloudflare.json with `json.dumps` produces
+# valid JSON that `tools/check.py` accepts and from which the sed reads ZERO names. Every
+# pack link was then outside the name gate, so the remover skipped all 13 and the run still
+# printed "removed 14 link(s), left 0 alone. Nothing else was touched." with exit 0. A
+# parser that silently reads nothing is worse than no parser.
+pack_skill_names() {
+  local spec="$1"
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '.skills | keys[]' "$spec" 2>/dev/null && return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import json,sys
+print("\n".join(json.load(open(sys.argv[1])).get("skills", {})))' "$spec" 2>/dev/null && return 0
+  fi
+  # Last resort. Anchored on the key, and it must not capture the `"skills": {` line
+  # itself -- that put a name `skills` in the list, and a directory of the user's called
+  # `skills` inside their own pack checkout was deleted for it.
+  sed -n '/"skills"[[:space:]]*:[[:space:]]*{/,/^[[:space:]]*}/p' "$spec" \
+    | sed -n 's/^[[:space:]]*"\([^"]*\)"[[:space:]]*:.*/\1/p' \
+    | grep -vxF skills
+}
+
+# The name gate is an extra restriction on DELETING. When it cannot be computed it must
+# fall back to the previous, broader rule -- never silently narrow to nothing.
 INSTALLED_NAMES=""
+NAME_GATE=unknown          # usable | unusable
 installs_name() {
-  local spec
-  if [ -z "$INSTALLED_NAMES" ]; then
+  local spec want packs=0 got=0
+  if [ "$NAME_GATE" = unknown ]; then
     INSTALLED_NAMES="$( { for f in "$TOOLKIT_ROOT"/skills/*/; do
                             [ -e "$f" ] && basename -- "${f%/}"
                           done
@@ -268,10 +295,27 @@ installs_name() {
                           done
                           for spec in "$TOOLKIT_ROOT"/packs/*.json; do
                             [ -e "$spec" ] || continue
-                            sed -n '/"skills"[[:space:]]*:[[:space:]]*{/,/^[[:space:]]*}/p' "$spec" \
-                              | sed -n 's/^[[:space:]]*"\([^"]*\)"[[:space:]]*:.*/\1/p'
+                            pack_skill_names "$spec"
                           done; } 2>/dev/null | sort -u)"
+    NAME_GATE=usable
+    # Cross-check: every spec that names skills must have contributed at least one. Both
+    # sides are counted with grep, so a parser that returns nothing cannot look like a
+    # spec that declares nothing.
+    for spec in "$TOOLKIT_ROOT"/packs/*.json; do
+      [ -e "$spec" ] || continue
+      grep -q '"skills"' "$spec" || continue
+      packs=$((packs + 1))
+      want="$(pack_skill_names "$spec" | grep -c . || true)"
+      [ "${want:-0}" -gt 0 ] && got=$((got + 1))
+    done
+    if [ "$packs" -gt 0 ] && [ "$got" -lt "$packs" ]; then
+      NAME_GATE=unusable
+      warn "could not read the skill names from $((packs - got)) of $packs pack spec(s)."
+      warn "  Falling back to the broader rule: a link is removed on its shape and on what"
+      warn "  it points into, without checking the name against the specifications."
+    fi
   fi
+  [ "$NAME_GATE" = usable ] || return 0          # unusable: gate open, nothing suppressed
   printf '%s\n' "$INSTALLED_NAMES" | grep -qxF -- "$1"
 }
 
@@ -380,10 +424,19 @@ do_packs() {
       # An explicit if, not `[ -d ] && link_one`: under `set -e` a trailing false test is
       # the loop's exit status, and a pack missing its last skill would abort the whole
       # run silently, after linking everything before it.
-      if [ -d "$dir/skills/$skill" ]; then
-        link_one "$dir/skills/$skill" "$CLAUDE_DIR/skills/$skill" "$skill"
-      else
+      if [ ! -d "$dir/skills/$skill" ]; then
         say "  $name/$skill: not in $var — skipped"
+      elif [ "$(owner_of_link_target "$dir/skills/$skill")" != "pack" ]; then
+        # EVERY target, not just the probe above. The probe answers for one skill, and
+        # generalising that answer to the other twelve was the hole: a pack whose
+        # skills/<name> is itself a symlink into a deeper directory of the same pack
+        # resolves further from the pack root than the probe does, so it was linked here
+        # and unattributable at uninstall -- "removed 26 link(s), left 0 alone. Nothing
+        # else was touched.", exit 0, over a link this script had just created.
+        warn "$name/$skill: resolves too far from the pack's own PACK.json for"
+        warn "  --uninstall to attribute it afterwards. Not linked."
+      else
+        link_one "$dir/skills/$skill" "$CLAUDE_DIR/skills/$skill" "$skill"
       fi
     done < <(jq -r '.skills | keys[]' "$spec")
   done
@@ -488,11 +541,27 @@ do_uninstall() {
       # us: a link at their chosen name into their own pack is not one we failed to
       # remove, it is one we correctly left alone.
       same_name "$leftover" || continue
-      # Same three-way gate as the remover, or this counts against us a link we correctly
-      # declined to remove.
-      installs_name "${leftover##*/}" || continue
+      # DELIBERATELY BROADER THAN THE REMOVER. The remover also consults installs_name;
+      # this does not, and must not. Applying the same gate to both makes every gate
+      # failure SILENT: measured at a91ec08, a pack spec reformatted by `json.dumps` --
+      # valid JSON, accepted by tools/check.py -- made the name list come back empty, the
+      # remover skip all 13 pack links and this counter skip them too, so the run printed
+      # "removed 14 link(s), left 0 alone. Nothing else was touched." and exited 0. The
+      # counter is the thing that is supposed to notice that. It has to see a superset of
+      # what the remover acts on, or it cannot.
+      #
+      # The cost is a link of the user's own, at one of our names, inside a pack checkout:
+      # correctly not removed, and reported here as something to look at. That is the
+      # trade this takes deliberately -- a named link to check beats a false clean undo.
       if [ "$DRY_RUN" -eq 0 ] && [ -n "$(link_owner "$leftover")" ]; then
-        stranded=$((stranded + 1)); continue
+        if installs_name "${leftover##*/}"; then
+          stranded=$((stranded + 1))
+          say "  ${leftover##*/}: still here, and points into a pack or a checkout of this toolkit"
+        else
+          unclaimed=$((unclaimed + 1))
+          say "  ${leftover##*/}: points into a pack or a checkout of this toolkit, but is not a name this toolkit installs — left alone"
+        fi
+        continue
       fi
       # A BROKEN link: its target is gone, so there is nothing left to read and nothing
       # to attribute it by. Deleting it would be guessing about somebody else's path;
@@ -505,7 +574,11 @@ do_uninstall() {
       # user's own passed that test and made this script report a failed undo over an
       # uninstall that had in fact removed every link it owned. It must ALSO be a name
       # this toolkit installs.
-      if [ ! -e "$leftover" ]; then
+      # A BROKEN link is the one case where the name gate must still apply, because there
+      # is nothing to read at the far end -- F5's finding. `ln -s <target>` with no second
+      # argument creates NAME -> .../NAME, so shape alone let any dead symlink of the
+      # user's own report a failed undo over a run that removed everything it owned.
+      if [ ! -e "$leftover" ] && installs_name "${leftover##*/}"; then
         broken=$((broken + 1))
         say "  ${leftover##*/}: points at $(readlink -- "$leftover"), which no longer exists — cannot tell whose it is, left alone"
       fi
@@ -590,7 +663,7 @@ fi
 
 say ""
 if [ "$UNINSTALL" -eq 1 ]; then
-  if [ "$stranded" -gt 0 ] || [ "$broken" -gt 0 ]; then
+  if [ "$stranded" -gt 0 ] || [ "$broken" -gt 0 ] || [ "$unclaimed" -gt 0 ]; then
     say "removed $removed link(s), left $kept alone."
     # Explicit ifs, not a `[ ] && warn && warn` chain: a false test as the last command of
     # a block is the block's exit status, and under `set -e` that has already cost this
@@ -602,6 +675,11 @@ if [ "$UNINSTALL" -eq 1 ]; then
     if [ "$broken" -gt 0 ]; then
       warn "$broken broken link(s) remain. Their targets are gone, so this script cannot tell"
       warn "whether it created them. Check them and remove by hand the ones that are its."
+    fi
+    if [ "$unclaimed" -gt 0 ]; then
+      warn "$unclaimed link(s) point into a pack or a checkout of this toolkit at a name this"
+      warn "toolkit does not install. They were left alone because they are probably yours."
+      warn "If one is ours -- an older pin declared it and this one does not -- remove it by hand."
     fi
     warn "This run did NOT undo cleanly."
   else

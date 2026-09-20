@@ -49,13 +49,22 @@ before anything moves.
   removed and that everything else is left alone. Both halves were wrong: a pack link
   points outside the toolkit by definition, and an upgrade-path uninstall measured that day
   left **26 of 26 pack links** in place while reporting that nothing else was touched.
-- **The undo is computed, not asserted.** After removing, the script re-reads the config
-  directory for links it can still attribute to itself and for broken links it cannot judge
+- **The undo is computed, not asserted, and the check is wider than the removal.** After
+  removing, the script re-reads the config directory for links it can still attribute to
+  itself and for broken links it cannot judge
   — the target is gone, so there is nothing to read. It names them, withholds
   `Nothing else was touched`, and exits non-zero. `--dry-run` previews the broken-link
   half of that scan, so it cannot promise a clean undo the real run will not deliver;
   the attributable-leftover half needs the removals to have happened and is a backstop
   for the real run only.
+
+  The closing check deliberately looks at **more** than the remover acts on: it does not
+  apply the name gate. Applying the same gate to both made every gate failure silent —
+  a pack specification reformatted by a JSON writer, still valid and still accepted by
+  `tools/check.py`, once made the name list come back empty, so the remover skipped all
+  thirteen pack links and the check skipped them too. The cost is that a link of your own
+  at one of these names, inside a pack checkout, is named in the summary as something to
+  look at. That is the trade: a link to check beats a false clean undo.
 - **No hard-coded paths.** The toolkit root comes from the script's own location; the
   config directory from `CLAUDE_CONFIG_DIR`, falling back to `~/.claude` — the same
   variable Claude Code honours. Nothing assumes a username or a home directory.

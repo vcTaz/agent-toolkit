@@ -59,6 +59,12 @@ def file_mode(path: Path) -> str:
     return '0755' if path.stat().st_mode & 0o111 else '0644'
 
 
+def file_digest(path: Path) -> dict:
+    """The same {sha256, mode} unit as digest_tree, for one file outside skills/."""
+    return {'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+            'mode': file_mode(path)}
+
+
 def digest_tree(root: Path) -> dict:
     """sha256 AND mode per file, relative paths, sorted. The unit of provenance.
 
@@ -328,6 +334,15 @@ def write_pack_metadata(staging: Path, spec: dict, archive: tarfile.TarFile) -> 
         if extracted is not None:
             (staging / out_name).write_bytes(extracted.read())
 
+    # PACK.json and README.md are written first so PROVENANCE.json can hash them. It
+    # cannot hash itself, which is why it is last and why it is the one file a pack
+    # cannot self-verify -- a tampered PROVENANCE.json is caught by PACK.json's `ref`
+    # disagreeing, not by a hash.
+    (staging / 'PACK.json').write_text(json.dumps(spec, indent=2) + '\n')
+    (staging / 'README.md').write_text(PACK_README.format(
+        pack=spec['pack'], repo=up['repo'], url=up['url'], license=up['license'],
+        count=len(spec['skills']), short=up['ref'][:8]))
+
     skills_root = staging / 'skills'
     (staging / 'PROVENANCE.json').write_text(json.dumps({
         # 1 recorded a bare sha256 per file. 2 records {sha256, mode}, so that a pack
@@ -343,13 +358,15 @@ def write_pack_metadata(staging: Path, spec: dict, archive: tarfile.TarFile) -> 
                 f'change the pin in packs/{spec["pack"]}.json and rebuild.',
         'skills': {s: digest_tree(skills_root / s) for s in spec['skills']
                    if (skills_root / s).is_dir()},
+        # Everything in the pack that is NOT under skills/. The licence is fetched from
+        # upstream, not trusted from a metadata field, so it is content: it was checked
+        # only for existence, and replacing its text with "All rights reserved" verified
+        # clean. PROVENANCE.json itself cannot appear here.
+        'files': {name: file_digest(staging / name)
+                  for name in ('LICENSE', 'NOTICE', 'PACK.json', 'README.md')
+                  if (staging / name).is_file()},
         'upstreamPaths': dict(spec['skills']),
     }, indent=2, sort_keys=True) + '\n')
-
-    (staging / 'PACK.json').write_text(json.dumps(spec, indent=2) + '\n')
-    (staging / 'README.md').write_text(PACK_README.format(
-        pack=spec['pack'], repo=up['repo'], url=up['url'], license=up['license'],
-        count=len(spec['skills']), short=up['ref'][:8]))
 
     # The delivery mechanism. Without these entries the pack attaches and delivers nothing.
     claude_entries = staging / '.claude' / 'skills'
@@ -535,19 +552,71 @@ def verify_pack(into: Path) -> int:
     # pack delivers anything to a Project. So an unrecorded skill passed the integrity gate
     # and would have been delivered to every Project the pack is attached to.
     declared_skills = set(spec['skills'])
+
+    # A built pack contains what build_pack writes and nothing else. Anything else in it
+    # reached the repository some other way and is unrecorded by construction.
+    #
+    # The first version of this check compared only skills/ and .claude/skills against the
+    # spec, which left four routes open, each measured passing at a91ec08: an undeclared
+    # .claude/agents/<name>.md (this repository's own CLAUDE.md says subagents are
+    # discovered from .claude/agents/, so a pack attached to a Project supplies them the
+    # same way), a CLAUDE.md at the pack root, a regular file directly under skills/
+    # (filtered out by the is_dir()/is_symlink() test before the comparison), and an extra
+    # entry beside the .agents/skills container symlink.
+    allowed_root = set(PACK_MANAGED) | {'.git', '.gitignore', '.gitattributes'}
+    for entry in sorted(into.iterdir(), key=lambda e: e.name):
+        if entry.name not in allowed_root:
+            fail(entry, 'not part of a built pack. A pack carries only '
+                        f'{", ".join(PACK_MANAGED)}. Remove it, or if it belongs '
+                        'upstream, declare it and rebuild.')
+
     skills_dir = into / 'skills'
     if skills_dir.is_dir():
-        present = {d.name for d in skills_dir.iterdir() if d.is_dir() or d.is_symlink()}
-        for extra in sorted(present - declared_skills):
-            fail(skills_dir / extra, 'present in the pack but not in PACK.json. A pack '
-                                     'carries what its specification names and nothing '
-                                     'else. Remove it, or declare it and rebuild.')
+        for child in sorted(skills_dir.iterdir(), key=lambda e: e.name):
+            if not (child.is_dir() or child.is_symlink()):
+                fail(child, 'a file directly under skills/. Every entry there is a skill '
+                            'directory; a loose file is unrecorded content.')
+            elif child.name not in declared_skills:
+                fail(child, 'present in the pack but not in PACK.json. A pack carries '
+                            'what its specification names and nothing else. Remove it, '
+                            'or declare it and rebuild.')
+
+    claude_dir = into / '.claude'
+    if claude_dir.is_dir():
+        for child in sorted(claude_dir.iterdir(), key=lambda e: e.name):
+            if child.name != 'skills':
+                fail(child, 'a pack ships .claude/skills and nothing else under .claude/. '
+                            'A Project attaching this pack would load this too.')
     if entries is not None:
-        present = {e.name for e in entries.iterdir()}
-        for extra in sorted(present - declared_skills):
+        for extra in sorted({e.name for e in entries.iterdir()} - declared_skills):
             fail(entries / extra, 'a harness entry for a skill this pack does not declare. '
                                   'Entries are how a Project loads a skill, so this one '
                                   'would deliver unrecorded content.')
+
+    agents_dir = into / '.agents'
+    if agents_dir.is_dir() and not agents_dir.is_symlink():
+        for child in sorted(agents_dir.iterdir(), key=lambda e: e.name):
+            if child.name != 'skills':
+                fail(child, 'a pack ships .agents/skills and nothing else under .agents/.')
+
+    # The licence is fetched from upstream rather than trusted from a metadata field, so
+    # it is content and belongs under the same hash as everything else. It was checked
+    # only with is_file(): replacing its text with "All rights reserved" verified clean.
+    # Recorded from schemaVersion 2 onward under `files`; a pack built before this key
+    # existed says so rather than passing quietly.
+    recorded_files = prov.get('files')
+    if recorded_files is None:
+        fail(prov_path, 'records no hash for LICENSE, NOTICE, PACK.json or README.md. '
+                        'This pack predates whole-pack provenance, so those files cannot '
+                        'be verified. Rebuild it with --pack.')
+    else:
+        for rel, expected in sorted(recorded_files.items()):
+            here = into / rel
+            if not here.is_file():
+                fail(here, 'recorded in PROVENANCE.json and missing from the pack')
+            elif file_digest(here) != expected:
+                fail(here, 'differs from the built revision. Rebuild, or move the pin '
+                           'deliberately.')
 
     container = into / '.agents' / 'skills'
     if not container.is_symlink():

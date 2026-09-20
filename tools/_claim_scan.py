@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Find any file claiming .claude/settings.json declares a plugin, or that one arrives in cloud.
+"""Find claims about this repository that the repository itself contradicts.
+
+Two families so far, both of which survived four or five rounds of being fixed one
+named location at a time:
+
+  PLUGIN   .claude/settings.json declares a plugin, or a plugin arrives in cloud.
+  UNDO     `--uninstall` touches only what is inside this repository.
 
 Run from tools/test.sh. Stdlib only, no arguments, prints a report and exits 0 unless the
 settings file itself cannot be read.
@@ -74,11 +80,50 @@ SAFE = re.compile(
 # first version of this pass.
 REPO_SETTINGS_KEY = re.compile(r'InRepoSettings$', re.I)
 
-SKIP_NAMES = {'test.sh', '_claim_scan.py'}
+# Skipped by RELATIVE PATH, never by basename. `--exclude=test.sh` in the shell version of
+# the undo guard was a basename glob, so a second file named test.sh anywhere in the tree
+# was silently unscanned.
+SKIP_PATHS = {'tools/test.sh', 'tools/_claim_scan.py'}
+SKIP_DIRS = {'.git'}
 
-# Files that can carry prose about this. Not only .md and .json: the docstring used to say
-# "any file" while reading two suffixes.
-SUFFIXES = ('*.md', '*.json', '*.sh', '*.py', '*.toml')
+# Every text file, not a suffix list: the claim was found once in a .toml adapter and once
+# in an extensionless file, both of which a suffix list walks past. A file that is not
+# UTF-8 is not prose and is skipped.
+MAX_BYTES = 2_000_000
+
+
+def text_files(root: pathlib.Path):
+    for path in sorted(root.rglob('*')):
+        if not path.is_file() or path.is_symlink():
+            continue
+        rel = path.relative_to(root)
+        if set(rel.parts) & SKIP_DIRS or str(rel) in SKIP_PATHS:
+            continue
+        try:
+            if path.stat().st_size > MAX_BYTES:
+                continue
+            yield path, path.read_text(encoding='utf-8').splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+
+
+# The undo claim. Subject deliberately wide -- "the undo removes only links..." names no
+# command and is the same false sentence -- and no [^.] window, because a full stop inside
+# it was enough to walk past.
+UNDO = re.compile(
+    r'(uninstall|the undo|undoing)'
+    r'[\s\S]{0,160}?'
+    r'\b(only|never)\b'
+    r'[\s\S]{0,160}?'
+    r'\b(inside|within|outside)\b'
+    r'[\s\S]{0,60}?'
+    r'\b(repository|repo|toolkit|checkout)\b',
+    re.I)
+# A correction says it WAS said and was wrong. Kept tight on purpose: the shell version
+# retired a hit on the word "said" appearing anywhere, including in the file path.
+UNDO_CORRECTION = re.compile(
+    r'until \d{4}|was false|were false|no longer (says|said)|used to say|said until'
+    r'|this bullet said|may not|must not|never promise', re.I)
 
 
 def truthy(val) -> bool:
@@ -133,7 +178,8 @@ def main() -> int:
     problems = []
 
     try:
-        keys = sorted(json.loads((root / '.claude/settings.json').read_text()))
+        blob_settings = json.loads((root / '.claude/settings.json').read_text())
+        keys = sorted(blob_settings)
     except Exception as exc:
         # A failed read must not print a green tick. It is a failure of the check itself.
         print(f'UNREADABLE .claude/settings.json: {exc}')
@@ -147,7 +193,8 @@ def main() -> int:
                         'asserted a capability the repository does not have')
 
     for path in sorted(root.rglob('*.json')):
-        if '.git' in path.parts or path.name in SKIP_NAMES:
+        rel = path.relative_to(root)
+        if set(rel.parts) & SKIP_DIRS or str(rel) in SKIP_PATHS:
             continue
         try:
             blob = json.loads(path.read_text())
@@ -178,43 +225,62 @@ def main() -> int:
     # job is to say what that file contains.
     notes = root / '.claude/SETTINGS-NOTES.md'
     if notes.exists():
-        # Fail closed if the rule cannot find its subject. The heading is matched
-        # literally, so renaming it to "## What this file holds" would silently retire
-        # this pass while leaving the false row in place -- a check that quietly stops
-        # checking is worse than no check.
-        if not any(l.strip().lower().startswith('## what is here')
-                   for l in notes.read_text().splitlines()):
+        note_lines = notes.read_text().splitlines()
+        heads = [n for n, l in enumerate(note_lines, 1)
+                 if l.strip().lower().startswith('## what is here')]
+        # Fail closed if the rule cannot find its subject, or finds it empty. The heading
+        # is matched literally, so renaming it would silently retire this pass; and
+        # keeping the heading while moving the table under a new one defeated it just as
+        # quietly. Both are now failures of the check itself.
+        if not heads:
             problems.append(f'{notes}: no "## What is here" heading — the rule that every '
                             'key listed there must be in settings.json cannot locate its '
                             'table. Restore the heading or update this check.')
-        in_table = False
-        for n, line in enumerate(notes.read_text().splitlines(), 1):
-            if line.startswith('#'):
-                in_table = line.strip().lower().startswith('## what is here')
-                continue
-            if not in_table or not line.lstrip().startswith('|'):
-                continue
-            cell = line.strip().strip('|').split('|')[0]
-            for named in re.findall(r'`([^`]+)`', cell):
-                top = named.split('.')[0].strip()
-                if not top or top.startswith('$'):
+        else:
+            in_table, rows = False, 0
+            for n, line in enumerate(note_lines, 1):
+                if line.startswith('#'):
+                    in_table = line.strip().lower().startswith('## what is here')
                     continue
-                if top not in keys:
-                    problems.append(f'{notes}:{n}: "What is here, and why" lists '
-                                    f'`{named}`, which .claude/settings.json does not '
-                                    'declare')
+                if not in_table or not line.lstrip().startswith('|'):
+                    continue
+                cell = line.strip().strip('|').split('|')[0].strip()
+                if not cell or set(cell) <= set('-: '):
+                    continue          # the header rule
+                rows += 1
+                # Backticked OR bare. A row naming the key with no backticks read as
+                # prose and was skipped, although it asserted exactly the same thing.
+                named = re.findall(r'`([^`]+)`', cell) or re.findall(r'[A-Za-z][\w.]*', cell)
+                for key in named:
+                    key = key.strip()
+                    if not key or key.startswith('$') or key.lower() in ('key', 'omitted'):
+                        continue
+                    # Resolve the WHOLE dotted path, not just its first component.
+                    # `permissions.allow` passed because `permissions` is declared, while
+                    # the same file records twenty lines below that `allow` is not there.
+                    node, ok_here = blob_settings, True
+                    for part in key.split('.'):
+                        if isinstance(node, dict) and part in node:
+                            node = node[part]
+                        else:
+                            ok_here = False
+                            break
+                    if not ok_here:
+                        problems.append(f'{notes}:{n}: "What is here, and why" lists '
+                                        f'{key!r}, which .claude/settings.json does not '
+                                        'declare')
+            if rows == 0:
+                problems.append(f'{notes}: the "What is here, and why" section holds no '
+                                'table rows. The rule that every key listed there must be '
+                                'in settings.json has nothing to check, which is how it '
+                                'was defeated once: heading kept, table moved elsewhere.')
 
-    scan = []
-    for pattern in SUFFIXES:
-        scan.extend(root.rglob(pattern))
-    for path in sorted(set(scan)):
-        if '.git' in path.parts or path.name in SKIP_NAMES:
-            continue
-        try:
-            lines = path.read_text().splitlines()
-        except Exception:
-            continue
+    for path, lines in text_files(root):
         for start, text in units(path, lines):
+            if UNDO.search(text) and not UNDO_CORRECTION.search(text):
+                problems.append(f'{path}:{start}: claims --uninstall touches only what is '
+                                'inside this repository. A pack link resolves outside it '
+                                'by definition and is removed.')
             if SAFE.search(text):
                 continue
             if PAIR.search(text) and PLUGIN.search(text):
