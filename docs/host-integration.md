@@ -33,8 +33,14 @@ The host layer is deliberately the least powerful thing that solves those cases.
   repositories, versions, commit SHAs, checksums. It vendors nothing. Four separate
   upstreams are referenced this way rather than copied, because copying an actively
   maintained upstream guarantees drift.
-- **Additive and reversible.** `local/bootstrap.sh` never deletes, backs up anything it
-  would replace, and `--uninstall` removes only links resolving inside this repository.
+- **Additive on install, and reversible with a stated rule.** Installing never deletes:
+  anything `local/bootstrap.sh` would replace is backed up first. `--uninstall` does
+  delete, by design, and only what it can attribute — the paths in its own install
+  record, or, where no record survives, a link that is shaped like one it creates
+  (`NAME -> .../NAME`), at a name it installs, into a pack or a toolkit checkout. This
+  bullet said until 2026-09-20 that it removes "only links resolving inside this
+  repository", which was false in both halves: a pack link resolves outside by
+  definition and is removed. See `local/README.md`.
 
 ## What was verified, and what was not
 
