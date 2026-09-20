@@ -2,9 +2,19 @@
 
 This file is **repository-scoped settings**. Nothing from `~/.claude/settings.json` reaches
 a cloud session — verified 2026-09-19 against Claude Code 2.1.278 — so this file is the only
-settings channel a repository has. How much of it is honoured depends on the project shape:
-all of it in a single-repository session, and only `enabledPlugins` and
-`extraKnownMarketplaces` in a multi-repository project thread.
+settings channel a repository has.
+
+It holds `permissions.deny` and nothing else. How much of it a cloud session honours depends
+on the project shape: in a single-repository session the deny rules are read and enforced,
+measured 2026-09-20; in a multi-repository thread the session starts above the clones and
+reads no repository's `permissions`, `hooks` or `env`, so none of this file applies and the
+rules must be set in **Project settings**.
+
+Until 2026-09-20 this paragraph also said that a multi-repository thread honours a
+repository's `enabledPlugins` and `extraKnownMarketplaces`. That was wrong twice over: those
+keys had been removed from this file the same day, and the row below records that when they
+were still here a cloud session installed nothing from them. Nothing in this file is honoured
+in a multi-repository thread.
 
 Measured 2026-09-20, because the two halves of this file fared very differently in cloud: the
 `permissions.deny` half **is read and enforced** in a single-repo session, and the plugin half

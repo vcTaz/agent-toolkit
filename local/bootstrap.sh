@@ -3,7 +3,9 @@
 #
 # Idempotent: running it twice changes nothing the second time.
 # Additive: it never deletes your content. Anything it would replace is backed up first.
-# Reversible: --uninstall removes only the links this script created.
+# Reversible: --uninstall removes what its own record names, and -- only where there is no
+#             record -- links SHAPED like the ones it creates (NAME -> .../NAME) into a
+#             pack or a toolkit checkout. Never anything else.
 #
 #   ./local/bootstrap.sh              link agents + skills, then report
 #   ./local/bootstrap.sh --dry-run    show every action, change nothing
@@ -32,7 +34,9 @@
 # reported.
 #
 # WITH NO RECORD -- an install made by an older copy of this script, which is every
-# install in existence until this lands -- links are recognised at the far end instead:
+# install in existence until this lands -- a link is recognised by its shape and its far
+# end instead. Shape first: this script only ever creates NAME -> .../NAME, so a link
+# whose two ends disagree is somebody else's whatever it points into. Then the far end:
 # a skill pack identifies itself by PACK.json + PROVENANCE.json at its root, a checkout
 # of this toolkit by AGENTS.md + tools/check.py. That catches a link made by a DIFFERENT
 # checkout, which comparing against this script's own location cannot. A link into
@@ -50,15 +54,26 @@ set -euo pipefail
 TOOLKIT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 # Canonicalise it. Every recorded destination and every path compared later is built from
-# this string, so "$HOME/.claude", "$HOME/.claude/" and a symlink to the same directory
-# must not be three different keys. They were: uninstalling through a trailing slash made
-# the record pass and the fallback disagree about the same path, which deleted a link
-# reported as "left alone" and made --dry-run claim 27 removals over 14 links.
-if [ -d "$CLAUDE_DIR" ]; then
-  CLAUDE_DIR="$(cd -- "$CLAUDE_DIR" && pwd -P)"
-else
-  CLAUDE_DIR="${CLAUDE_DIR%/}"
-fi
+# this string, so "$HOME/.claude", "$HOME/.claude/", "B/base/./cfg" and a symlink to the
+# same directory must not be five different keys. They were: uninstalling through a
+# different spelling made the record pass and the fallback disagree about one path, which
+# deleted a link reported as "left alone" and made --dry-run double its count.
+#
+# It must work when the directory does NOT yet exist, which is the first install -- the
+# run that creates it, and the run that writes every row of the record. A `cd` guarded by
+# `[ -d ]` skipped exactly that case, so a first install on a machine whose $HOME is a
+# symlink recorded one spelling and every later run compared against another.
+canonical_path() {
+  local p="$1" suffix="" base
+  case "$p" in /*) ;; *) p="$PWD/$p" ;; esac
+  while [ ! -d "$p" ] && [ "$p" != "/" ] && [ -n "$p" ]; do
+    base="$(basename -- "$p")"
+    suffix="/$base$suffix"
+    p="$(dirname -- "$p")"
+  done
+  printf '%s%s\n' "$(cd -- "$p" 2>/dev/null && pwd -P)" "$suffix"
+}
+CLAUDE_DIR="$(canonical_path "$CLAUDE_DIR")"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_DIR="${CLAUDE_DIR}/backups/toolkit-bootstrap-${STAMP}"
 
@@ -161,6 +176,16 @@ link_one() {
 # this exact string is still in that file.
 TOOLKIT_MARKER='CANONICAL_TREES'
 
+# Does $1 have the shape of a link this script creates -- NAME -> .../NAME? Compares the
+# link's own name with the last component of its target, reading the target as TEXT, so a
+# broken link is answered too.
+same_name() {
+  local dest="$1" target
+  target="$(readlink -- "$dest" 2>/dev/null || echo)"
+  [ -n "$target" ] || return 1
+  [ "${dest##*/}" = "${target%/}" ] || [ "${dest##*/}" = "$(basename -- "$target")" ]
+}
+
 # What does $1 point into -- a skill PACK, a checkout of this TOOLKIT, or neither?
 # Answered from the far end of the link, by the metadata each kind carries: a pack root
 # holds PACK.json and PROVENANCE.json, a toolkit checkout holds AGENTS.md and
@@ -182,7 +207,7 @@ link_owner() {
     # identifies one -- by PROVENANCE.json naming the tool that wrote it -- and a toolkit
     # checkout by a token that only this checker contains.
     if [ -f "$here/PACK.json" ] && [ -f "$here/PROVENANCE.json" ] \
-       && grep -q '"vendoredBy"[[:space:]]*:[[:space:]]*"tools/vendor-sync\.py' \
+       && grep -q '"vendoredBy"[[:space:]]*:[[:space:]]*"tools/vendor-sync\.py[ "]' \
                   "$here/PROVENANCE.json" 2>/dev/null; then
       printf 'pack\n'; return 0
     fi
@@ -273,7 +298,7 @@ do_packs() {
   return 0
 }
 
-# --- uninstall, entirely from the record ---------------------------------------------
+# --- uninstall: the record first, then shape-and-far-end for what it does not cover ---
 # No pack directory is consulted and no target is guessed. PACK_<NAME>_DIR is documented
 # for --with-packs and is normally unset here, which is exactly why guessing fails.
 DECIDED=""
@@ -313,6 +338,12 @@ do_uninstall() {
   for dest2 in "$CLAUDE_DIR"/skills/* "$CLAUDE_DIR"/agents/*; do
     [ -L "$dest2" ] || continue
     already_decided "$dest2" && continue
+    # Every link this script creates is NAME -> .../NAME: a skill keeps its directory
+    # name, an agent keeps its file name. A link whose two ends disagree is therefore
+    # not one of ours, whatever it points into. Without this, a link the user made
+    # themselves at their own chosen name, into their own pack checkout, was deleted by
+    # a run whose record was complete and never mentioned it.
+    same_name "$dest2" || continue
     owner="$(link_owner "$dest2")"
     [ -n "$owner" ] || continue
     name="$(basename -- "$dest2")"
@@ -346,12 +377,18 @@ do_uninstall() {
   # something that identifies itself as a pack -- and that was neither removed nor
   # deliberately left alone is counted, so the summary cannot assert a clean undo it did
   # not achieve.
-  if [ "$DRY_RUN" -eq 0 ]; then
+  # Not gated on DRY_RUN: it only reads, and a preview that promises a clean undo the real
+  # run will not deliver is worse than no preview.
+  if true; then
     local leftover
     for leftover in "$CLAUDE_DIR"/skills/* "$CLAUDE_DIR"/agents/*; do
       [ -L "$leftover" ] || continue
       already_decided "$leftover" && continue
-      if [ -n "$(link_owner "$leftover")" ]; then
+      # The same shape rule as the remover, or this counts the user's own links against
+      # us: a link at their chosen name into their own pack is not one we failed to
+      # remove, it is one we correctly left alone.
+      same_name "$leftover" || continue
+      if [ "$DRY_RUN" -eq 0 ] && [ -n "$(link_owner "$leftover")" ]; then
         stranded=$((stranded + 1)); continue
       fi
       # A BROKEN link: its target is gone, so there is nothing left to read and nothing
@@ -359,7 +396,10 @@ do_uninstall() {
       # ignoring it lets the summary claim a clean undo over links this script may well
       # have created -- which it did, silently, when a pack checkout was moved away.
       # Count it, name it, and let the summary withhold the claim.
-      if [ ! -e "$leftover" ]; then
+      # Only a link shaped like one of ours: NAME -> .../NAME. A dead symlink of the
+      # user's own, at their own name, made this script report a failed undo over an
+      # uninstall that had in fact removed every link it owned.
+      if [ ! -e "$leftover" ] && same_name "$leftover"; then
         broken=$((broken + 1))
         say "  ${leftover##*/}: points at $(readlink -- "$leftover"), which no longer exists — cannot tell whose it is, left alone"
       fi

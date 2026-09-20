@@ -44,7 +44,8 @@ declared in this file installed **none** of them: both third-party marketplaces 
 `ListPlugins` empty, and `superpowers` absent although its marketplace was present and
 contained it — while `permissions.deny` from the same file was enforced. The keys have since
 moved to `profile/plugins.json`, so this repository declares no plugins at all; **Project
-settings → Plugins** is the route that works. That measurement is one environment on one
+settings → Plugins** is the route Anthropic documents for getting one into a thread —
+documented, not measured here. That measurement is one environment on one
 date and is not a general claim about cloud sessions — see
 [docs/known-discrepancies.md](../docs/known-discrepancies.md).
 
@@ -186,7 +187,8 @@ Every step is manual and account-side unless marked otherwise. Start: **New Clau
    were removed on 2026-09-20 and now live in `profile/plugins.json`, which
    `local/bootstrap.sh --with-plugins` applies on a machine, where they do work. See
    *Plugins declared here did not arrive* above for the measurement.
-   **Project settings → Plugins** is the only route that reaches a cloud session, so add
+   **Project settings → Plugins** is the route Anthropic documents, and the repository
+   route was measured not to deliver, so add
    anything you want there.
 7. **Permissions** — if this is a **multi-repo** project, re-declare the deny rules in
    **Project settings**, because repository `permissions` are not read. Copy them from
