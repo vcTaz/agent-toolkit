@@ -62,16 +62,52 @@ landing between observations is ruled out.
 | A repo `.claude/settings.json` **is read** in a cloud session, and its `permissions.deny` rules are enforced | **measured — holds** | The absent path `/root/.sqlsecrets/probe`, denied only by this file's bespoke rule, returns "File is in a directory that is denied by your permission settings" where the file is present, and byte-identical "File does not exist." where it is not. The deny check fires before the existence check |
 | Project settings are **hot-reloaded** mid-session, not read only at startup | **measured — holds** | A synthetic rule written during a turn took effect within seconds and stopped on deletion |
 | Plugins declared in a repo `.claude/settings.json` are installed at session start | **measured — CONTRADICTED** | The reconcile ran, registered only `anthropics/claude-plugins-official` (which Claude Code already knows), registered neither marketplace from `extraKnownMarketplaces`, and installed **zero** plugins, reporting `failed_count: 0, skipped_count: 0`. `superpowers` was in a registered marketplace's manifest and still did not install |
+| The same holds at **fresh startup**, with the file present from spawn on the default branch | **measured — CONTRADICTED** | The clean-startup run below. This was the one cell the mid-session experiments could not reach, and it agrees with them |
 | Cloud pre-installs `gh` | **measured — CONTRADICTED** | `command -v gh` and `command -v hub` both return nothing and nothing gh-shaped is on `PATH`, although the official installed-tools list names it. `manifest/binaries.json` now records `cloudPreinstalled: false` |
 | Cloud pre-installs git, jq, yq, ripgrep, tmux, node, python3, uv | **measured — holds** | All present; Node 22 on `PATH` |
 | `.claude/skills/` entry symlinks are followed in cloud | **measured — holds** | 33 skills loaded in the smoke test |
 
-One cell of the plugin question is **still untested**: every observation above is of a session
-where the settings file appeared mid-life or was absent throughout. Whether a session that
-**spawns** with the file already on the repository's default branch installs what a mid-session
-reconcile did not has not been run. A spawn always clones the default branch, so testing it
-needs a repository whose default branch carries the file. Until that test reports, read the
-contradiction above as *what happened in the cases measured*, not as a settled negative.
+### The fresh-startup cell, closed 2026-09-20
+
+Every observation above is of a session where the settings file appeared mid-life or was absent
+throughout, so none of them excluded a spawn-time reconcile behaving differently. That was the
+one open cell, and it has now been run.
+
+A spawn always clones the default branch, so the test needed a repository whose *default branch*
+carries the file: `vcTaz/agent-toolkit-cloud-validation`, default branch `main` at exactly
+`132fb2774cfc0c755a96a660723ec9339910937a`, `.claude/settings.json` present from spawn, clean
+working tree, and no mid-session checkout, fetch, install or repair.
+
+| Observed | Value |
+|---|---|
+| `settings_load_completed` | `source_count: 4`, `error_count: 0` |
+| `headless_marketplace_reconcile_completed` | `installed_count: 1`, `failed_count: 0`, `skipped_count: 0` |
+| `ecc` marketplace | not registered |
+| `ui-ux-pro-max-skill` marketplace | not registered |
+| `ecc@ecc` | not installed |
+| `ui-ux-pro-max@ui-ux-pro-max-skill` | not installed |
+| `superpowers@claude-plugins-official` | **not installed**, although the official marketplace was present and contained it |
+| `ListPlugins` | empty |
+| `permissions.deny`, same file | loaded and enforced correctly |
+
+The reconcile's own `installed_count: 1` is reported verbatim rather than interpreted. Whatever
+it counts, no plugin became available: `ListPlugins` was empty. Do not cite it as evidence that
+something installed.
+
+### What that settles, and what it does not
+
+Three claims of different strength come out of this, and collapsing them is the error this
+section exists to prevent.
+
+| Claim | Status |
+|---|---|
+| For the tested Anthropic-hosted cloud environment on 2026-09-20, project-scoped `enabledPlugins` and `extraKnownMarketplaces` **did not deliver the declared plugins at fresh startup** | **VERIFIED.** The mechanism runs — settings load without error, the reconcile completes — and delivers nothing |
+| The cause is that the reconcile **ignores project-scoped plugin declarations** | **Best-supported explanation, NOT fully proven.** Only the reconcile's inputs, counters and outputs were read; nothing inside it was instrumented |
+| Plugins do not work in cloud, generally | **NOT ESTABLISHED.** One environment, one date, one project shape. Do not generalise it |
+
+The earlier hedge — that this was untested and the result should not be read as a settled
+negative — is **withdrawn for the fresh-startup case**. It was correct when written and the test
+has since been run. What remains open is the *cause*, not the *observation*.
 
 Two readings of the measurement are wrong and should not be repeated:
 
@@ -121,7 +157,8 @@ Still **not** established, and therefore not depended on:
 | A private marketplace authenticates in a cloud session | undocumented | Not used. Plugins come from public marketplaces; the toolkit arrives as a project repository |
 | A user can publish their own plugin into the account-synced channel | no documented route | Not used. Enabling an existing plugin for the account is a different, supported thing |
 | Whether a plain clone of a private repo succeeds through the GitHub proxy without a PAT | untested | `cloud/setup.sh` tries it first and degrades to a PAT, and never fails the session either way |
-| Whether a session that **spawns** with `.claude/settings.json` present installs the declared plugins | untested — rig exists, run not reported | The `cloud` values in `manifest/plugins.json` are written as observations, not as a settled negative |
+| **Why** the reconcile delivers nothing — whether it ignores project-scoped plugin declarations | best-supported explanation, not proven | The observation is verified and does not depend on the cause being right. Do not state the mechanism as fact |
+| Whether this holds across other Claude Code versions, cloud configurations or project shapes | not established | One environment on one date was tested. The `cloud` values in `manifest/plugins.json` are scoped to it |
 
 ## Vendoring, and why it is not a contradiction
 
