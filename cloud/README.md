@@ -32,12 +32,24 @@ the project**, alongside your application repository. No token, no clone script,
 |---|---|---|
 | `CLAUDE.md` | loaded | loaded from **every** repo |
 | `.claude/skills/`, `.claude/agents/`, `.claude/commands/` | loaded | loaded from **every** repo |
-| Plugins in `.claude/settings.json` | loaded | loaded from **every** repo |
+| Plugins in `.claude/settings.json` | documentation says loaded; **measured not delivered** | same |
 | **Permission rules, hooks, `env`** in `.claude/settings.json` | apply | **do NOT apply** |
 | `.mcp.json` | loaded | **not loaded** |
 
-That fourth row matters and is easy to miss. In a multi-repo project the thread starts
-*above* the clones, so no repository's `permissions`, `hooks` or `env` are read.
+Two rows in that table are not the documentation's own claim, and are marked so.
+
+The **plugins** row is where this table was wrong until 2026-09-20. The quote above says
+plugins are loaded from every repository, and on that date a fresh cloud session with three
+declared in this file installed **none** of them: both third-party marketplaces unregistered,
+`ListPlugins` empty, and `superpowers` absent although its marketplace was present and
+contained it — while `permissions.deny` from the same file was enforced. The keys have since
+moved to `profile/plugins.json`, so this repository declares no plugins at all; **Project
+settings → Plugins** is the route that works. That measurement is one environment on one
+date and is not a general claim about cloud sessions — see
+[docs/known-discrepancies.md](../docs/known-discrepancies.md).
+
+The **permissions** row matters and is easy to miss. In a multi-repo project the thread
+starts *above* the clones, so no repository's `permissions`, `hooks` or `env` are read.
 
 ### Consequence for security
 

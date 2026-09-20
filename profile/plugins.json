@@ -81,11 +81,13 @@
       "reason": "Created on disk by the GitKraken desktop app. Its marketplace.json declares source './plugins/gitkraken-hooks' - a relative local path with no remote of any kind. It cannot be declared in a repository and cannot be reconstructed on another machine from this manifest."
     }
   },
+  "enabledInRepoSettingsNote": "FALSE for every plugin here since b00ca5d, which moved enabledPlugins and extraKnownMarketplaces out of .claude/settings.json into this file. That file now holds $schema and permissions only. It read true for ecc, superpowers and ui-ux-pro-max until 2026-09-20 and was not updated with the move, so this file asserted a declaration it had itself just removed -- the same false statement that was corrected in cloud/README.md and twice in manifest/external-skills.json. The cloudObservation measurements below WERE taken while those three were still declared there; that is what makes them evidence, and their wording says so in the past tense.",
+
   "plugins": {
     "ecc@ecc": {
       "cloud": "declared-not-delivered",
-      "cloudEvidence": "2026-09-20, VERIFIED at fresh startup and mid-session: enabled in .claude/settings.json, reconcile ran, this plugin was not installed and no failure was reported. Its marketplace `ecc` was never registered either. See cloudObservation.freshStartupTest and cloudObservation.claimTiers.",
-      "enabledInRepoSettings": true,
+      "cloudEvidence": "2026-09-20, VERIFIED at fresh startup and mid-session: it WAS enabled in .claude/settings.json at the time of the test (the keys moved to this file later the same day, in b00ca5d), reconcile ran, this plugin was not installed and no failure was reported. Its marketplace `ecc` was never registered either. See cloudObservation.freshStartupTest and cloudObservation.claimTiers.",
+      "enabledInRepoSettings": false,
       "installedLocally": "1.10.0",
       "gitCommitShaLocal": "9523575721cba6285c95d688f08736017e0d2615",
       "upstreamLatest": "2.2.1",
@@ -112,13 +114,13 @@
     "superpowers@claude-plugins-official": {
       "cloud": "declared-not-delivered",
       "cloudEvidence": "2026-09-20, VERIFIED at fresh startup and mid-session: the sharpest case. Its marketplace, claude-plugins-official, WAS present and this plugin is in that marketplace's manifest - and it still did not install, with failed_count 0 and an empty ListPlugins. So marketplace reachability does not entail plugin delivery, which is the inference this whole file was built on. See cloudObservation.freshStartupTest.",
-      "enabledInRepoSettings": true,
+      "enabledInRepoSettings": false,
       "installedLocally": "6.3.0"
     },
     "ui-ux-pro-max@ui-ux-pro-max-skill": {
       "cloud": "declared-not-delivered",
-      "cloudEvidence": "2026-09-20, VERIFIED at fresh startup and mid-session: enabled in .claude/settings.json, reconcile ran, not installed, no failure reported. Its marketplace `ui-ux-pro-max-skill` was never registered either. See cloudObservation.freshStartupTest.",
-      "enabledInRepoSettings": true,
+      "cloudEvidence": "2026-09-20, VERIFIED at fresh startup and mid-session: it WAS enabled in .claude/settings.json at the time of the test (the keys moved to this file later the same day, in b00ca5d), reconcile ran, not installed, no failure reported. Its marketplace `ui-ux-pro-max-skill` was never registered either. See cloudObservation.freshStartupTest.",
+      "enabledInRepoSettings": false,
       "installedLocally": "2.5.0",
       "gitCommitShaLocal": "b7e3af80f6e331f6fb456667b82b12cade7c9d35"
     },

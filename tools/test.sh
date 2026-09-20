@@ -571,8 +571,10 @@ else
     # it, which is why the pre-fix fallback left it -- and why a checkout is identified by
     # its own AGENTS.md + tools/check.py rather than by a path comparison.
     mkdir -p "$TMPROOT/other-checkout/tools" "$TMPROOT/other-checkout/skills/other-skill"
-    : > "$TMPROOT/other-checkout/AGENTS.md"
-    : > "$TMPROOT/other-checkout/tools/check.py"
+    printf '# AGENTS.md\n' > "$TMPROOT/other-checkout/AGENTS.md"
+    # A real checkout, so the marker must really be there: empty files are what the
+    # foreign-link cases below use, and they must NOT be recognised.
+    cp "$ROOT/tools/check.py" "$TMPROOT/other-checkout/tools/check.py"
     printf -- '---\nname: other-skill\ndescription: fixture\n---\n' \
       > "$TMPROOT/other-checkout/skills/other-skill/SKILL.md"
     ln -s "$TMPROOT/other-checkout/skills/other-skill" "$cfg2/skills/other-skill"
@@ -613,6 +615,83 @@ else
     [ -n "$claimed" ] && [ "$claimed" -le "$live" ] \
         && ok "--dry-run --uninstall counts no path twice ($claimed <= $live)" \
         || no "--dry-run --uninstall claimed $claimed of $live links"
+
+    # A BROKEN link -- the pack checkout was moved or deleted after install. link_owner
+    # reads the far end, so there is nothing to read and nothing to attribute it by. It
+    # used to be invisible to the remover AND to the counter added to keep the summary
+    # honest, so the run printed a clean undo over links it had created itself.
+    cfg4="$TMPROOT/cfg-broken"; pk4="$TMPROOT/pack-that-vanishes"
+    mkdir -p "$pk4/skills/$first"
+    printf -- '---\nname: %s\ndescription: fixture\n---\n' "$first" \
+      > "$pk4/skills/$first/SKILL.md"
+    printf '{"pack":"cycle"}\n' > "$pk4/PACK.json"
+    printf '{"vendoredBy":"tools/vendor-sync.py","pack":"cycle"}\n' > "$pk4/PROVENANCE.json"
+    CLAUDE_CONFIG_DIR="$cfg4" PACK_CLOUDFLARE_DIR="$pk4" \
+      "$ROOT/local/bootstrap.sh" --with-packs >/dev/null 2>&1
+    rm -f "$cfg4/.toolkit-install-state.tsv"
+    rm -rf "$pk4"
+    rc=0
+    out="$( unset PACK_CLOUDFLARE_DIR
+            CLAUDE_CONFIG_DIR="$cfg4" "$ROOT/local/bootstrap.sh" --uninstall 2>&1 )" || rc=$?
+    printf '%s' "$out" | grep -q 'Nothing else was touched' \
+        && no "a broken link remains and the summary still claims a clean undo" \
+        || ok "a broken link withholds the clean-undo claim"
+    printf '%s' "$out" | grep -q 'no longer exists' \
+        && ok "the broken link is named, with the target that is gone" \
+        || no "the broken link was not reported — got: $out"
+    [ "$rc" -ne 0 ] \
+        && ok "--uninstall exits non-zero when it could not undo cleanly (rc=$rc)" \
+        || no "--uninstall reported success although it did not undo cleanly"
+    [ -L "$cfg4/skills/$first" ] \
+        && ok "the broken link is left alone, not guessed at and deleted" \
+        || no "--uninstall deleted a link it could not attribute"
+
+    # The SAME directory, spelled differently. Every recorded destination and every path
+    # compared later is built from $CLAUDE_DIR, so a trailing slash used to make the two
+    # passes disagree: a link reported "left alone" was then deleted, and --dry-run
+    # claimed 27 removals over 14 links.
+    cfg5="$TMPROOT/cfg-spelling"
+    CLAUDE_CONFIG_DIR="$cfg5" "$ROOT/local/bootstrap.sh" >/dev/null 2>&1
+    live5="$(find "$cfg5/skills" "$cfg5/agents" -maxdepth 1 -type l 2>/dev/null | wc -l)"
+    rm -f "$cfg5/skills/adversarial-review"
+    ln -s "$ROOT/skills/evidence-verification" "$cfg5/skills/adversarial-review"
+    out="$(CLAUDE_CONFIG_DIR="$cfg5/" "$ROOT/local/bootstrap.sh" --uninstall --dry-run 2>&1)"
+    claimed="$(printf '%s' "$out" | sed -n 's/^removed \([0-9]*\) link(s).*/\1/p')"
+    [ -n "$claimed" ] && [ "$claimed" -le "$live5" ] \
+        && ok "a trailing slash does not double-count ($claimed <= $live5)" \
+        || no "a trailing slash made --dry-run claim $claimed of $live5 links"
+    CLAUDE_CONFIG_DIR="$cfg5/" "$ROOT/local/bootstrap.sh" --uninstall >/dev/null 2>&1
+    [ -L "$cfg5/skills/adversarial-review" ] \
+        && ok "a trailing slash still leaves a repointed link alone" \
+        || no "a trailing slash deleted a link that was reported left alone"
+
+    # FALSE POSITIVE. Two EMPTY files named PACK.json and PROVENANCE.json, and an empty
+    # AGENTS.md beside an empty tools/check.py, used to be enough to delete somebody
+    # else's symlink. The markers are read now, not counted.
+    cfg6="$TMPROOT/cfg-foreign"; mkdir -p "$cfg6/skills"
+    theirs="$TMPROOT/their-pack"; mkdir -p "$theirs/skills/theirskill"
+    : > "$theirs/PACK.json"; : > "$theirs/PROVENANCE.json"
+    printf -- '---\nname: theirskill\ndescription: not ours\n---\n' \
+      > "$theirs/skills/theirskill/SKILL.md"
+    lint="$TMPROOT/their-repo"; mkdir -p "$lint/tools" "$lint/skills/lint"
+    : > "$lint/AGENTS.md"; : > "$lint/tools/check.py"
+    printf -- '---\nname: lint\ndescription: not ours\n---\n' > "$lint/skills/lint/SKILL.md"
+    ln -s "$theirs/skills/theirskill" "$cfg6/skills/theirs"
+    ln -s "$lint/skills/lint"         "$cfg6/skills/my-linter"
+    CLAUDE_CONFIG_DIR="$cfg6" "$ROOT/local/bootstrap.sh" --uninstall >/dev/null 2>&1
+    [ -L "$cfg6/skills/theirs" ] \
+        && ok "an empty PACK.json + PROVENANCE.json is not a pack" \
+        || no "--uninstall deleted a foreign link on two empty marker files"
+    [ -L "$cfg6/skills/my-linter" ] \
+        && ok "an empty AGENTS.md + tools/check.py is not this toolkit" \
+        || no "--uninstall deleted a foreign link on two empty marker files"
+
+    # The toolkit marker is a token in tools/check.py. Renaming it there would silently
+    # stop uninstall recognising a checkout, so assert the contract from both ends.
+    marker="$(sed -n "s/^TOOLKIT_MARKER='\(.*\)'$/\1/p" "$ROOT/local/bootstrap.sh")"
+    [ -n "$marker" ] && grep -q "$marker" "$ROOT/tools/check.py" \
+        && ok "bootstrap.sh's toolkit marker ($marker) is still in tools/check.py" \
+        || no "bootstrap.sh looks for '$marker' in tools/check.py and it is not there"
   fi
 fi
 
@@ -834,36 +913,33 @@ group "no file may claim .claude/settings.json declares plugins"
 
 # The settings file declared three plugins until 2026-09-20; the keys moved to
 # profile/plugins.json, and the same day a cloud session measured zero of them installed.
-# Two `reason` fields in manifest/external-skills.json went on asserting both the
-# declaration and "installs in cloud", and those two fields are the recorded
-# justification for NOT packaging ui-ux-pro-max and the 181 ecc skills -- a packaging
-# decision resting on a delivery route this repository has measured to be absent. The
-# same sentence had already been found and fixed once, in cloud/README.md.
+# The false sentence then survived in three more places: twice in
+# manifest/external-skills.json, where the two `reason` fields are the recorded
+# justification for NOT packaging ui-ux-pro-max and the 181 ecc skills, and once as a
+# JSON boolean in profile/plugins.json -- the very file those reasons redirect the reader
+# to. Three separate discoveries of one statement is why this is a check and not a fix.
+#
+# It is deliberately NOT gated on what settings.json currently holds: the "installs in
+# cloud" half is falsified by the cloud measurement, not by the declaration, so gating on
+# the declaration would let the sentence back in the moment a plugin key returned.
 
 if ! command -v python3 >/dev/null 2>&1; then
   skip "python3 absent — settings-claim check cannot run"
 else
-  declared="$(python3 -c "import json;print(','.join(json.load(open('$ROOT/.claude/settings.json'))))" 2>/dev/null)"
-  case ",$declared," in
-    *,enabledPlugins,*|*,extraKnownMarketplaces,*)
-      ok "settings.json declares plugins, so a file saying so is correct" ;;
-    *)
-      ok "settings.json declares no plugins (keys: $declared)"
-      # Options BEFORE `--`: after it every word is an operand, so `--exclude=...`
-      # became a search path and this check matched its own source.
-      hits="$(grep -rIn --exclude-dir=.git --exclude=test.sh \
-                -- 'declared in .claude/settings.json' "$ROOT" 2>/dev/null \
-              | grep -v 'sentence said' || true)"
-      [ -z "$hits" ] \
-          && ok "no file asserts that .claude/settings.json declares a plugin" \
-          || no "a file still asserts settings.json declares a plugin: $hits"
-      hits="$(grep -rIn --exclude-dir=.git --exclude=test.sh \
-                -- 'installs in cloud' "$ROOT" 2>/dev/null \
-              | grep -v 'sentence said' || true)"
-      [ -z "$hits" ] \
-          && ok "no file asserts a repository-declared plugin installs in cloud" \
-          || no "a file still asserts a plugin installs in cloud: $hits" ;;
-  esac
+  out="$(cd "$ROOT" && python3 tools/_claim_scan.py 2>&1)"
+  rc=$?
+  if printf '%s' "$out" | grep -q 'UNREADABLE'; then
+    no "the settings file could not be read — $(printf '%s' "$out" | head -1)"
+  else
+    ok "the settings file is readable: $(printf '%s' "$out" | sed -n 's/^SETTINGS-KEYS /keys /p')"
+  fi
+  [ "$rc" -eq 0 ] && ok "the settings-claim scan ran to completion" \
+                  || no "the settings-claim scan exited $rc"
+  if printf '%s' "$out" | grep -qx 'PROBLEMS 0'; then
+    ok "no file claims settings.json declares a plugin, structurally or in prose"
+  else
+    no "$(printf '%s' "$out" | grep '^CLAIM ' | head -6)"
+  fi
 fi
 
 # ---------------------------------------------------------------------------------------
