@@ -33,6 +33,21 @@ The `HOST` layer is not a rung. It defines no concept, and `AGENTS.md` forbids a
 position to win or lose a disagreement about meaning. Remove it and the canonical layer is
 unchanged and still correct.
 
+**What `check_host_invariant()` actually rejects**, so a contributor whose edit is refused can
+see why without reading the source. Two patterns, matched against the text of every file in
+`roles/`, `agents/`, `skills/` and `workflows/`:
+
+| | |
+|---|---|
+| directory prefixes | `local/` `cloud/` `manifest/` `packs/` `profile/` `vendor/` |
+| bare filenames, wherever they appear | `settings.json` `settings.local.json` `settings.fragment.json` `bootstrap.sh` `doctor.sh` `setup.sh` |
+
+`vendor/` is in the set although this repository no longer has one: it is what stops a
+reintroduced copy being referenced from the canonical layer. The filenames are matched on
+their own, not only under a host directory, so naming `doctor.sh` in a role is rejected
+however it is written. Paths are matched rather than words, because `roles/README.md` uses
+the word "vendor" to state the portability rule itself.
+
 **Higher wins.** Specifically:
 
 - If an **adapter** and its **canonical definition** disagree, the definition wins and **the
