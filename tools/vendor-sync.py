@@ -15,6 +15,11 @@ that wants none of them pays for none of them. The extraction, the traversal ref
 the staged-then-promoted swap are unchanged, because the failure modes they guard
 against did not move.
 
+`--pack` REFUSES a destination that is not empty and is not a pack this tool built, and
+there is no flag that overrides it. See `refuse_unless_pack`. Provenance records a file
+mode as well as a sha256, so a pack whose scripts stopped being executable no longer
+verifies clean; that is `schemaVersion` 2, and a schema-1 pack must be rebuilt.
+
 Stdlib only, like tools/check.py: urllib and tarfile, no dependency to install.
 Network is required for --pack and --update; verification is offline.
 """
@@ -43,11 +48,31 @@ def fail(where, message):
     problems.append(f'{where}: {message}')
 
 
+def file_mode(path: Path) -> str:
+    """The mode this tooling records and reproduces: executable, or not.
+
+    Upstream trees carry 0644 and 0755 and nothing else in practice, and the thing that
+    matters to a skill is whether a script it tells an agent to run will execute. So the
+    recorded value is that one bit, normalised, rather than the raw stat bits -- which
+    would make provenance depend on the umask of whoever built the pack.
+    """
+    return '0755' if path.stat().st_mode & 0o111 else '0644'
+
+
 def digest_tree(root: Path) -> dict:
-    """sha256 per file, relative paths, sorted. The unit of provenance."""
+    """sha256 AND mode per file, relative paths, sorted. The unit of provenance.
+
+    Mode is recorded because content alone does not describe a skill. `turnstile-spin`
+    ships four scripts its own SKILL.md tells the agent to run; a pack that reproduced
+    their bytes and dropped their executable bit verified clean and could not do what it
+    documented. Recording the mode is what makes chmod-only drift visible.
+    """
     out = {}
     for path in sorted(p for p in root.rglob('*') if p.is_file()):
-        out[str(path.relative_to(root))] = hashlib.sha256(path.read_bytes()).hexdigest()
+        out[str(path.relative_to(root))] = {
+            'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+            'mode': file_mode(path),
+        }
     return out
 
 
@@ -140,6 +165,10 @@ def extract_skills(archive: tarfile.TarFile, skills: dict, dest_root: Path) -> l
             if extracted is None:
                 continue
             target.write_bytes(extracted.read())
+            # Executable INTENT, not the raw mode. `member.mode & 0o755` would turn an
+            # upstream 0o600 into 0o400 and strip owner-write; the question being asked
+            # is only whether upstream marked this file runnable.
+            target.chmod(0o755 if member.mode & 0o100 else 0o644)
             found = True
         if not found:
             empty.append(skill)
@@ -185,7 +214,8 @@ other Project pays nothing for them.
 `.claude/skills/<name>` is a symlink to `skills/<name>`. That is the mechanism: a repository
 attached to a Project delivers skills through those entries and through nothing else. The
 container `.claude/skills/` is a real directory, because only a `<skill-name>` entry is
-documented as symlinkable. `.agents/skills` is a single container symlink, for Codex.
+documented as symlinkable. `.agents/skills` is a single container symlink to `../skills`, for
+Codex — `../skills` and not `skills`, which would resolve to the link itself and loop.
 
 ## Do not edit anything here
 
@@ -198,10 +228,11 @@ python3 tools/vendor-sync.py --verify-pack --into <this directory>
 ```
 
 `PROVENANCE.json` records the upstream repository, the exact commit, the licence, the upstream
-path of every skill and a sha256 for every file. Verification is offline and exact. It proves
-this tree matches what was recorded at build time; it does not prove the recorded tree matches
-upstream. `PACK.json` is the specification this was built from, copied here so the pack
-verifies on its own.
+path of every skill, and a sha256 **and file mode** for every file. Verification is offline and
+exact, and a file whose bytes match but whose mode does not is reported as MODE DRIFT rather
+than passing. It proves this tree matches what was recorded at build time; it does not prove
+the recorded tree matches upstream. `PACK.json` is the specification this was built from,
+copied here so the pack verifies on its own.
 """
 
 
@@ -211,6 +242,72 @@ def load_pack(name: str) -> dict:
         available = sorted(p.stem for p in PACKS.glob('*.json'))
         raise SystemExit(f'no pack spec at {path}. Available: {", ".join(available) or "none"}')
     return json.loads(path.read_text())
+
+
+# Ignored when deciding whether a destination is empty. `.git` because the documented
+# first build goes into a fresh `git init` or a GitHub-initialised repository, and this
+# tool's own leftovers because an interrupted earlier run must not lock the directory out.
+DESTINATION_IGNORES = ('.git',)
+
+
+def refuse_unless_pack(into: Path, pack: str) -> None:
+    """Refuse a destination that is not empty and is not a pack this tooling built.
+
+    THIS RUNS BEFORE ANYTHING IS FETCHED, CREATED, RENAMED OR DELETED, and it is the
+    whole safety property. `build_pack` promotes every name in PACK_MANAGED into the
+    destination and then deletes what it displaced, so a destination that is somebody's
+    project rather than a pack loses its README, its LICENSE and its .claude/ directory
+    with no warning and an exit status of zero. A relative `--into ../something` and a
+    wrong working directory is the entire distance between the documented invocation and
+    that outcome.
+
+    There is deliberately no --force. Destroying an arbitrary directory is not a thing
+    anyone has needed to do on purpose, and a flag that permits it is a flag that gets
+    typed. Emptying a directory first is explicit, reversible up to that point, and
+    already what someone means.
+
+    A destination is acceptable when it does not exist, when it holds nothing but the
+    ignored entries above, or when it carries this tooling's own metadata -- both
+    PACK.json and PROVENANCE.json, parseable, with PROVENANCE naming this builder. A pack
+    built for a DIFFERENT spec is refused too: overwriting the cloudflare pack with the
+    frontend one is the same mistake with tidier inputs.
+    """
+    if not into.exists():
+        return
+    if not into.is_dir():
+        raise SystemExit(f'--into {into} exists and is not a directory')
+
+    contents = [p.name for p in into.iterdir() if p.name not in DESTINATION_IGNORES
+                and not (p.name.startswith(f'.{pack}.')
+                         and p.name.endswith(('.staging', '.previous')))]
+    if not contents:
+        return
+
+    refuse = (f'refusing to build into {into}\n'
+              '  It is not empty and does not look like a pack built by this tool.\n'
+              '  Building here would replace and then DELETE: '
+              f'{", ".join(PACK_MANAGED)}.\n'
+              '  Found instead: ' + ', '.join(sorted(contents)[:8])
+              + ('' if len(contents) <= 8 else f' (+{len(contents) - 8} more)') + '\n'
+              '  Build into an empty directory, or into the pack you mean to update.')
+
+    spec_path, prov_path = into / 'PACK.json', into / 'PROVENANCE.json'
+    if not (spec_path.is_file() and prov_path.is_file()):
+        raise SystemExit(refuse)
+    try:
+        existing_spec = json.loads(spec_path.read_text())
+        existing_prov = json.loads(prov_path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        raise SystemExit(f'{refuse}\n  (PACK.json/PROVENANCE.json present but unreadable: {exc})')
+    if not str(existing_prov.get('vendoredBy', '')).startswith('tools/vendor-sync.py'):
+        raise SystemExit(f'{refuse}\n  (PROVENANCE.json was not written by this tool)')
+
+    found_name = existing_prov.get('pack') or existing_spec.get('pack')
+    if found_name != pack:
+        raise SystemExit(
+            f'refusing to build the {pack!r} pack into {into}\n'
+            f'  That directory is the {found_name!r} pack. Rebuilding one pack over\n'
+            '  another would delete its skills. Use the right directory, or empty this one.')
 
 
 def write_pack_metadata(staging: Path, spec: dict, archive: tarfile.TarFile) -> None:
@@ -233,6 +330,9 @@ def write_pack_metadata(staging: Path, spec: dict, archive: tarfile.TarFile) -> 
 
     skills_root = staging / 'skills'
     (staging / 'PROVENANCE.json').write_text(json.dumps({
+        # 1 recorded a bare sha256 per file. 2 records {sha256, mode}, so that a pack
+        # whose scripts lost their executable bit no longer verifies clean.
+        'schemaVersion': 2,
         'source': up['repo'],
         'url': up['url'],
         'ref': up['ref'],
@@ -267,6 +367,9 @@ def build_pack(name: str, into: Path) -> int:
     spec = load_pack(name)
     up = spec['upstream']
     into = into.expanduser().resolve()
+
+    # First, before the network and before a single byte is written, renamed or removed.
+    refuse_unless_pack(into, name)
     into.mkdir(parents=True, exist_ok=True)
 
     print(f'  {name}: fetching {up["repo"]}@{up["ref"][:12]}')
@@ -303,7 +406,17 @@ def build_pack(name: str, into: Path) -> int:
     previous = into / f'.{name}.previous'
     shutil.rmtree(previous, ignore_errors=True)
     previous.mkdir()
-    moved = []
+
+    def discard(target: Path) -> None:
+        if target.is_symlink() or target.is_file():
+            target.unlink()
+        elif target.is_dir():
+            shutil.rmtree(target, ignore_errors=True)
+
+    # An entry that DISPLACED something is restored from `previous`; an entry that was
+    # newly created is removed. Tracking only the first left a half-promoted entry behind
+    # on a failure -- NOTE on a pack that had none, say -- so the rollback was not one.
+    moved, created = [], []
     try:
         for entry in PACK_MANAGED:
             new = staging / entry
@@ -313,15 +426,17 @@ def build_pack(name: str, into: Path) -> int:
             if old.exists() or old.is_symlink():
                 old.rename(previous / entry)
                 moved.append(entry)
+            else:
+                created.append(entry)
             new.rename(old)
     except Exception:
+        for entry in created:
+            discard(into / entry)
         for entry in moved:
-            target = into / entry
-            if target.exists() or target.is_symlink():
-                shutil.rmtree(target, ignore_errors=True) if target.is_dir() \
-                    and not target.is_symlink() else target.unlink()
-            (previous / entry).rename(target)
+            discard(into / entry)
+            (previous / entry).rename(into / entry)
         shutil.rmtree(staging, ignore_errors=True)
+        shutil.rmtree(previous, ignore_errors=True)
         raise
     shutil.rmtree(previous, ignore_errors=True)
     shutil.rmtree(staging, ignore_errors=True)
@@ -346,6 +461,13 @@ def verify_pack(into: Path) -> int:
         fail(prov_path, f"pinned at {prov.get('ref')!r}, PACK.json says {up['ref']!r}")
     if not (into / 'LICENSE').is_file():
         fail(into / 'LICENSE', 'the licence must travel with the content')
+    # Fail closed rather than silently checking less. A schema-1 pack records no mode, so
+    # verifying it would pass over exactly the drift this version exists to catch.
+    if prov.get('schemaVersion') != 2:
+        fail(prov_path, f'schemaVersion {prov.get("schemaVersion")!r}: this pack predates '
+                        'file-mode provenance and cannot be verified for chmod drift. '
+                        'Rebuild it with --pack.')
+        return 1
 
     entries = into / '.claude' / 'skills'
     if entries.is_symlink() or not entries.is_dir():
@@ -364,9 +486,34 @@ def verify_pack(into: Path) -> int:
         recorded = prov['skills'].get(skill)
         if recorded is None:
             fail(here, 'not recorded in PROVENANCE.json')
-        elif recorded != digest_tree(here):
-            fail(here, 'CONTENT DRIFT: differs from the built revision. Rebuild, or move '
-                       'the pin deliberately.')
+        else:
+            current = digest_tree(here)
+            if recorded != current:
+                # Name the kind of drift. A pack whose bytes are intact but whose scripts
+                # stopped being executable reads as fine in a diff and is not.
+                shared = set(recorded) & set(current)
+                mode_only = [f for f in sorted(shared)
+                             if recorded[f].get('sha256') == current[f]['sha256']
+                             and recorded[f].get('mode') != current[f]['mode']]
+                content = [f for f in sorted(shared)
+                           if recorded[f].get('sha256') != current[f]['sha256']]
+                gone = sorted(set(recorded) - set(current))
+                added = sorted(set(current) - set(recorded))
+                if mode_only and not (content or gone or added):
+                    fail(here, 'MODE DRIFT: content matches the built revision but the '
+                               f'file mode does not: {", ".join(mode_only)}. Rebuild.')
+                else:
+                    detail = []
+                    if content:
+                        detail.append(f'{len(content)} changed')
+                    if gone:
+                        detail.append(f'{len(gone)} missing')
+                    if added:
+                        detail.append(f'{len(added)} unexpected')
+                    if mode_only:
+                        detail.append(f'{len(mode_only)} mode-only')
+                    fail(here, f'CONTENT DRIFT ({", ".join(detail)}): differs from the '
+                               'built revision. Rebuild, or move the pin deliberately.')
         if entries is None:
             continue
         link = entries / skill

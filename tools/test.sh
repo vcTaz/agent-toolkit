@@ -85,37 +85,52 @@ isolated = pathlib.Path(tempfile.mkdtemp())
 pack_dir = isolated / 'lvl1' / 'lvl2' / 'pack'
 pack_dir.mkdir(parents=True)
 
-# An existing, good pack that must survive a failed rebuild byte for byte.
-(pack_dir / 'skills' / 'demo').mkdir(parents=True)
-(pack_dir / 'skills' / 'demo' / 'SKILL.md').write_text('ORIGINAL CONTENT\n')
-
-# A tarball whose member escapes the destination.
-buf = _io.BytesIO()
-with tarfile.open(fileobj=buf, mode='w:gz') as tar:
-    def add(path, body):
-        info = tarfile.TarInfo(path); data = body.encode()
-        info.size = len(data); tar.addfile(info, _io.BytesIO(data))
-    add('up-abc/skills/demo/SKILL.md', 'legitimate\n')
-    # relative to <pack>/.demo.staging/skills/demo this stays inside lvl1/lvl2
-    add('up-abc/skills/demo/../../../escaped.md', 'HOSTILE\n')
-vs.fetch_tree = lambda repo, ref: buf.getvalue()
-
 spec_dict = {'pack': 'demo', 'packRepo': 'x/demo',
              'upstream': {'repo': 'x/y', 'url': 'https://example.invalid', 'ref': 'a' * 40,
-                          'license': 'MIT', 'licenseFile': None, 'noticeFile': None},
-             'skills': {'demo': 'skills/demo'}, 'layout': {}}
+                          'license': 'MIT', 'licenseFile': 'LICENSE', 'noticeFile': None},
+             'skills': {'demo': 'skills/demo'}, 'layout': {'claudeEntries': True}}
 vs.load_pack = lambda name: spec_dict
+
+
+def tarball(members):
+    buf = _io.BytesIO()
+    with tarfile.open(fileobj=buf, mode='w:gz') as tar:
+        for path, body in members:
+            info = tarfile.TarInfo(path); data = body.encode()
+            info.size = len(data); tar.addfile(info, _io.BytesIO(data))
+    return buf.getvalue()
+
+
+# An existing, GENUINE pack that must survive a failed rebuild byte for byte. It has to
+# be a real one: the destination guard refuses a rebuild into anything else, so a
+# hand-made directory would never reach the extraction this test is about.
+benign = tarball([('up-abc/skills/demo/SKILL.md',
+                   '---\nname: demo\ndescription: d\n---\nORIGINAL CONTENT\n'),
+                  ('up-abc/LICENSE', 'MIT\n')])
+vs.fetch_tree = lambda repo, ref: benign
+vs.build_pack('demo', pack_dir)
+original = (pack_dir / 'skills' / 'demo' / 'SKILL.md').read_text()
+
+# Now a tarball whose member escapes the destination.
+hostile = tarball([
+    ('up-abc/skills/demo/SKILL.md', '---\nname: demo\ndescription: d\n---\nlegitimate\n'),
+    # relative to <pack>/.demo.staging/skills/demo this stays inside lvl1/lvl2
+    ('up-abc/skills/demo/../../../escaped.md', 'HOSTILE\n'),
+    ('up-abc/LICENSE', 'MIT\n')])
+vs.fetch_tree = lambda repo, ref: hostile
 try:
     vs.build_pack('demo', pack_dir)
     print('BUILD-RETURNED-OK')
 except ValueError:
     print('BUILD-RAISED')
 except Exception as exc:
-    print('BUILD-OTHER', type(exc).__name__)
+    print('BUILD-RAISED', type(exc).__name__)
 
 print('PRESERVED' if (pack_dir / 'skills' / 'demo' / 'SKILL.md').read_text()
-      == 'ORIGINAL CONTENT\n' else 'CLOBBERED')
-leftovers = [p.name for p in pack_dir.iterdir() if p.name.startswith('.')]
+      == original else 'CLOBBERED')
+# `.claude` and `.agents` are a real pack's own directories, so match this builder's own
+# scratch names rather than every dotfile.
+leftovers = [p.name for p in pack_dir.iterdir() if p.name.startswith('.demo.')]
 print('NO-STAGING' if not leftovers else f'STAGING-LEFT {leftovers}')
 # Nothing anywhere under the isolated root may sit outside the pack directory.
 strays = [str(p.relative_to(isolated)) for p in isolated.rglob('*')
@@ -131,6 +146,373 @@ PY
                                              || no "staging directory left behind"
   printf '%s' "$out" | grep -q 'NO-ESCAPE'    && ok "nothing was written outside the destination" \
                                              || no "a file escaped the destination: $out"
+fi
+
+# ---------------------------------------------------------------------------------------
+group "pack builder: refuses a destination that is not a pack (guards data loss)"
+
+# Before this guard, `--pack --into <dir>` promoted every PACK_MANAGED name into the
+# destination and then DELETED what it displaced. Pointed at somebody's project it
+# removed their README, LICENSE and .claude/ directory, returned 0 and printed success.
+# The documented invocation uses a RELATIVE --into, so a wrong working directory was the
+# whole distance to that outcome. These cases are the guard, in both directions: the
+# legitimate destinations must still build.
+
+if ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent — destination-guard tests cannot run"
+else
+  out="$(cd "$ROOT" && python3 - <<'PY' 2>&1
+import hashlib, importlib.util, io, pathlib, tarfile, tempfile
+
+spec = importlib.util.spec_from_file_location('vs', 'tools/vendor-sync.py')
+vs = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(vs)
+
+buf = io.BytesIO()
+with tarfile.open(fileobj=buf, mode='w:gz') as tar:
+    for name, body, mode in (
+            ('up/skills/demo/SKILL.md', '---\nname: demo\ndescription: d\n---\nbody\n', 0o644),
+            ('up/skills/demo/run.sh', '#!/bin/sh\necho hi\n', 0o755),
+            ('up/LICENSE', 'MIT\n', 0o644)):
+        info = tarfile.TarInfo(name); data = body.encode()
+        info.size, info.mode = len(data), mode
+        tar.addfile(info, io.BytesIO(data))
+vs.fetch_tree = lambda repo, ref: buf.getvalue()
+vs.load_pack = lambda name: {
+    'pack': 'demo', 'packRepo': 'x/demo',
+    'upstream': {'repo': 'x/y', 'url': 'https://example.invalid', 'ref': 'a' * 40,
+                 'license': 'MIT', 'licenseFile': 'LICENSE', 'noticeFile': None},
+    'skills': {'demo': 'skills/demo'}, 'layout': {'claudeEntries': True}}
+
+root = pathlib.Path(tempfile.mkdtemp())
+snapshot = lambda d: {str(p.relative_to(d)): hashlib.sha256(p.read_bytes()).hexdigest()
+                      for p in sorted(d.rglob('*')) if p.is_file()}
+
+
+def build(dest):
+    vs.problems.clear()
+    try:
+        vs.build_pack('demo', dest)
+        return 'BUILT'
+    except SystemExit:
+        return 'REFUSED'
+    except Exception as exc:
+        return f'ERROR-{type(exc).__name__}'
+
+
+empty = root / 'empty'; empty.mkdir()
+print('EMPTY', build(empty))
+
+onlygit = root / 'onlygit'; (onlygit / '.git').mkdir(parents=True)
+(onlygit / '.git' / 'HEAD').write_text('ref: refs/heads/main\n')
+print('ONLYGIT', build(onlygit))
+print('REBUILD', build(onlygit))                      # now a real pack: must update
+
+victim = root / 'victim'; (victim / '.claude' / 'agents').mkdir(parents=True)
+(victim / '.claude' / 'agents' / 'mine.md').write_text('MY AGENT\n')
+(victim / 'README.md').write_text('# my project\n')
+(victim / 'LICENSE').write_text('my licence\n')
+(victim / 'src').mkdir(); (victim / 'src' / 'main.py').write_text('print(1)\n')
+before = snapshot(victim)
+print('ARBITRARY', build(victim))
+print('UNCHANGED' if snapshot(victim) == before else 'MUTATED',
+      'agent-survived' if (victim / '.claude' / 'agents' / 'mine.md').is_file() else 'AGENT-LOST')
+
+other = root / 'otherpack'; other.mkdir()
+build(other)                                          # a real 'demo' pack
+vs.load_pack = lambda name: {
+    'pack': 'notdemo', 'packRepo': 'x/notdemo',
+    'upstream': {'repo': 'x/y', 'url': 'https://example.invalid', 'ref': 'b' * 40,
+                 'license': 'MIT', 'licenseFile': 'LICENSE', 'noticeFile': None},
+    'skills': {'demo': 'skills/demo'}, 'layout': {'claudeEntries': True}}
+vs.problems.clear()
+try:
+    vs.build_pack('notdemo', other); print('CROSSPACK BUILT')
+except SystemExit:
+    print('CROSSPACK REFUSED')
+PY
+)"
+  for case in 'EMPTY BUILT:an empty destination still builds' \
+              'ONLYGIT BUILT:a destination holding only .git still builds' \
+              'REBUILD BUILT:an existing pack still rebuilds in place' \
+              'ARBITRARY REFUSED:an arbitrary directory is refused' \
+              'UNCHANGED:the refused directory is left content-identical' \
+              'agent-survived:the refusal left .claude/agents/mine.md in place' \
+              'CROSSPACK REFUSED:building one pack over a different pack is refused'; do
+    token="${case%%:*}"; label="${case#*:}"
+    if printf '%s' "$out" | grep -qF "$token"; then ok "${label:-$token}"
+    else no "${label:-$token} — got: $out"; fi
+  done
+fi
+
+# ---------------------------------------------------------------------------------------
+group "pack builder: --verify-pack REJECTS a tampered pack (the production code path)"
+
+# The suite used to call verify_pack zero times. Every case below runs the real
+# implementation and asserts its EXIT STATUS, not its wording.
+
+if ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent — verification tests cannot run"
+else
+  out="$(cd "$ROOT" && python3 - <<'PY' 2>&1
+import importlib.util, io, json, pathlib, shutil, tarfile, tempfile
+
+spec = importlib.util.spec_from_file_location('vs', 'tools/vendor-sync.py')
+vs = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(vs)
+
+buf = io.BytesIO()
+with tarfile.open(fileobj=buf, mode='w:gz') as tar:
+    for name, body, mode in (
+            ('up/skills/demo/SKILL.md', '---\nname: demo\ndescription: d\n---\nbody\n', 0o644),
+            ('up/skills/demo/run.sh', '#!/bin/sh\necho hi\n', 0o755),
+            ('up/LICENSE', 'MIT\n', 0o644)):
+        info = tarfile.TarInfo(name); data = body.encode()
+        info.size, info.mode = len(data), mode
+        tar.addfile(info, io.BytesIO(data))
+vs.fetch_tree = lambda repo, ref: buf.getvalue()
+vs.load_pack = lambda name: {
+    'pack': 'demo', 'packRepo': 'x/demo',
+    'upstream': {'repo': 'x/y', 'url': 'https://example.invalid', 'ref': 'a' * 40,
+                 'license': 'MIT', 'licenseFile': 'LICENSE', 'noticeFile': None},
+    'skills': {'demo': 'skills/demo'}, 'layout': {'claudeEntries': True}}
+
+root = pathlib.Path(tempfile.mkdtemp())
+pristine = root / 'pristine'
+vs.problems.clear(); vs.build_pack('demo', pristine)
+
+n = [0]
+def case(label, mutate):
+    n[0] += 1
+    copy = root / f'case{n[0]}'
+    shutil.copytree(pristine, copy, symlinks=True)
+    mutate(copy)
+    vs.problems.clear()
+    print(f'{label} rc={vs.verify_pack(copy)}')
+
+case('BASELINE', lambda p: None)
+case('CONTENT', lambda p: (p / 'skills' / 'demo' / 'SKILL.md').write_text('tampered\n'))
+case('EXTRA', lambda p: (p / 'skills' / 'demo' / 'sneaked.md').write_text('x\n'))
+case('CHMOD', lambda p: (p / 'skills' / 'demo' / 'run.sh').chmod(0o644))
+case('ENTRY', lambda p: (p / '.claude' / 'skills' / 'demo').unlink())
+case('LICENCE', lambda p: (p / 'LICENSE').unlink())
+case('LOOP', lambda p: ((p / '.agents' / 'skills').unlink(),
+                        (p / '.agents' / 'skills').symlink_to('skills')))
+def old_schema(p):
+    prov = json.loads((p / 'PROVENANCE.json').read_text())
+    prov['schemaVersion'] = 1
+    prov['skills']['demo'] = {k: v['sha256'] for k, v in prov['skills']['demo'].items()}
+    (p / 'PROVENANCE.json').write_text(json.dumps(prov, indent=2))
+case('SCHEMA1', old_schema)
+PY
+)"
+  printf '%s' "$out" | grep -q 'BASELINE rc=0' \
+      && ok "an untampered pack verifies (exit 0)" \
+      || no "an untampered pack did not verify: $out"
+  for case in 'CONTENT:edited file content' 'EXTRA:an added file' \
+              'CHMOD:a chmod-only change' 'ENTRY:a removed .claude/skills entry' \
+              'LICENCE:a deleted LICENSE' 'LOOP:a self-looping .agents/skills' \
+              'SCHEMA1:a pack predating file-mode provenance'; do
+    token="${case%%:*}"; label="${case#*:}"
+    if printf '%s' "$out" | grep -q "$token rc=1"; then ok "--verify-pack rejects $label"
+    else no "--verify-pack did NOT reject $label: $out"; fi
+  done
+fi
+
+# ---------------------------------------------------------------------------------------
+group "check.py: a corrupted pack spec is rejected, and the EXIT STATUS is asserted"
+
+# The old pack test re-implemented check_packs' rules in its own inline Python, so it
+# passed whatever check_packs did -- including nothing. These run tools/check.py itself
+# and look at $?, which is the only thing a caller acts on.
+
+if ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent — check.py exit-status tests cannot run"
+else
+  specfix="$TMPROOT/specfix"
+  rm -rf "$specfix"; mkdir -p "$specfix"
+  ( cd "$ROOT" && tar -c --exclude=./.git . ) | ( cd "$specfix" && tar -x )
+  onespec="$(find "$specfix/packs" -name '*.json' | sort | head -1)"
+
+  python3 "$ROOT/tools/check.py" --root "$specfix" >/dev/null 2>&1
+  [ $? -eq 0 ] && ok "check.py exits 0 on an unmodified tree" \
+               || no "check.py exits non-zero on an unmodified tree"
+
+  spec_case() {
+    local label="$1" script="$2"
+    cp "$onespec" "$TMPROOT/spec.bak"
+    python3 -c "$script" "$onespec"
+    python3 "$ROOT/tools/check.py" --root "$specfix" >/dev/null 2>&1
+    local rc=$?
+    cp "$TMPROOT/spec.bak" "$onespec"
+    [ "$rc" -ne 0 ] && ok "check.py exits non-zero: $label" \
+                    || no "check.py exited 0 despite $label"
+  }
+
+  spec_case "a branch name where a full commit sha must be" '
+import json,sys
+p=sys.argv[1]; s=json.load(open(p)); s["upstream"]["ref"]="main"; json.dump(s,open(p,"w"))'
+  spec_case "an abbreviated sha where a full one must be" '
+import json,sys
+p=sys.argv[1]; s=json.load(open(p)); s["upstream"]["ref"]=s["upstream"]["ref"][:12]; json.dump(s,open(p,"w"))'
+  spec_case "no layout.claudeEntries, so the pack would deliver nothing" '
+import json,sys
+p=sys.argv[1]; s=json.load(open(p)); s["layout"].pop("claudeEntries",None); json.dump(s,open(p,"w"))'
+  spec_case "a pack skill shadowing a canonical one" '
+import json,sys
+p=sys.argv[1]; s=json.load(open(p)); s["skills"]["adversarial-review"]="skills/x"; json.dump(s,open(p,"w"))'
+  spec_case "a missing upstream licence file, so the pack is not reproducible" '
+import json,sys
+p=sys.argv[1]; s=json.load(open(p)); s["upstream"]["licenseFile"]=""; json.dump(s,open(p,"w"))'
+  spec_case "a spec that is not valid JSON at all" '
+import sys
+open(sys.argv[1],"w").write("{ not json")'
+fi
+
+# ---------------------------------------------------------------------------------------
+group "pack builder: a failed promotion rolls back completely"
+
+# The rollback restored entries that had DISPLACED something and forgot entries it had
+# newly created, so a failure left a half-promoted pack behind. Here NOTICE does not
+# exist in the destination, the promote fails after it lands, and NOTICE must not survive.
+
+if ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent — rollback test cannot run"
+else
+  out="$(cd "$ROOT" && python3 - <<'PY' 2>&1
+import importlib.util, io, pathlib, tarfile, tempfile
+
+spec = importlib.util.spec_from_file_location('vs', 'tools/vendor-sync.py')
+vs = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(vs)
+
+
+def archive(notice):
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode='w:gz') as tar:
+        members = [('up/skills/demo/SKILL.md',
+                    '---\nname: demo\ndescription: d\n---\nbody\n'),
+                   ('up/LICENSE', 'MIT\n')]
+        if notice:
+            members.append(('up/NOTICE', 'notice text\n'))
+        for name, body in members:
+            info = tarfile.TarInfo(name); data = body.encode()
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def spec_for(notice):
+    return {'pack': 'demo', 'packRepo': 'x/demo',
+            'upstream': {'repo': 'x/y', 'url': 'https://example.invalid', 'ref': 'a' * 40,
+                         'license': 'MIT', 'licenseFile': 'LICENSE',
+                         'noticeFile': 'NOTICE' if notice else None},
+            'skills': {'demo': 'skills/demo'}, 'layout': {'claudeEntries': True}}
+
+
+dest = pathlib.Path(tempfile.mkdtemp()) / 'pack'
+vs.fetch_tree = lambda repo, ref: archive(False)
+vs.load_pack = lambda name: spec_for(False)
+vs.problems.clear(); vs.build_pack('demo', dest)          # a good pack, with no NOTICE
+original = (dest / 'skills' / 'demo' / 'SKILL.md').read_text()
+
+vs.fetch_tree = lambda repo, ref: archive(True)
+vs.load_pack = lambda name: spec_for(True)
+real_rename = pathlib.Path.rename
+
+
+def explode(self, target):
+    if pathlib.Path(target).name == 'PROVENANCE.json' and '.staging' in str(self):
+        raise OSError('simulated failure part-way through the promote')
+    return real_rename(self, target)
+
+
+pathlib.Path.rename = explode
+try:
+    vs.problems.clear(); vs.build_pack('demo', dest)
+    print('BUILD-SUCCEEDED')
+except Exception as exc:
+    print('BUILD-RAISED', type(exc).__name__)
+finally:
+    pathlib.Path.rename = real_rename
+
+print('NOTICE-LEFT' if (dest / 'NOTICE').exists() else 'NO-ORPHAN')
+print('RESTORED' if (dest / 'skills' / 'demo' / 'SKILL.md').read_text() == original
+      else 'LOST')
+leftovers = [p.name for p in dest.iterdir() if p.name.startswith('.demo.')]
+print('CLEAN' if not leftovers else f'LEFTOVERS {leftovers}')
+PY
+)"
+  printf '%s' "$out" | grep -q 'BUILD-RAISED' \
+      && ok "a failed promotion raises rather than reporting success" \
+      || no "a failed promotion did not raise: $out"
+  printf '%s' "$out" | grep -q 'NO-ORPHAN' \
+      && ok "rollback removes an entry it newly created" \
+      || no "rollback left a newly created entry behind: $out"
+  printf '%s' "$out" | grep -q 'RESTORED' \
+      && ok "rollback restores the entry it displaced" \
+      || no "rollback lost the previous content: $out"
+  printf '%s' "$out" | grep -q 'CLEAN' \
+      && ok "rollback leaves no staging or previous directory" \
+      || no "rollback left its own scratch directories: $out"
+fi
+
+# ---------------------------------------------------------------------------------------
+group "bootstrap.sh: --uninstall removes pack links it created, and only those"
+
+# unlink_one only removed links resolving inside the toolkit, so a pack link -- which by
+# definition points elsewhere -- survived every uninstall silently. The fix records what
+# was linked; these run the real install and the real uninstall against that record, with
+# PACK_*_DIR UNSET at uninstall time, which is the normal case and the one a fix that
+# guesses the pack directory would miss.
+
+if [ ! -x "$ROOT/local/bootstrap.sh" ]; then
+  skip "local/bootstrap.sh not executable"
+elif ! command -v jq >/dev/null 2>&1; then
+  skip "jq absent — --with-packs cannot read the pack specs"
+else
+  cfg="$TMPROOT/cfg-cycle"
+  packdir="$TMPROOT/cycle-pack"
+  first="$(jq -r '.skills | keys[0]' "$ROOT/packs/cloudflare.json" 2>/dev/null)"
+  second="$(jq -r '.skills | keys[1]' "$ROOT/packs/cloudflare.json" 2>/dev/null)"
+  if [ -z "$first" ] || [ -z "$second" ]; then
+    skip "could not read two skill names from packs/cloudflare.json"
+  else
+    for s in "$first" "$second"; do
+      mkdir -p "$packdir/skills/$s"
+      printf -- '---\nname: %s\ndescription: fixture\n---\n' "$s" \
+        > "$packdir/skills/$s/SKILL.md"
+    done
+
+    CLAUDE_CONFIG_DIR="$cfg" PACK_CLOUDFLARE_DIR="$packdir" \
+      "$ROOT/local/bootstrap.sh" --with-packs >/dev/null 2>&1
+    rc=$?
+    [ "$rc" -eq 0 ] && ok "install with --with-packs exits 0" \
+                    || no "install with --with-packs exited $rc"
+    [ -L "$cfg/skills/$first" ] && ok "a pack skill is linked" \
+                                || no "the pack skill was not linked"
+    [ -f "$cfg/.toolkit-install-state.tsv" ] \
+        && ok "the install is recorded in .toolkit-install-state.tsv" \
+        || no "no install record was written"
+
+    # The user takes one of them over. It must survive, because it is no longer ours.
+    rm -f "$cfg/skills/$second"; printf 'MY OWN SKILL\n' > "$cfg/skills/$second"
+
+    ( unset PACK_CLOUDFLARE_DIR
+      CLAUDE_CONFIG_DIR="$cfg" "$ROOT/local/bootstrap.sh" --uninstall >/dev/null 2>&1 )
+    rc=$?
+    [ "$rc" -eq 0 ] && ok "--uninstall exits 0 with PACK_CLOUDFLARE_DIR unset" \
+                    || no "--uninstall exited $rc"
+    [ -e "$cfg/skills/$first" ] || [ -L "$cfg/skills/$first" ] \
+        && no "a toolkit-created pack link survived --uninstall" \
+        || ok "no toolkit-created pack link survives --uninstall"
+    [ -f "$cfg/skills/$second" ] \
+        && ok "a skill the user replaced with their own file is left alone" \
+        || no "--uninstall destroyed the user's own file"
+    [ -L "$cfg/skills/adversarial-review" ] \
+        && no "a canonical skill link survived --uninstall" \
+        || ok "canonical skill links are removed too"
+  fi
 fi
 
 # ---------------------------------------------------------------------------------------
