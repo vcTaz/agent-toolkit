@@ -14,7 +14,11 @@ tied to a phrasing would have missed all three.
 Two passes, because the claim appears in two shapes:
 
   STRUCTURAL   a field asserting this repository's settings enable a plugin must agree
-               with what the settings file actually declares. No rewording evades this.
+               with what the settings file actually declares. It matches any key ending
+               `InRepoSettings` and any truthy spelling of the value, so a rename or a
+               stringified boolean does not evade it -- but it is a rule about a shape of
+               key, not about meaning, and a genuinely different encoding would need a
+               new rule here.
   TEXTUAL      a passage putting settings.json and a plugin together, or saying a plugin
                arrives in cloud, must carry a negation, a past tense or a condition. This
                one is a tripwire for a careless restatement, NOT a proof: a sentence
@@ -51,13 +55,39 @@ ARRIVE = re.compile(r'install|load|deliver|arrive|available', re.I)
 # crafted sentence. Ten false alarms train people to ignore the check.
 #
 # So the structural pass is the one that establishes anything. This pass is a net for the
-# careless restatement, which is what has actually happened three times.
+# careless restatement, which is what has actually happened four times in this tree.
+#
+# It also false-alarms: a purely navigational sentence naming settings.json and a plugin
+# file in the same breath trips it. That is recorded here rather than left for someone to
+# discover, and it is the price of the net being loose enough to be worth having.
 SAFE = re.compile(
     r"\bno\b|\bnone\b|\bnot\b|never|without|moved|\bwas\b|\bwere\b|until|false|zero"
-    r"|used to|no longer|rather than|instead|\bif\b|\bonly\b|declined|absent",
+    r"|used to|no longer|rather than|instead|\bif\b|declined|absent",
     re.I)
+# `only` was in that list and had to come out. It let through
+# ".claude/SETTINGS-NOTES.md: ... and only `enabledPlugins` and `extraKnownMarketplaces` in
+# a multi-repository project thread" -- an assertion that those keys ARE honoured, where
+# the exempting word was part of the assertion. A restriction is not a negation.
+
+# Any key of this shape, not one exact spelling: `enabledInRepoSettings` renamed to
+# `declaredInRepoSettings`, or its value written as the string "true", both walked past the
+# first version of this pass.
+REPO_SETTINGS_KEY = re.compile(r'InRepoSettings$', re.I)
 
 SKIP_NAMES = {'test.sh', '_claim_scan.py'}
+
+# Files that can carry prose about this. Not only .md and .json: the docstring used to say
+# "any file" while reading two suffixes.
+SUFFIXES = ('*.md', '*.json', '*.sh', '*.py', '*.toml')
+
+
+def truthy(val) -> bool:
+    """True, "true", "yes", 1 -- anything that asserts the thing, however it is spelled."""
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.strip().lower() in ('true', 'yes')
+    return val == 1 and not isinstance(val, bool)
 
 
 def units(path: pathlib.Path, lines: list) -> list:
@@ -128,14 +158,17 @@ def main() -> int:
             node = stack.pop()
             if isinstance(node, dict):
                 for key, val in node.items():
-                    if key == 'enabledInRepoSettings' and val is True and not declares:
-                        problems.append(f'{path}: enabledInRepoSettings is true while '
-                                        'settings.json declares no plugin keys')
+                    if REPO_SETTINGS_KEY.search(key) and truthy(val) and not declares:
+                        problems.append(f'{path}: {key} is {val!r} while settings.json '
+                                        'declares no plugin keys')
                     stack.append(val)
             elif isinstance(node, list):
                 stack.extend(node)
 
-    for path in sorted(list(root.rglob('*.md')) + list(root.rglob('*.json'))):
+    scan = []
+    for pattern in SUFFIXES:
+        scan.extend(root.rglob(pattern))
+    for path in sorted(set(scan)):
         if '.git' in path.parts or path.name in SKIP_NAMES:
             continue
         try:

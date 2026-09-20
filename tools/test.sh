@@ -688,6 +688,71 @@ else
 
     # The toolkit marker is a token in tools/check.py. Renaming it there would silently
     # stop uninstall recognising a checkout, so assert the contract from both ends.
+    # THE FIRST INSTALL is the run that creates the config directory, and canonicalisation
+    # used to be skipped exactly then -- `cd` was guarded by `[ -d ]`. Every recorded
+    # destination then carried the raw spelling while every later run canonicalised, which
+    # is the same disagreement the trailing-slash case above covers. Six spellings, each
+    # installing into a directory that does not yet exist.
+    spellings_bad=0
+    for spell in 'cfg-sp/x' 'cfg-sp/x/' 'cfg-sp/x//' 'cfg-sp/./x' 'cfg-sp/../cfg-sp/x' 'cfg-sp//x'; do
+      rm -rf "$TMPROOT/cfg-sp"; mkdir -p "$TMPROOT/cfg-sp"
+      ( cd "$TMPROOT" && CLAUDE_CONFIG_DIR="$spell" "$ROOT/local/bootstrap.sh" >/dev/null 2>&1 )
+      n="$(find "$TMPROOT/cfg-sp/x/skills" "$TMPROOT/cfg-sp/x/agents" -maxdepth 1 -type l 2>/dev/null | wc -l)"
+      c="$( cd "$TMPROOT" && CLAUDE_CONFIG_DIR="$spell" "$ROOT/local/bootstrap.sh" \
+              --uninstall --dry-run 2>&1 | sed -n 's/^removed \([0-9]*\) link(s).*/\1/p' )"
+      if [ "$n" -gt 0 ] && [ -n "$c" ] && [ "$c" -le "$n" ]; then :
+      else spellings_bad=$((spellings_bad + 1)); fi
+    done
+    [ "$spellings_bad" -eq 0 ] \
+        && ok "a first install canonicalises its path, in all six spellings" \
+        || no "$spellings_bad of 6 spellings double-counted at uninstall"
+    rm -rf "$TMPROOT/cfg-sp"
+
+    # A link the USER made, at a name of their own, into their own pack checkout. Every
+    # link this script creates is NAME -> .../NAME, so a link whose two ends disagree is
+    # not one of ours whatever it points into. It used to be deleted by a run whose
+    # record was complete and never mentioned it -- while the header promised the
+    # opposite in three places.
+    cfg7="$TMPROOT/cfg-theirname"
+    CLAUDE_CONFIG_DIR="$cfg7" "$ROOT/local/bootstrap.sh" >/dev/null 2>&1
+    ln -s "$packdir/skills/$first" "$cfg7/skills/a-name-of-my-own"
+    rc=0
+    out="$(CLAUDE_CONFIG_DIR="$cfg7" "$ROOT/local/bootstrap.sh" --uninstall 2>&1)" || rc=$?
+    [ -L "$cfg7/skills/a-name-of-my-own" ] \
+        && ok "a link at the user's own name is not ours, whatever it points into" \
+        || no "--uninstall deleted a link whose name it never assigned"
+    printf '%s' "$out" | grep -q 'Nothing else was touched' \
+        && ok "and it is not counted against the clean-undo claim either" \
+        || no "the user's own link was counted as one we failed to remove — got: $out"
+
+    # A dead symlink of the USER's own must not make a clean uninstall report failure.
+    cfg8="$TMPROOT/cfg-theirdead"; mkdir -p "$cfg8/skills"
+    ln -s /nowhere/at/all "$cfg8/skills/their-dead-link"
+    CLAUDE_CONFIG_DIR="$cfg8" "$ROOT/local/bootstrap.sh" >/dev/null 2>&1
+    rc=0
+    out="$(CLAUDE_CONFIG_DIR="$cfg8" "$ROOT/local/bootstrap.sh" --uninstall 2>&1)" || rc=$?
+    [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'Nothing else was touched' \
+        && ok "a foreign dead symlink does not make a clean undo report failure" \
+        || no "a foreign dead symlink made --uninstall report failure (rc=$rc)"
+    [ -L "$cfg8/skills/their-dead-link" ] \
+        && ok "and it is left alone" || no "--uninstall removed a foreign dead symlink"
+
+    # --dry-run must PREVIEW the broken-link outcome, not promise a clean undo the real
+    # run will not deliver.
+    cfg9="$TMPROOT/cfg-drybroken"; pk9="$TMPROOT/pack-vanishes-2"
+    mkdir -p "$pk9/skills/$first"
+    printf -- '---\nname: %s\ndescription: fixture\n---\n' "$first" > "$pk9/skills/$first/SKILL.md"
+    printf '{"pack":"cycle"}\n' > "$pk9/PACK.json"
+    printf '{"vendoredBy":"tools/vendor-sync.py","pack":"cycle"}\n' > "$pk9/PROVENANCE.json"
+    CLAUDE_CONFIG_DIR="$cfg9" PACK_CLOUDFLARE_DIR="$pk9" \
+      "$ROOT/local/bootstrap.sh" --with-packs >/dev/null 2>&1
+    rm -f "$cfg9/.toolkit-install-state.tsv"; rm -rf "$pk9"
+    out="$( unset PACK_CLOUDFLARE_DIR
+            CLAUDE_CONFIG_DIR="$cfg9" "$ROOT/local/bootstrap.sh" --uninstall --dry-run 2>&1 )"
+    printf '%s' "$out" | grep -q 'Nothing else was touched' \
+        && no "--dry-run promised a clean undo the real run will not deliver" \
+        || ok "--dry-run previews the broken-link outcome instead of promising a clean undo"
+
     marker="$(sed -n "s/^TOOLKIT_MARKER='\(.*\)'$/\1/p" "$ROOT/local/bootstrap.sh")"
     [ -n "$marker" ] && grep -q "$marker" "$ROOT/tools/check.py" \
         && ok "bootstrap.sh's toolkit marker ($marker) is still in tools/check.py" \
@@ -928,10 +993,12 @@ if ! command -v python3 >/dev/null 2>&1; then
 else
   out="$(cd "$ROOT" && python3 tools/_claim_scan.py 2>&1)"
   rc=$?
-  if printf '%s' "$out" | grep -q 'UNREADABLE'; then
-    no "the settings file could not be read — $(printf '%s' "$out" | head -1)"
-  else
+  # Require the positive line, not merely the absence of the negative one: if the scan
+  # dies before printing anything, "no UNREADABLE" would otherwise read as success.
+  if printf '%s' "$out" | grep -q '^SETTINGS-KEYS '; then
     ok "the settings file is readable: $(printf '%s' "$out" | sed -n 's/^SETTINGS-KEYS /keys /p')"
+  else
+    no "the settings file could not be read — $(printf '%s' "$out" | head -1)"
   fi
   [ "$rc" -eq 0 ] && ok "the settings-claim scan ran to completion" \
                   || no "the settings-claim scan exited $rc"
