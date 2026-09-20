@@ -246,6 +246,43 @@ PY
 fi
 
 # ---------------------------------------------------------------------------------------
+group "pack builder: a mode that does not take a flag refuses rather than ignoring it"
+
+# `main` dispatches on argv[0] alone. Before reject_stray, this line BUILT:
+#   vendor-sync.py --pack cloudflare --verify-pack --into <dir>
+# The --verify-pack was dropped on the floor and the destination was rebuilt. Someone who
+# meant to check a pack got it overwritten instead, and the exit status said success. The
+# destination guard above keeps that from destroying a non-pack directory; this keeps the
+# tool from doing the opposite of what it was asked.
+
+if ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent — argument-strictness tests cannot run"
+else
+  dest="$TMPROOT/strict-dest"; mkdir -p "$dest"
+  # A REAL pack name, deliberately: with a made-up one the pre-fix code refuses for the
+  # wrong reason ("no pack spec") and the test passes without detecting anything. With a
+  # real one the pre-fix code builds, which is the behaviour being guarded against.
+  for case in '--pack cloudflare --verify-pack --into:a build line carrying --verify-pack is refused' \
+              '--verify-pack --into@--pack cloudflare:a verify line carrying --pack is refused' \
+              '--pack cloudflare --into@--dry-run:an unrecognised flag is refused'; do
+    args="${case%%:*}"; label="${case#*:}"
+    # `@` separates arguments that must land after the --into value.
+    before="${args%%@*}"; after=""
+    [ "$args" = "$before" ] || after="${args#*@}"
+    # shellcheck disable=SC2086
+    rc=0
+    out="$(cd "$ROOT" && python3 tools/vendor-sync.py $before "$dest" $after 2>&1)" || rc=$?
+    if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qi 'does not take'; then
+      ok "$label (rc=$rc)"
+    else
+      no "$label — rc=$rc, got: $out"
+    fi
+  done
+  if [ -z "$(ls -A "$dest")" ]; then ok "a refused invocation wrote nothing to the destination"
+  else no "a refused invocation left files behind: $(ls -A "$dest")"; fi
+fi
+
+# ---------------------------------------------------------------------------------------
 group "pack builder: --verify-pack REJECTS a tampered pack (the production code path)"
 
 # The suite used to call verify_pack zero times. Every case below runs the real
