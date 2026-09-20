@@ -1,14 +1,15 @@
 {
   "$comment": "Claude Code plugin composition. Data only - no plugin code is vendored here. The `cloud` field records what a cloud session was OBSERVED to do, not what the marketplace and the plugin's runtime needs imply it should do. Revision 2 of this file reasoned from marketplace reachability to cloud availability and got three entries wrong; see cloudObservation below.",
   "schemaVersion": 3,
-  "verifiedAgainst": { "claudeCode": "2.1.278", "date": "2026-09-19" },
-
+  "verifiedAgainst": {
+    "claudeCode": "2.1.278",
+    "date": "2026-09-19"
+  },
   "cloudObservation": {
     "date": "2026-09-20",
     "method": "Two experiments. (1) A controlled pair of cloud sessions, same Claude Code build and hour, differing only in whether this repository's .claude/settings.json was in the working tree. (2) A clean fresh-startup run, below. Both read ~/.claude/plugins/known_marketplaces.json, ~/.claude/plugins/installed_plugins.json and the settings_load / headless_marketplace_reconcile lines in $CLAUDE_CODE_DIAGNOSTICS_FILE.",
     "settingsFileIsRead": "YES. permissions.deny from this file is enforced in a cloud session, and the reconcile fires only when the file is present. Do not read the observations below as 'repo settings are ignored in cloud' - that reading is wrong and was corrected once already.",
     "reconcileResult": "Registered exactly one marketplace, anthropics/claude-plugins-official, which Claude Code already knows. Registered NEITHER marketplace declared in extraKnownMarketplaces. Installed ZERO plugins: installed_plugins.json stayed {\"version\":2,\"plugins\":{}}. Reported failed_count 0 and skipped_count 0 - no error, no warning, no skip, no log line, no network attempt.",
-
     "freshStartupTest": {
       "status": "RUN AND VERIFIED, 2026-09-20. This closes the cell earlier revisions of this file called untested. Do not reintroduce that hedge.",
       "why": "Every prior observation was of a session where the settings file APPEARED mid-life or was absent throughout, so none of them excluded the possibility that a spawn-time reconcile behaves differently. A spawn always clones the default branch, so the test needed a repository whose DEFAULT BRANCH carries the file.",
@@ -27,13 +28,11 @@
       },
       "readingTheCounters": "The reconcile's own installed_count of 1 is reported verbatim rather than interpreted. Whatever it counts, no plugin became available: ListPlugins was empty and installed_plugins.json was not populated. Do not cite installed_count as evidence that a plugin installed."
     },
-
     "claimTiers": {
       "VERIFIED": "For the tested Anthropic-hosted cloud environment on 2026-09-20: project-scoped enabledPlugins and extraKnownMarketplaces did not deliver the declared plugins at fresh startup. The mechanism runs - settings load without error and the reconcile completes - and delivers nothing.",
       "BEST_SUPPORTED_EXPLANATION": "That the reconcile ignores project-scoped plugin declarations. This is the explanation the evidence most favours and it is NOT fully proven: no instrumentation inside the reconcile was read, only its inputs, its counters and its outputs.",
       "NOT_ESTABLISHED": "Any universal claim across every Claude Code version, every cloud configuration or every project shape. One environment on one date was tested. Do not generalise this into 'plugins do not work in cloud'."
     },
-
     "vocabulary": {
       "yes": "observed working in a cloud session",
       "declared-not-delivered": "enabled in this repository's .claude/settings.json and NOT delivered - verified at fresh startup as well as mid-session, in the tested environment on 2026-09-20. The reconcile ran and reported no failure. See claimTiers for what this does and does not establish.",
@@ -41,34 +40,47 @@
       "no": "a stated technical blocker makes it unable to work in a cloud session"
     }
   },
-
   "marketplaces": {
     "claude-plugins-official": {
-      "source": { "source": "github", "repo": "anthropics/claude-plugins-official" },
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      },
       "scope": "portable"
     },
     "ecc": {
-      "source": { "source": "git", "url": "https://github.com/affaan-m/everything-claude-code.git" },
+      "source": {
+        "source": "git",
+        "url": "https://github.com/affaan-m/everything-claude-code.git"
+      },
       "scope": "portable",
       "note": "The repository was renamed to affaan-m/ECC. GitHub redirects this URL, and it is the URL already registered locally, so it is kept to avoid creating a second marketplace entry. Canonical: https://github.com/affaan-m/ECC"
     },
     "ui-ux-pro-max-skill": {
-      "source": { "source": "github", "repo": "nextlevelbuilder/ui-ux-pro-max-skill" },
+      "source": {
+        "source": "github",
+        "repo": "nextlevelbuilder/ui-ux-pro-max-skill"
+      },
       "scope": "portable"
     },
     "thedotmack": {
-      "source": { "source": "github", "repo": "thedotmack/claude-mem" },
+      "source": {
+        "source": "github",
+        "repo": "thedotmack/claude-mem"
+      },
       "scope": "portable",
       "autoUpdate": false,
       "note": "Marketplace is remotely reachable; the PLUGIN is what cannot run in cloud."
     },
     "gitkraken": {
-      "source": { "source": "directory", "path": "${CLAUDE_CONFIG_DIR}/plugins/marketplaces/gitkraken" },
+      "source": {
+        "source": "directory",
+        "path": "${CLAUDE_CONFIG_DIR}/plugins/marketplaces/gitkraken"
+      },
       "scope": "machine-local",
       "reason": "Created on disk by the GitKraken desktop app. Its marketplace.json declares source './plugins/gitkraken-hooks' - a relative local path with no remote of any kind. It cannot be declared in a repository and cannot be reconstructed on another machine from this manifest."
     }
   },
-
   "plugins": {
     "ecc@ecc": {
       "cloud": "declared-not-delivered",
@@ -80,7 +92,6 @@
       "note": "Local is pinned at 1.10.0, whose plugin.json declares an explicit 38-file `agents` list and therefore hides 9 agents it ships. Upstream 2.2.1 OMITS the `agents` key entirely, so Claude Code auto-discovers the whole agents/ directory - 68 agents, including all 9. Upgrading locally is a separate, user-owned decision; this manifest does not perform it.",
       "nineHiddenAgents": {
         "$comment": "The original claim bundled two separate things. They are now separated, because the 2026-09-20 fresh-startup test settled one of them and left the other exactly where it was.",
-
         "packageContent": {
           "status": "REVIEWED, NOT VERIFIED",
           "claim": "Upstream 2.2.1 omits the `agents` key, so Claude Code auto-discovers the whole agents/ directory - 68 agents, including the 9 that the local 1.10.0 pin's explicit 38-file list hides.",
@@ -88,7 +99,6 @@
           "notSettledBy": "The fresh-startup test says nothing about this. It establishes that ECC was not installed, which is a fact about delivery, not about what the package contains.",
           "toVerify": "Load 2.2.1 somewhere it actually installs, enumerate the agents Claude Code resolves, and check for the 9."
         },
-
         "cloudAvailability": {
           "status": "VERIFIED NEGATIVE for the tested environment, 2026-09-20",
           "claim": "The 9 agents resolve in a cloud session, because a cloud session installs the current marketplace version rather than the local pin.",
@@ -102,12 +112,14 @@
     "superpowers@claude-plugins-official": {
       "cloud": "declared-not-delivered",
       "cloudEvidence": "2026-09-20, VERIFIED at fresh startup and mid-session: the sharpest case. Its marketplace, claude-plugins-official, WAS present and this plugin is in that marketplace's manifest - and it still did not install, with failed_count 0 and an empty ListPlugins. So marketplace reachability does not entail plugin delivery, which is the inference this whole file was built on. See cloudObservation.freshStartupTest.",
-      "enabledInRepoSettings": true, "installedLocally": "6.3.0"
+      "enabledInRepoSettings": true,
+      "installedLocally": "6.3.0"
     },
     "ui-ux-pro-max@ui-ux-pro-max-skill": {
       "cloud": "declared-not-delivered",
       "cloudEvidence": "2026-09-20, VERIFIED at fresh startup and mid-session: enabled in .claude/settings.json, reconcile ran, not installed, no failure reported. Its marketplace `ui-ux-pro-max-skill` was never registered either. See cloudObservation.freshStartupTest.",
-      "enabledInRepoSettings": true, "installedLocally": "2.5.0",
+      "enabledInRepoSettings": true,
+      "installedLocally": "2.5.0",
       "gitCommitShaLocal": "b7e3af80f6e331f6fb456667b82b12cade7c9d35"
     },
     "clangd-lsp@claude-plugins-official": {
@@ -130,14 +142,40 @@
       "reason": "Two independent blockers. (1) Its marketplace is a local directory with no remote, so it cannot be declared in a repository. (2) It reports live session state to the GitKraken desktop app through ~/.orca/agent-hooks/, and no desktop app exists in a cloud VM."
     }
   },
-
   "notInstalled": {
     "spec-kit": "Named in a request but not present on this machine: absent from installed_plugins.json, known_marketplaces.json, settings.json and the plugins cache. Nothing to port."
   },
-
   "accountSynced": {
     "$comment": "Delivered one-way cloud->local by Anthropic into plugins/synced/. Not user-publishable. Listed for inventory completeness; nothing here installs from this manifest.",
     "marketplace": "knowledge-work-plugins",
-    "plugins": ["design", "engineering", "productivity", "cowork-plugin-management"]
+    "plugins": [
+      "design",
+      "engineering",
+      "productivity",
+      "cowork-plugin-management"
+    ]
+  },
+  "claudeCodeSettings": {
+    "$comment": "Moved out of .claude/settings.json on 2026-09-20. These two keys were VERIFIED that day not to deliver plugins at fresh startup in the tested Anthropic-hosted cloud environment: the reconcile ran, reported no failure and installed none of them. Leaving them in the repository settings stated a capability that does not exist there. They are correct locally, so they are kept here and applied by local/bootstrap.sh --with-plugins rather than deleted.",
+    "appliedBy": "local/bootstrap.sh --with-plugins",
+    "enabledPlugins": {
+      "ecc@ecc": true,
+      "superpowers@claude-plugins-official": true,
+      "ui-ux-pro-max@ui-ux-pro-max-skill": true
+    },
+    "extraKnownMarketplaces": {
+      "ecc": {
+        "source": {
+          "source": "git",
+          "url": "https://github.com/affaan-m/everything-claude-code.git"
+        }
+      },
+      "ui-ux-pro-max-skill": {
+        "source": {
+          "source": "github",
+          "repo": "nextlevelbuilder/ui-ux-pro-max-skill"
+        }
+      }
+    }
   }
 }

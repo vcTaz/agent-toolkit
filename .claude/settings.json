@@ -1,6 +1,5 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-
   "permissions": {
     "deny": [
       "Read(~/.ssh/**)",
@@ -21,20 +20,5 @@
       "Read(~/.sqlsecrets/**)",
       "Read(~/.supabase/**)"
     ]
-  },
-
-  "enabledPlugins": {
-    "ecc@ecc": true,
-    "superpowers@claude-plugins-official": true,
-    "ui-ux-pro-max@ui-ux-pro-max-skill": true
-  },
-
-  "extraKnownMarketplaces": {
-    "ecc": {
-      "source": { "source": "git", "url": "https://github.com/affaan-m/everything-claude-code.git" }
-    },
-    "ui-ux-pro-max-skill": {
-      "source": { "source": "github", "repo": "nextlevelbuilder/ui-ux-pro-max-skill" }
-    }
   }
 }

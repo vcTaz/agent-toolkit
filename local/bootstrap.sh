@@ -9,7 +9,7 @@
 #   ./local/bootstrap.sh --dry-run    show every action, change nothing
 #   ./local/bootstrap.sh --check      verify only (alias for doctor.sh)
 #   ./local/bootstrap.sh --uninstall  remove links this toolkit owns
-#   ./local/bootstrap.sh --with-plugins    also install marketplaces/plugins from manifest/
+#   ./local/bootstrap.sh --with-plugins    also install marketplaces/plugins from profile/
 #   ./local/bootstrap.sh --with-vendored   also link the 27 vendored third-party skills
 #
 # --with-vendored is OPT-IN because on a machine where those skills were installed by
@@ -126,9 +126,13 @@ do_vendored() {
   done < <(jq -r '.sources | to_entries[] | .key as $s | .value.skills | keys[] | [$s, .] | @tsv' "$mf")
 }
 
-# --- optional: reconstruct the plugin composition from the manifest ------------------
+# --- optional: reconstruct the plugin composition from the profile -------------------
+# Machine/account composition, not toolkit content. It moved out of manifest/ and out
+# of the repository's own .claude/settings.json on 2026-09-20: those two settings keys
+# were measured that day not to deliver plugins in cloud, so declaring them there
+# stated a capability that does not exist. They work locally, so they live here.
 do_plugins() {
-  local mf="$TOOLKIT_ROOT/manifest/plugins.json"
+  local mf="$TOOLKIT_ROOT/profile/plugins.json"
   say "plugins (from ${mf#"$TOOLKIT_ROOT"/})"
   command -v jq >/dev/null 2>&1    || { warn "jq not found — cannot read the manifest"; return 0; }
   command -v claude >/dev/null 2>&1 || { warn "claude not found on PATH — skipping"; return 0; }

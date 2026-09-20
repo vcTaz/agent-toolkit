@@ -158,7 +158,7 @@ Still **not** established, and therefore not depended on:
 | A user can publish their own plugin into the account-synced channel | no documented route | Not used. Enabling an existing plugin for the account is a different, supported thing |
 | Whether a plain clone of a private repo succeeds through the GitHub proxy without a PAT | untested | `cloud/setup.sh` tries it first and degrades to a PAT, and never fails the session either way |
 | **Why** the reconcile delivers nothing — whether it ignores project-scoped plugin declarations | best-supported explanation, not proven | The observation is verified and does not depend on the cause being right. Do not state the mechanism as fact |
-| Whether this holds across other Claude Code versions, cloud configurations or project shapes | not established | One environment on one date was tested. The `cloud` values in `manifest/plugins.json` are scoped to it |
+| Whether this holds across other Claude Code versions, cloud configurations or project shapes | not established | One environment on one date was tested. The `cloud` values in `profile/plugins.json` are scoped to it |
 
 ## Vendoring, and why it is not a contradiction
 

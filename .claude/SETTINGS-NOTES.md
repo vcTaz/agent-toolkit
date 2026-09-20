@@ -20,16 +20,16 @@ the split is not an artefact of when the file appeared.
 | Key | Reason |
 |---|---|
 | `permissions.deny` | Mirrors the 17 machine-local deny rules. Deny rules are additive, so this can only ever *tighten* a session. **Important:** a cloud session reads these only when the project has **one** repository. In a multi-repository project the thread starts above the clones and reads no repository's `permissions`, `hooks` or `env` — so these rules do **not** apply there and must be set in **Project settings** instead. See `cloud/README.md`. |
-| `enabledPlugins` | Only the three **portable** plugins. **Verified 2026-09-20: in a cloud session these install nothing — at fresh startup as well as mid-session.** The reconcile runs and reports no failure. Kept because they are correct locally; do not plan a cloud session around them. See `manifest/plugins.json`. |
+| `enabledPlugins`, `extraKnownMarketplaces` | **Removed from this file on 2026-09-20.** Verified that day: in a cloud session they install nothing, at fresh startup as well as mid-session — the reconcile runs and reports no failure. Declaring them here stated a capability this repository does not have. They are correct locally, so they moved to `profile/plugins.json` and are applied by `local/bootstrap.sh --with-plugins`. |
 | `extraKnownMarketplaces` | Only the two public marketplaces the portable plugins need. `claude-plugins-official` is built in and needs no entry. **Measured 2026-09-20: neither was registered in a cloud session**, silently. |
 
 ## What is deliberately NOT here
 
 | Omitted | Reason |
 |---|---|
-| `hooks` | Every hook on this machine invokes an absolute `$HOME/.claude/scripts/...` path that does not exist in a cloud session. Machine hooks live in `local/settings.fragment.json`. |
+| `hooks` | Every hook on this machine invokes an absolute `$HOME/.claude/scripts/...` path that does not exist in a cloud session. Machine hooks live in `profile/settings.fragment.json`. |
 | `statusLine` | Requires the GitKraken/orca desktop install. |
-| `gitkraken`, `clangd-lsp`, `claude-mem` plugins | Machine-local: they need `~/.orca/`, a local language server, and a local SQLite store respectively. See `manifest/plugins.json`. |
+| `gitkraken`, `clangd-lsp`, `claude-mem` plugins | Machine-local: they need `~/.orca/`, a local language server, and a local SQLite store respectively. See `profile/plugins.json`. |
 | stdio MCP servers | Cloud supports remote HTTP/SSE MCP only. Note that **this repository contains no `.mcp.json`** — it has no MCP server of its own, and the maintainer machine's servers are stdio. `.mcp.json` is referred to elsewhere as a Claude Code *mechanism*, not as a file present here. |
 | Any `permissions.allow` or `defaultMode` | This setup intentionally runs default-ask. Nothing here weakens that. |
 
