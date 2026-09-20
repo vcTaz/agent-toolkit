@@ -10,12 +10,16 @@
 #   ./local/bootstrap.sh --check      verify only (alias for doctor.sh)
 #   ./local/bootstrap.sh --uninstall  remove links this toolkit owns
 #   ./local/bootstrap.sh --with-plugins    also install marketplaces/plugins from profile/
-#   ./local/bootstrap.sh --with-vendored   also link the 27 vendored third-party skills
+#   ./local/bootstrap.sh --with-packs      also link skills from checked-out skill packs
 #
-# --with-vendored is OPT-IN because on a machine where those skills were installed by
-# their own CLI they already exist, and linking would replace working installs (backed
-# up first, but replaced). On a FRESH machine it is what you want: one bootstrap instead
-# of re-running three separate installers.
+# --with-packs is OPT-IN, and so is every pack. A pack lives in its own repository (see
+# packs/ for the specifications); point this script at a checkout with
+# PACK_<NAME>_DIR, upper-cased with dashes as underscores:
+#
+#   PACK_CLOUDFLARE_DIR=~/src/claude-skills-cloudflare ./local/bootstrap.sh --with-packs
+#
+# A pack with no directory set is reported and skipped, not failed on: not having a pack
+# checked out is the normal case, which is the whole point of moving them out of here.
 #
 # Machine-specific paths are discovered, never hard-coded: the toolkit root comes from
 # this script's own location, and the Claude config directory from CLAUDE_CONFIG_DIR
@@ -28,13 +32,13 @@ CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_DIR="${CLAUDE_DIR}/backups/toolkit-bootstrap-${STAMP}"
 
-DRY_RUN=0; UNINSTALL=0; WITH_PLUGINS=0; CHECK_ONLY=0; WITH_VENDORED=0
+DRY_RUN=0; UNINSTALL=0; WITH_PLUGINS=0; CHECK_ONLY=0; WITH_PACKS=0
 for arg in "$@"; do
   case "$arg" in
     --dry-run)      DRY_RUN=1 ;;
     --uninstall)    UNINSTALL=1 ;;
     --with-plugins)  WITH_PLUGINS=1 ;;
-    --with-vendored) WITH_VENDORED=1 ;;
+    --with-packs)   WITH_PACKS=1 ;;
     --check)        CHECK_ONLY=1 ;;
     -h|--help)      sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) printf 'unknown argument: %s\n' "$arg" >&2; exit 2 ;;
@@ -111,20 +115,39 @@ do_skills() {
   done
 }
 
-do_vendored() {
-  local mf="$TOOLKIT_ROOT/vendor/sources.json"
-  [ -f "$mf" ] || { warn "no vendor/sources.json"; return 0; }
-  command -v jq >/dev/null 2>&1 || { warn "jq not found — cannot read vendor/sources.json"; return 0; }
-  say "vendored skills -> ${CLAUDE_DIR#"$HOME"/}/skills/"
-  local source skill
-  while IFS=$'\t' read -r source skill; do
-    [ -n "$skill" ] || continue
-    local src="$TOOLKIT_ROOT/vendor/$source/$skill"
-    [ -d "$src" ] || { warn "$skill: not materialised (run tools/vendor-sync.py --sync)"; continue; }
-    if [ "$UNINSTALL" -eq 1 ]; then unlink_one "$CLAUDE_DIR/skills/$skill" "$skill"
-    else link_one "$src" "$CLAUDE_DIR/skills/$skill" "$skill"; fi
-  done < <(jq -r '.sources | to_entries[] | .key as $s | .value.skills | keys[] | [$s, .] | @tsv' "$mf")
+# --- optional: link skills from a checked-out skill pack ------------------------------
+# A pack is a separate repository built from packs/<name>.json. Nothing here is linked
+# unless --with-packs is given AND that pack's directory is set, because an optional
+# pack that links itself is not optional.
+do_packs() {
+  local specs="$TOOLKIT_ROOT/packs"
+  [ -d "$specs" ] || { warn "no packs/ directory"; return 0; }
+  command -v jq >/dev/null 2>&1 || { warn "jq not found — cannot read the pack specs"; return 0; }
+  say "pack skills -> ${CLAUDE_DIR#"$HOME"/}/skills/"
+
+  local spec name var dir skill
+  for spec in "$specs"/*.json; do
+    [ -e "$spec" ] || continue
+    name="$(basename "$spec" .json)"
+    var="PACK_$(printf '%s' "$name" | tr '[:lower:]-' '[:upper:]_')_DIR"
+    dir="${!var-}"
+    if [ -z "$dir" ]; then
+      [ "$UNINSTALL" -eq 1 ] || say "  $name: not checked out — set $var to link it"
+    elif [ ! -d "$dir/skills" ]; then
+      warn "$name: $var=$dir has no skills/ — build it with tools/vendor-sync.py --pack"
+      continue
+    fi
+    while IFS= read -r skill; do
+      [ -n "$skill" ] || continue
+      if [ "$UNINSTALL" -eq 1 ]; then
+        unlink_one "$CLAUDE_DIR/skills/$skill" "$skill"
+      elif [ -n "$dir" ] && [ -d "$dir/skills/$skill" ]; then
+        link_one "$dir/skills/$skill" "$CLAUDE_DIR/skills/$skill" "$skill"
+      fi
+    done < <(jq -r '.skills | keys[]' "$spec")
+  done
 }
+
 
 # --- optional: reconstruct the plugin composition from the profile -------------------
 # Machine/account composition, not toolkit content. It moved out of manifest/ and out
@@ -191,7 +214,7 @@ fi
 
 do_agents; say ""
 do_skills
-if [ "$WITH_VENDORED" -eq 1 ] || [ "$UNINSTALL" -eq 1 ]; then say ""; do_vendored; fi
+if [ "$WITH_PACKS" -eq 1 ] || [ "$UNINSTALL" -eq 1 ]; then say ""; do_packs; fi
 if [ "$WITH_PLUGINS" -eq 1 ] && [ "$UNINSTALL" -eq 0 ]; then say ""; do_plugins; fi
 
 say ""
@@ -200,7 +223,7 @@ if [ "$UNINSTALL" -eq 1 ]; then
 else
   say "linked $linked, already correct $skipped, backed up $backed_up, problems $problems"
   [ "$backed_up" -gt 0 ] && say "backups: $BACKUP_DIR"
-  [ "$WITH_VENDORED" -eq 0 ] && say "vendored skills not linked — add --with-vendored (see local/README.md)"
+  [ "$WITH_PACKS" -eq 0 ] && say "pack skills not linked — add --with-packs (see packs/README.md)"
   [ "$WITH_PLUGINS" -eq 0 ] && say "plugins not touched — add --with-plugins to install them from the manifest"
 fi
 [ "$problems" -eq 0 ] || exit 1

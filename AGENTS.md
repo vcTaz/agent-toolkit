@@ -20,8 +20,8 @@ That is not the same as "nothing to install", which this sentence used to say wh
 same file listed `local/` as "install this toolkit into a local Claude Code config" and
 pointed at `local/README.md` under "install it on a machine". The `HOST` layer is
 genuinely installable and genuinely optional; see `docs/host-integration.md`. Everything here is Markdown, apart from one TOML adapter per role and `tools/`,
-which holds stdlib-only Python maintenance scripts — structural checks, adapter sync, vendor
-sync. Nothing reads them at use time; you run them by hand when you change something.
+which holds stdlib-only Python maintenance scripts — structural checks, adapter sync, and
+building a skill pack from its pin. Nothing reads them at use time; you run them by hand when you change something.
 
 ## Repository map
 
@@ -36,7 +36,7 @@ docs/authority.md            which file wins when two disagree
 docs/lineage.md              where these ideas came from
 .claude/agents/   ADAPTER    Claude Code subagent + teammate definitions
 .codex/agents/    ADAPTER    Codex project-scoped subagents
-.claude/skills/   LINKS      real directory; each entry links to skills/ or vendor/
+.claude/skills/   LINKS      real directory; each entry links into skills/
 .agents/skills    LINK    →  skills/
 .claude/settings.json  HOST  repo-scoped settings; the only channel that reaches cloud
 packs/            HOST       specifications for optional skill packs — pins, never content
@@ -50,10 +50,13 @@ tools/check.py               structural checks and adapter sync
 The two skills paths are **not the same shape**, and `tools/check.py` enforces the
 difference. `.agents/skills` is a single container symlink to `skills/`. `.claude/skills/` is
 a real directory whose *entries* are symlinks, because only a `<skill-name>` entry is
-documented as symlinkable — a symlinked container is not. Its entries currently resolve into
-two places: the canonical `skills/`, and `vendor/` for third-party skills committed from
-pinned upstreams. Whether the vendored set stays there is an open question, not a settled
-part of this map.
+documented as symlinkable — a symlinked container is not. Every entry resolves into the
+canonical `skills/`; there are six, and there is no third-party content in this repository.
+
+Third-party skills live in **optional pack repositories**, one per upstream, built from the
+specifications in `packs/` and attached to the Projects that want them. That question was
+open in this file until 2026-09-20 and is now settled: 26 skills moved out, and both packs
+were verified delivering in fresh cloud sessions before the committed copies were removed.
 
 `CANONICAL` and `PORTABLE` are **two different claims**, and conflating them is the mistake
 this section exists to prevent.

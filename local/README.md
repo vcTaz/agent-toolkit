@@ -9,20 +9,26 @@ git clone <this repo> ~/agents && cd ~/agents
 On a fresh machine, do all of it at once:
 
 ```bash
-./local/bootstrap.sh --with-vendored --with-plugins
+PACK_CLOUDFLARE_DIR=~/src/claude-skills-cloudflare \
+  ./local/bootstrap.sh --with-packs --with-plugins
 ```
 
 | Flag | Adds |
 |---|---|
 | *(none)* | 8 agents + 6 toolkit skills |
-| `--with-vendored` | the 27 third-party skills committed under `vendor/` |
+| `--with-packs` | skills from any checked-out pack named by `PACK_<NAME>_DIR` |
 | `--with-plugins` | marketplaces and plugins from `profile/plugins.json` |
 
-**`--with-vendored` is opt-in on purpose.** On a machine where those skills were installed
-by their own CLI, they already exist, and linking would replace working installs — backed
-up first, but replaced. A dry run on such a machine reports exactly that: 13 directories it
-would back up and 14 symlinks pointing outside the toolkit that it refuses to touch. On a
-fresh machine it is simply what you want.
+**`--with-packs` is opt-in, and so is every individual pack.** A pack lives in its own
+repository — see `packs/README.md` — so this script links one only when you point
+`PACK_<NAME>_DIR` at a checkout of it, upper-cased with dashes as underscores. A pack with no
+directory set is reported and skipped rather than failed on, because not having one checked
+out is the normal case. That is the point of the tier: nothing third-party arrives unless you
+ask for it by name.
+
+On a machine where those skills were installed by their own CLI they already exist, and
+linking would replace working installs — backed up first, but replaced. A dry run says so
+before anything moves.
 
 ## Guarantees
 

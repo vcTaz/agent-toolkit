@@ -250,14 +250,10 @@ def sync_codex(path, identity, source, body, sync):
 def check_links():
     """Every relative markdown link must resolve. A broken pointer is a broken document.
 
-    `vendor/` is excluded. That content is third-party, materialised verbatim from a
-    pinned upstream commit, and this repository has no authority to change it. Policing
-    it would report defects that are upstream's and that a re-sync would restore --
-    three such links exist in cloudflare/skills at the current pin. `.claude/skills/`
-    is excluded for the same reason once resolved: its entries are symlinks into
-    `skills/` and `vendor/`, both already covered.
+    `.claude/skills/` is skipped once resolved: its entries are symlinks into `skills/`,
+    which is already covered, so following them would check the same files twice.
     """
-    skip = {'.git', 'docs/archive', 'vendor'}
+    skip = {'.git', 'docs/archive'}
     for path in sorted(ROOT.rglob('*.md')):
         if any(part in skip for part in path.parts):
             continue
@@ -269,34 +265,70 @@ def check_links():
                 fail(path, f'broken link: {target}')
 
 
-def vendored_skills():
-    """{name: path} for third-party skills committed under vendor/.
+def check_packs():
+    """Validate the optional skill-pack specifications. Returns {pack: skill count}.
 
-    Their content is not authored here; `tools/vendor-sync.py` materialises it from a
-    pinned upstream commit and records provenance and licence beside it. They are
-    committed rather than referenced because Claude Projects load skills from a cloned
-    repository, and a manifest entry makes nothing available to a cloud session.
+    A spec is a pin and a mapping, not content: third-party skills live in their own
+    repositories, built from these by `tools/vendor-sync.py --pack`. So what can be
+    checked here is that each spec is well formed and internally consistent, and what
+    cannot is whether the pack built from it matches upstream -- that is
+    `--verify-pack`'s job, offline, against the built tree.
+
+    The names matter beyond tidiness: a pack skill sharing a name with a canonical one
+    would shadow it in any Project attaching both, and the canonical six are the skills
+    this toolkit exists to deliver.
     """
-    sources = ROOT / 'vendor' / 'sources.json'
-    if not sources.is_file():
-        return {}
     import json
-    found = {}
-    for source, spec in json.loads(sources.read_text())['sources'].items():
-        for skill in spec['skills']:
-            path = ROOT / 'vendor' / source / skill
-            if not (path / 'SKILL.md').is_file():
-                fail(path, 'declared in vendor/sources.json but has no SKILL.md; '
-                           'run tools/vendor-sync.py --sync')
-                continue
-            found[skill] = path
-    return found
+    packs, seen = {}, {}
+    directory = ROOT / 'packs'
+    if not directory.is_dir():
+        return packs
+    canonical = {d.name for d in (ROOT / 'skills').iterdir() if d.is_dir()}
+    for path in sorted(directory.glob('*.json')):
+        try:
+            spec = json.loads(path.read_text())
+        except json.JSONDecodeError as exc:
+            fail(path, f'not valid JSON: {exc}')
+            continue
+        for key in ('pack', 'packRepo', 'upstream', 'skills', 'layout'):
+            if key not in spec:
+                fail(path, f'pack spec has no {key!r}')
+        if spec.get('pack') != path.stem:
+            fail(path, f'pack {spec.get("pack")!r} does not match filename {path.stem!r}')
+        upstream = spec.get('upstream', {})
+        for key in ('repo', 'ref', 'license', 'licenseFile'):
+            if not upstream.get(key):
+                fail(path, f'upstream has no {key!r}; a pack without one is not reproducible')
+        ref = upstream.get('ref', '')
+        if not re.fullmatch(r'[0-9a-f]{40}', ref):
+            fail(path, f'upstream ref {ref!r} is not a full 40-character commit sha. '
+                       'A branch or tag is not a pin.')
+        if not spec.get('layout', {}).get('claudeEntries'):
+            fail(path, 'layout does not declare claudeEntries. A pack without '
+                       '.claude/skills/ entries attaches to a Project and delivers '
+                       'nothing, with no error.')
+        skills = spec.get('skills') or {}
+        if not skills:
+            fail(path, 'declares no skills')
+        for name in skills:
+            if name in canonical:
+                fail(path, f'pack skill {name!r} collides with a canonical skill; it '
+                           'would shadow the one this toolkit exists to deliver')
+            if name in seen:
+                fail(path, f'skill {name!r} is also declared by {seen[name]}')
+            else:
+                seen[name] = path.name
+        packs[spec.get('pack', path.stem)] = len(skills)
+    return packs
 
 
 def check_skill_links():
     """Every harness skill path must resolve to the one canonical skills/ directory.
 
     The two harnesses need different shapes, and the difference is deliberate.
+
+    Every entry resolves into `skills/`. Third-party skills are no longer here: they
+    live in their own pack repositories, specified by `packs/`, attached per Project.
 
     `.claude/skills/` is a real directory whose ENTRIES are symlinks. Claude Code
     documents exactly this form -- "a <skill-name> entry in the enterprise, personal, or
@@ -310,11 +342,6 @@ def check_skill_links():
     """
     canonical = {d.name: ROOT / 'skills' / d.name
                  for d in (ROOT / 'skills').iterdir() if d.is_dir()}
-    for name, path in vendored_skills().items():
-        if name in canonical:
-            fail(path, f'vendored skill {name!r} collides with a canonical skill of the '
-                       'same name; one of them must be renamed')
-        canonical[name] = path
 
     container = ROOT / '.agents' / 'skills'
     if not container.is_symlink():
@@ -331,7 +358,8 @@ def check_skill_links():
     for missing in [n for n in canonical if n not in present]:
         fail(entries / missing, f'skill {missing!r} has no entry')
     for orphan in [n for n in present if n not in canonical]:
-        fail(entries / orphan, 'entry names no canonical or vendored skill')
+        fail(entries / orphan, 'entry names no canonical skill. Third-party skills '
+                               'live in their own pack repositories now; see packs/.')
     for name in [n for n in present if n in canonical]:
         link = entries / name
         if not link.is_symlink():
@@ -427,6 +455,7 @@ def main():
     if overlap:
         fail('agents/', f'{overlap} also exist in roles/; an id must name exactly one definition')
     check_skills()
+    packs = check_packs()
     check_host_invariant()
     check_adapters(roles, agents, sync)
     check_skill_links()
@@ -439,9 +468,9 @@ def main():
         return 1
     action = 'synced and checked' if sync else 'checked'
     print(f'ok: {len(roles)} roles, {len(agents)} agents, '
-          f'{len(list((ROOT / "skills").glob("*/SKILL.md")))} skills '
-          f'+ {len(vendored_skills())} vendored, '
-          f'{len(roles) * 2 + len(agents)} adapters {action}')
+          f'{len(list((ROOT / "skills").glob("*/SKILL.md")))} skills, '
+          f'{len(roles) * 2 + len(agents)} adapters {action}; '
+          f'{len(packs)} pack spec(s) covering {sum(packs.values())} external skills')
     return 0
 
 

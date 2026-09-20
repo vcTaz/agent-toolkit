@@ -9,10 +9,12 @@
 #
 #   bash tools/test.sh
 #
-# SCOPE. These cover the fixes reapplied on this branch after the cleanup work on
-# claude/project-thread-h6lc9y was lost unpushed. They are not a full suite for the
-# toolkit, and they deliberately do not test packs/ or profile/, which do not exist:
-# that restructure is an open architectural decision.
+# SCOPE. These cover the host layer: the pack builder, the install scripts, the
+# host-layer invariant and basic hygiene. They are not a full suite for the toolkit.
+# Nothing here reaches the network, so the pack tests exercise the builder against
+# synthetic archives rather than building a real pack -- `--pack` plus `--verify-pack`
+# against a real upstream is a manual step, and the two pack repositories are verified
+# offline from their own PROVENANCE.json.
 
 set -uo pipefail
 
@@ -27,10 +29,10 @@ skip() { printf '  skip  %s\n' "$*"; skipped=$((skipped + 1)); }
 group() { printf '\n%s\n' "$*"; }
 
 # ---------------------------------------------------------------------------------------
-group "vendor-sync: path traversal (guards a tarball escaping the destination)"
+group "pack builder: path traversal (guards a tarball escaping the destination)"
 
 if ! command -v python3 >/dev/null 2>&1; then
-  skip "python3 absent — vendor-sync tests cannot run"
+  skip "python3 absent — pack builder tests cannot run"
 else
   out="$(cd "$ROOT" && python3 - <<'PY' 2>&1
 import importlib.util, pathlib, sys, tempfile
@@ -63,7 +65,7 @@ PY
 fi
 
 # ---------------------------------------------------------------------------------------
-group "vendor-sync: a hostile archive cannot destroy the existing tree"
+group "pack builder: a hostile archive cannot destroy the existing tree"
 
 if ! command -v python3 >/dev/null 2>&1; then
   skip "python3 absent"
@@ -80,15 +82,12 @@ spec.loader.exec_module(vs)
 # test used a deeper traversal, and running it against the vulnerable code wrote a real
 # file to the filesystem root -- a test must not be able to do that even when it fails.
 isolated = pathlib.Path(tempfile.mkdtemp())
-sandbox = isolated / 'lvl1' / 'lvl2' / 'vendor'
-sandbox.mkdir(parents=True)
-vs.VENDOR = sandbox
-name = 'src'
+pack_dir = isolated / 'lvl1' / 'lvl2' / 'pack'
+pack_dir.mkdir(parents=True)
 
-# An existing, good vendored tree that must survive a failed sync byte for byte.
-existing = sandbox / name
-(existing / 'demo').mkdir(parents=True)
-(existing / 'demo' / 'SKILL.md').write_text('ORIGINAL CONTENT\n')
+# An existing, good pack that must survive a failed rebuild byte for byte.
+(pack_dir / 'skills' / 'demo').mkdir(parents=True)
+(pack_dir / 'skills' / 'demo' / 'SKILL.md').write_text('ORIGINAL CONTENT\n')
 
 # A tarball whose member escapes the destination.
 buf = _io.BytesIO()
@@ -97,34 +96,37 @@ with tarfile.open(fileobj=buf, mode='w:gz') as tar:
         info = tarfile.TarInfo(path); data = body.encode()
         info.size = len(data); tar.addfile(info, _io.BytesIO(data))
     add('up-abc/skills/demo/SKILL.md', 'legitimate\n')
-    # relative to vendor/src/demo this resolves to lvl1/lvl2/escaped.md
+    # relative to <pack>/.demo.staging/skills/demo this stays inside lvl1/lvl2
     add('up-abc/skills/demo/../../../escaped.md', 'HOSTILE\n')
-vs.fetch = lambda url: buf.getvalue()
+vs.fetch_tree = lambda repo, ref: buf.getvalue()
 
-spec_dict = {'repo': 'x/y', 'ref': 'a' * 40, 'license': 'MIT',
-             'skills': {'demo': 'skills/demo'}}
+spec_dict = {'pack': 'demo', 'packRepo': 'x/demo',
+             'upstream': {'repo': 'x/y', 'url': 'https://example.invalid', 'ref': 'a' * 40,
+                          'license': 'MIT', 'licenseFile': None, 'noticeFile': None},
+             'skills': {'demo': 'skills/demo'}, 'layout': {}}
+vs.load_pack = lambda name: spec_dict
 try:
-    vs.sync_source(name, spec_dict, sync=True)
-    print('SYNC-RETURNED-OK')
+    vs.build_pack('demo', pack_dir)
+    print('BUILD-RETURNED-OK')
 except ValueError:
-    print('SYNC-RAISED')
+    print('BUILD-RAISED')
 except Exception as exc:
-    print('SYNC-OTHER', type(exc).__name__)
+    print('BUILD-OTHER', type(exc).__name__)
 
-print('PRESERVED' if (existing / 'demo' / 'SKILL.md').read_text() == 'ORIGINAL CONTENT\n'
-      else 'CLOBBERED')
-leftovers = [p.name for p in sandbox.iterdir() if p.name.startswith('.')]
+print('PRESERVED' if (pack_dir / 'skills' / 'demo' / 'SKILL.md').read_text()
+      == 'ORIGINAL CONTENT\n' else 'CLOBBERED')
+leftovers = [p.name for p in pack_dir.iterdir() if p.name.startswith('.')]
 print('NO-STAGING' if not leftovers else f'STAGING-LEFT {leftovers}')
-# Nothing anywhere under the isolated root may sit outside the vendor directory.
+# Nothing anywhere under the isolated root may sit outside the pack directory.
 strays = [str(p.relative_to(isolated)) for p in isolated.rglob('*')
-          if p.is_file() and sandbox not in p.parents and p.parent != sandbox]
+          if p.is_file() and pack_dir not in p.parents and p.parent != pack_dir]
 print('NO-ESCAPE' if not strays else f'ESCAPED {strays}')
 PY
 )"
-  printf '%s' "$out" | grep -q 'SYNC-RAISED'  && ok "a traversal member aborts the sync loudly" \
+  printf '%s' "$out" | grep -q 'BUILD-RAISED' && ok "a traversal member aborts the build loudly" \
                                              || no "traversal member did not raise: $out"
-  printf '%s' "$out" | grep -q 'PRESERVED'    && ok "the previous tree survives byte-identical" \
-                                             || no "the previous tree was clobbered"
+  printf '%s' "$out" | grep -q 'PRESERVED'    && ok "the previous pack survives byte-identical" \
+                                             || no "the previous pack was clobbered"
   printf '%s' "$out" | grep -q 'NO-STAGING'   && ok "no staging directory is left behind" \
                                              || no "staging directory left behind"
   printf '%s' "$out" | grep -q 'NO-ESCAPE'    && ok "nothing was written outside the destination" \
@@ -272,6 +274,79 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------
+group "packs: specifications, and no third-party content in core"
+
+if [ ! -d "$ROOT/packs" ]; then
+  no "packs/ is missing; the external-pack architecture has no specifications"
+else
+  [ -d "$ROOT/vendor" ] && no "vendor/ is back — third-party content belongs in a pack repo" \
+                        || ok "no vendor/ directory in core"
+  if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    n="$(git -C "$ROOT" ls-files vendor | wc -l)"
+    [ "$n" -eq 0 ] && ok "no tracked vendor/ files" || no "$n vendor/ files still tracked"
+  else
+    skip "not a git repository — cannot check tracked vendor/ files"
+  fi
+
+  # The six canonical skills are the ones this toolkit exists to deliver. Anything else
+  # in .claude/skills/ means third-party content has crept back into core.
+  entries="$(ls "$ROOT/.claude/skills" 2>/dev/null | tr '\n' ' ')"
+  expected="adversarial-review bounded-context-handoff evidence-backed-synthesis evidence-verification final-verification independent-validation "
+  [ "$entries" = "$expected" ] \
+      && ok ".claude/skills carries exactly the six canonical entries" \
+      || no ".claude/skills is [$entries], expected [$expected]"
+
+  if command -v python3 >/dev/null 2>&1; then
+    out="$(cd "$ROOT" && python3 - <<'PY' 2>&1
+import json, pathlib, re
+bad = []
+for path in sorted(pathlib.Path('packs').glob('*.json')):
+    spec = json.loads(path.read_text())
+    ref = spec.get('upstream', {}).get('ref', '')
+    if not re.fullmatch(r'[0-9a-f]{40}', ref):
+        bad.append(f'{path}: ref {ref!r} is not a 40-char sha')
+    if not spec.get('layout', {}).get('claudeEntries'):
+        bad.append(f'{path}: no layout.claudeEntries')
+    if not spec.get('skills'):
+        bad.append(f'{path}: no skills')
+print('SPECS-OK' if not bad else 'SPEC-PROBLEMS ' + '; '.join(bad))
+PY
+)"
+    printf '%s' "$out" | grep -q 'SPECS-OK' \
+        && ok "every pack spec pins a full sha and declares .claude/skills entries" \
+        || no "$out"
+  else
+    skip "python3 absent — pack spec validation"
+  fi
+
+  # A pack must be opt-in, and the override must actually work. Both are exercised
+  # rather than grepped for: a script can contain the right variable name and still
+  # never read it.
+  fake="$TMPROOT/fake-pack/skills/wrangler"; mkdir -p "$fake"
+  printf -- '---\nname: wrangler\ndescription: fixture\n---\n' > "$fake/SKILL.md"
+
+  out="$(CLAUDE_CONFIG_DIR="$TMPROOT/cfg-packs" "$ROOT/local/bootstrap.sh" --dry-run 2>&1)"
+  printf '%s' "$out" | grep -q 'wrangler' \
+      && no "a default run links pack skills; packs must be opt-in" \
+      || ok "a default bootstrap run links no pack skills"
+
+  out="$(CLAUDE_CONFIG_DIR="$TMPROOT/cfg-packs" "$ROOT/local/bootstrap.sh" \
+         --with-packs --dry-run 2>&1)"
+  printf '%s' "$out" | grep -q 'not checked out' \
+      && ok "--with-packs reports an unbuilt pack rather than failing on it" \
+      || no "--with-packs did not report the missing pack: $out"
+
+  out="$(CLAUDE_CONFIG_DIR="$TMPROOT/cfg-packs" PACK_CLOUDFLARE_DIR="$TMPROOT/fake-pack" \
+         "$ROOT/local/bootstrap.sh" --with-packs --dry-run 2>&1)"
+  printf '%s' "$out" | grep -q 'wrangler' \
+      && ok "PACK_CLOUDFLARE_DIR is read and its skills are linked" \
+      || no "PACK_CLOUDFLARE_DIR was ignored: $out"
+  [ -e "$TMPROOT/cfg-packs/skills/wrangler" ] \
+      && no "--dry-run CREATED a link — a dry run must not write" \
+      || ok "--with-packs --dry-run wrote nothing"
+fi
+
+# ---------------------------------------------------------------------------------------
 group "hygiene"
 
 syntax_bad=0
@@ -286,7 +361,7 @@ if command -v python3 >/dev/null 2>&1; then
   while IFS= read -r f; do
     python3 -c "import json,sys;json.load(open(sys.argv[1]))" "$f" 2>/dev/null \
       || { no "invalid JSON: ${f#"$ROOT"/}"; json_bad=1; }
-  done < <(find "$ROOT" -name '*.json' -not -path '*/vendor/*' -not -path '*/.git/*')
+  done < <(find "$ROOT" -name '*.json' -not -path '*/.git/*')
   [ "$json_bad" -eq 0 ] && ok "every tracked JSON file parses"
 
   for f in "$ROOT"/tools/*.py; do

@@ -29,9 +29,10 @@ Answer each item. If something is absent, say "none" — do not guess or fill in
    - Confirm these six toolkit skills are present:
      adversarial-review, bounded-context-handoff, evidence-backed-synthesis,
      evidence-verification, final-verification, independent-validation
-   - Confirm these vendored skills are present (they are committed under vendor/ and
-     linked from .claude/skills/): wrangler, durable-objects, cloudflare, brandkit,
-     minimalist-ui, high-end-visual-design, orca-cli
+   - Confirm NO third-party skills arrive from this repository. wrangler,
+     durable-objects, cloudflare, brandkit, minimalist-ui and orca-cli must NOT be
+     present unless a pack repository is also attached to the project, or they come
+     from the account. This repository carries six skills and no third-party content.
    - Report the TOTAL count of skills whose SKILL.md resolves under this repository.
    - For adversarial-review, report the path you would load its SKILL.md from, and whether
      that path is a symlink.
@@ -103,7 +104,7 @@ local setup. Be blunt; a clean pass on everything is not the expected result.
 | Category | Expected in a project with this repo attached |
 |---|---|
 | Instructions | This repo's `CLAUDE.md` → `AGENTS.md`, plus your app repo's, one per repository |
-| Skills | 6 toolkit + **27 vendored** = 33 from this repo, plus ~181 `ecc:*`, plus account skills |
+| Skills | **6** from this repo and no more, plus ~181 `ecc:*`, plus account skills. A pack repository, if attached, adds its own 13 |
 | Agents | The 7 roles, plus ~38 `ecc:*` |
 | Commands | ~79 `ecc:*`; this repo ships none of its own |
 | Plugins | `ecc`, `superpowers`, `ui-ux-pro-max` |
@@ -115,8 +116,8 @@ local setup. Be blunt; a clean pass on everything is not the expected result.
 
 | Symptom | Likely cause |
 |---|---|
-| All 33 skills absent, agents present | `.claude/skills/` entry symlinks not followed, despite being the documented form. Fall back: replace the symlinks with real directories (`tools/vendor-sync.py` plus a copy step) |
-| Vendored 27 absent, toolkit 6 present | Impossible by construction — both use the identical symlink mechanism. If seen, report it |
+| All 6 skills absent, agents present | `.claude/skills/` entry symlinks not followed, despite being the documented form and despite two fresh-session pack tests following them on 2026-09-20. Report it: it would contradict a measured result |
+| Third-party skills present from this repo | `vendor/` has come back, or an entry points outside `skills/`. `tools/check.py` and `tools/test.sh` both fail on that |
 | Both absent | The repository is not attached to the project, or the Claude GitHub App is not installed on it |
 | Plugins absent | No network access to the marketplace, or the marketplace source is unreachable |
 | Deny rules absent | Expected in a multi-repo project. Re-declare them in **Project settings** |
