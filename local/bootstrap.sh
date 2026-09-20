@@ -170,7 +170,20 @@ say "config  : $CLAUDE_DIR"
 [ "$UNINSTALL" -eq 1 ] && say "mode    : UNINSTALL"
 say ""
 
-[ -d "$CLAUDE_DIR" ] || { printf 'no Claude config directory at %s\n' "$CLAUDE_DIR" >&2; exit 1; }
+# A dry run must work on a machine that has never run Claude Code -- that is exactly the
+# machine someone points this at to see what it would do. Only a real run needs the
+# directory, and a real run creates it rather than refusing.
+if [ ! -d "$CLAUDE_DIR" ]; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    act "create $CLAUDE_DIR"
+  elif [ "$UNINSTALL" -eq 1 ]; then
+    say "no Claude config directory at $CLAUDE_DIR — nothing installed, nothing to remove"
+    exit 0
+  else
+    mkdir -p "$CLAUDE_DIR" || { printf 'cannot create %s\n' "$CLAUDE_DIR" >&2; exit 1; }
+    say "created $CLAUDE_DIR"
+  fi
+fi
 
 do_agents; say ""
 do_skills

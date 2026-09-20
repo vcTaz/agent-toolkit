@@ -48,6 +48,21 @@ def fetch(url: str) -> bytes:
         return response.read()
 
 
+def safe_join(base: Path, relative: str) -> Path:
+    """Resolve base/relative and refuse anything that escapes base.
+
+    A tar member's name is attacker-controlled: `startswith(prefix)` is satisfied by
+    `<prefix>/../../etc/passwd` just as well as by a real path, and `Path.__truediv__`
+    does not normalise `..` away. Resolving both sides and comparing is the check.
+    ValueError rather than a silent skip, so a hostile archive fails the sync loudly.
+    """
+    base_resolved = base.resolve()
+    target = (base_resolved / relative).resolve()
+    if target != base_resolved and base_resolved not in target.parents:
+        raise ValueError(f'archive member escapes the destination: {relative!r}')
+    return target
+
+
 def members_for(archive: tarfile.TarFile, prefix: str):
     """Every member under prefix/, with the tarball's top directory stripped."""
     root = archive.getnames()[0].split('/', 1)[0]
@@ -86,52 +101,81 @@ def sync_source(name: str, spec: dict, sync: bool) -> None:
     blob = fetch(TARBALL.format(repo=spec['repo'], ref=spec['ref']))
     archive = tarfile.open(fileobj=io.BytesIO(blob), mode='r:gz')
 
-    if dest_root.exists():
-        shutil.rmtree(dest_root)
-    dest_root.mkdir(parents=True)
+    # Build into a staging tree and swap it in only once everything succeeded. The
+    # previous version deleted the existing tree first, so a truncated download, a
+    # hostile member or a disk error left no vendored content at all and nothing to
+    # roll back to.
+    staging = VENDOR / f'.{name}.staging'
+    if staging.exists():
+        shutil.rmtree(staging)
+    staging.mkdir(parents=True)
 
-    for skill, prefix in spec['skills'].items():
-        found = False
-        for member, relative in members_for(archive, prefix):
-            target = dest_root / skill / relative
-            if member.isdir():
-                target.mkdir(parents=True, exist_ok=True)
+    try:
+        for skill, prefix in spec['skills'].items():
+            found = False
+            for member, relative in members_for(archive, prefix):
+                target = safe_join(staging / skill, relative)
+                if member.isdir():
+                    target.mkdir(parents=True, exist_ok=True)
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                extracted = archive.extractfile(member)
+                if extracted is None:
+                    continue
+                target.write_bytes(extracted.read())
+                found = True
+            if not found:
+                fail(f'{name}/{skill}', f'nothing found at {prefix} in {spec["ref"][:12]}')
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+
+    try:
+        # The licence travels with the content. Apache-2.0 and MIT both require it.
+        root = archive.getnames()[0].split('/', 1)[0]
+        for key, out_name in (('licenseFile', 'LICENSE'), ('noticeFile', 'NOTICE')):
+            if not spec.get(key):
                 continue
-            target.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                member = archive.getmember(f'{root}/{spec[key]}')
+            except KeyError:
+                fail(f'{name}/{spec[key]}', 'declared in sources.json but absent upstream')
+                continue
             extracted = archive.extractfile(member)
-            if extracted is None:
-                continue
-            target.write_bytes(extracted.read())
-            found = True
-        if not found:
-            fail(f'{name}/{skill}', f'nothing found at {prefix} in {spec["ref"][:12]}')
+            if extracted is not None:
+                (staging / out_name).write_bytes(extracted.read())
 
-    # The licence travels with the content. Apache-2.0 and MIT both require it.
-    root = archive.getnames()[0].split('/', 1)[0]
-    for key, out_name in (('licenseFile', 'LICENSE'), ('noticeFile', 'NOTICE')):
-        if not spec.get(key):
-            continue
-        try:
-            member = archive.getmember(f'{root}/{spec[key]}')
-        except KeyError:
-            fail(f'{name}/{spec[key]}', 'declared in sources.json but absent upstream')
-            continue
-        extracted = archive.extractfile(member)
-        if extracted is not None:
-            (dest_root / out_name).write_bytes(extracted.read())
+        (staging / 'PROVENANCE.json').write_text(json.dumps({
+            'source': spec['repo'],
+            'url': f'https://github.com/{spec["repo"]}',
+            'ref': spec['ref'],
+            'license': spec['license'],
+            'vendoredBy': 'tools/vendor-sync.py',
+            'note': 'Third-party content, not authored in this repository. Do not edit here; '
+                    'change the pin in vendor/sources.json and re-run --sync.',
+            'skills': {s: digest_tree(staging / s) for s in spec['skills']
+                       if (staging / s).is_dir()},
+            'upstreamPaths': dict(spec['skills']),
+        }, indent=2, sort_keys=True) + '\n')
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
 
-    (dest_root / 'PROVENANCE.json').write_text(json.dumps({
-        'source': spec['repo'],
-        'url': f'https://github.com/{spec["repo"]}',
-        'ref': spec['ref'],
-        'license': spec['license'],
-        'vendoredBy': 'tools/vendor-sync.py',
-        'note': 'Third-party content, not authored in this repository. Do not edit here; '
-                'change the pin in vendor/sources.json and re-run --sync.',
-        'skills': {s: digest_tree(dest_root / s) for s in spec['skills']
-                   if (dest_root / s).is_dir()},
-        'upstreamPaths': dict(spec['skills']),
-    }, indent=2, sort_keys=True) + '\n')
+    # Promote. The old tree is kept until the new one is in place, and restored if the
+    # swap itself fails, so an interrupted sync can never leave nothing behind.
+    previous = VENDOR / f'.{name}.previous'
+    shutil.rmtree(previous, ignore_errors=True)
+    try:
+        if dest_root.exists():
+            dest_root.rename(previous)
+        staging.rename(dest_root)
+    except Exception:
+        if previous.exists() and not dest_root.exists():
+            previous.rename(dest_root)
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    shutil.rmtree(previous, ignore_errors=True)
+
     total = sum(len(v) for v in json.loads((dest_root / 'PROVENANCE.json').read_text())['skills'].values())
     print(f'    {len(spec["skills"])} skills, {total} files, {spec["license"]}')
 

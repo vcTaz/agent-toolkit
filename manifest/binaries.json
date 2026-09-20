@@ -1,6 +1,7 @@
 {
   "$comment": "External executables this setup depends on. CORRECTED 2026-09-20 against a live cloud session: `cloudPreinstalled` now records what `command -v` returned in that session, not what the documentation lists. Earlier revisions of this file were wrong twice in opposite directions - once claiming ripgrep and uv were absent when they are present, once claiming gh is present when it is not.",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "$tiers": "core = the toolkit cannot work without it. feature = an optional flag or a nicety degrades without it. reference = recorded because it exists on the maintainer's machine or in a cloud image; NOTHING here depends on it, so its absence is never a failure. local/doctor.sh FAILs only on core.",
   "verifiedAgainst": {
     "date": "2026-09-20",
     "source": "command -v run in a live Claude Code cloud session",
@@ -13,34 +14,45 @@
   "required": {
     "git": {
       "scope": "both",
+      "tier": "core",
+      "neededFor": "Everything. The toolkit is a git checkout.",
       "cloudPreinstalled": true
     },
     "jq": {
       "scope": "both",
-      "cloudPreinstalled": true,
-      "note": "Hard dependency of the rtk PreToolUse hook (local only)."
+      "tier": "feature",
+      "neededFor": "local/bootstrap.sh and local/doctor.sh read the manifests with it. Absent, they degrade rather than fail. Also a hard dependency of the rtk PreToolUse hook (local only).",
+      "cloudPreinstalled": true
     },
     "node": {
       "scope": "both",
-      "cloudPreinstalled": true,
-      "note": "Cloud ships 20, 21 and 22; 22 on PATH. Local observed 24.21.0."
+      "tier": "reference",
+      "neededFor": "NOTHING IN THIS TOOLKIT. Recorded because the machine-local hooks in local/settings.fragment.json invoke it. Cloud ships 20, 21 and 22; 22 on PATH. Local observed 24.21.0.",
+      "cloudPreinstalled": true
     },
     "python3": {
       "scope": "both",
-      "cloudPreinstalled": true,
-      "note": "tools/check.py requires 3.9+, stdlib only."
+      "tier": "core",
+      "neededFor": "tools/check.py and tools/vendor-sync.py. Requires 3.9+, stdlib only.",
+      "cloudPreinstalled": true
     },
     "rg": {
       "scope": "both",
+      "tier": "reference",
+      "neededFor": "NOTHING IN THIS TOOLKIT. Recorded as cloud-preinstalled reference data only.",
       "cloudPreinstalled": true
     },
     "gh": {
       "scope": "machine-local",
+      "tier": "reference",
+      "neededFor": "NOTHING IN THIS TOOLKIT. Recorded as reference data, and as a warning: see the note.",
       "cloudPreinstalled": false,
       "note": "MEASURED 2026-09-20 in a cloud session: `command -v gh` and `command -v hub` both return nothing and nothing gh-shaped is anywhere on PATH, though the official installed-tools list names gh. This file declared it present, and that declaration cost a real round trip when a plan was written around `gh repo create`. Do not write one. In a cloud session use the GitHub MCP tools (mcp__github__*) or plain git, which authenticates through the proxy by credential injection. Locally gh is present and authenticates normally."
     },
     "uv": {
       "scope": "both",
+      "tier": "reference",
+      "neededFor": "NOTHING IN THIS TOOLKIT. Recorded as cloud-preinstalled reference data only.",
       "cloudPreinstalled": true
     }
   },

@@ -30,7 +30,7 @@ the split is not an artefact of when the file appeared.
 | `hooks` | Every hook on this machine invokes an absolute `$HOME/.claude/scripts/...` path that does not exist in a cloud session. Machine hooks live in `local/settings.fragment.json`. |
 | `statusLine` | Requires the GitKraken/orca desktop install. |
 | `gitkraken`, `clangd-lsp`, `claude-mem` plugins | Machine-local: they need `~/.orca/`, a local language server, and a local SQLite store respectively. See `manifest/plugins.json`. |
-| stdio MCP servers | Cloud supports remote HTTP/SSE MCP only. See `.mcp.json`. |
+| stdio MCP servers | Cloud supports remote HTTP/SSE MCP only. Note that **this repository contains no `.mcp.json`** — it has no MCP server of its own, and the maintainer machine's servers are stdio. `.mcp.json` is referred to elsewhere as a Claude Code *mechanism*, not as a file present here. |
 | Any `permissions.allow` or `defaultMode` | This setup intentionally runs default-ask. Nothing here weakens that. |
 
 ## Sandbox boundary
