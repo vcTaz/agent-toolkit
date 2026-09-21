@@ -1,0 +1,41 @@
+# The repository's own two checks, run from a fresh GitHub-hosted checkout.
+#
+# AGENTS.md says not to add CI configuration without a concrete need. The need is that
+# `tools/check.py` and `tools/test.sh` were only ever run by hand, so a pull request could
+# be read and merged without either one having been run against what it actually contains.
+#
+# Deliberately nothing else: no linting, no formatting, no release automation, no secrets,
+# no network, no writes anywhere. `tools/test.sh` reaches no network and confines itself to
+# its own mktemp directory, and the two published skill packs are verified offline from
+# their own PROVENANCE.json rather than here, so this needs neither of them.
+name: checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: check.py and test.sh
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      # The toolkit requires Python 3.9+ and no dependencies. Pinned so that a change in
+      # the runner image's default interpreter is a decision here rather than a surprise.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Structure, conformance, adapter drift and links
+        run: python3 tools/check.py
+
+      - name: Behavioural tests for the host layer
+        run: bash tools/test.sh
