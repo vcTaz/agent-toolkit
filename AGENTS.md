@@ -45,6 +45,7 @@ profile/          HOST       one machine's own composition — never required
 local/            HOST       install this toolkit into a local Claude Code config
 cloud/            HOST       install it into a cloud Claude Code environment
 tools/check.py               structural checks and adapter sync
+.github/          CI         runs tools/check.py and tools/test.sh on a PR to main
 ```
 
 The two skills paths are **not the same shape**, and `tools/check.py` enforces the
@@ -168,11 +169,15 @@ drift, symlink targets and link resolution. It fails closed on anything it canno
   is theatre.
 - **Do not add** a runtime, an orchestration engine, a plugin framework, a workflow DSL, a
   prompt compiler, a dependency, or CI configuration, without a concrete need.
-  The `HOST` layer is the one recorded exception, and its concrete need is stated in
-  `docs/host-integration.md`. It remains bounded: shell and JSON only, no new language
+  Two exceptions are recorded. The `HOST` layer's concrete need is stated in
+  `docs/host-integration.md`, and it remains bounded: shell and JSON only, no new language
   dependency, no runtime the canonical layer can observe, and nothing in `roles/`,
   `agents/`, `skills/` or `workflows/` may reference it. That last clause is enforced by
-  `tools/check.py`, not merely asserted here.
+  `tools/check.py`, not merely asserted here. The second is
+  `.github/workflows/checks.yml`, whose need is that `check.py` and `test.sh` were only
+  ever run by hand, so a pull request could be read and merged without either having been
+  run against what it contains. It is bounded to exactly those two commands: no linting,
+  no formatting, no release automation, no secrets, no network, no writes.
 - **Do not add legacy instruction files** — `.cursorrules`, `.windsurfrules`, `AGENT.md`,
   `.rules` and similar. Some harnesses resolve project instructions by first match and would
   never reach this file.
