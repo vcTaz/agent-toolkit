@@ -49,6 +49,14 @@ root `CLAUDE.md`, and a `LICENSE` whose text had been replaced with "All rights 
 
 A pack built before whole-pack provenance existed has no `files` key and **fails** with a
 message saying to rebuild it — rather than passing while unable to check those files.
+Both published packs were in exactly that state and were rebuilt from their existing pins
+on 2026-09-21 to close it; neither pin moved, and the rebuild changed `PROVENANCE.json`
+and nothing else in either repository.
+
+`schemaVersion` did not move with that change, so **2 denotes two shapes** and the number
+alone does not say which. A pack built between the two says 2 and carries no `files`; what
+rejects it is the missing key. The verifier fails closed on both, so nothing unverifiable
+passes, but do not read `schemaVersion: 2` as "whole-pack provenance is present".
 
 ## What a built pack looks like, and why
 

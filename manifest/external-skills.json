@@ -55,8 +55,8 @@
         "upstream": "cloudflare/skills",
         "license": "Apache-2.0",
         "skills": 13,
-        "head": "883a3c47f84e7361e2d0f0cfeaea7c7ccfe842d6",
-        "headNote": "Rebuilt 2026-09-20 under PROVENANCE schemaVersion 2, which records a file mode beside each sha256; the four turnstile-spin scripts regained the executable bit upstream marks. Content is byte-identical to the previous head: all 375 digests match and git reports the four scripts as mode-only changes. Verified offline from a fresh clone of this SHA (--verify-pack, rc 0).",
+        "head": "63a287f720e9da55e8a9c12b0c7a8925cdfd3811",
+        "headNote": "Rebuilt 2026-09-21 from the same pin f96bff754e42, which was not moved, to add the PROVENANCE.json `files` block: a sha256 and mode for LICENSE, PACK.json and README.md, which --verify-pack previously checked for existence only. Measured against the previous head 883a3c47 before pushing: 482 tree entries on both sides, no path added or removed, PROVENANCE.json the only one differing, all 375 skill file digests and the whole `skills` block identical, the 13 .claude/skills entries and .agents/skills -> ../skills unchanged, and the same four turnstile-spin scripts at 0755 with no other mode changed. Git reports one file changed, +14 lines. schemaVersion stays 2; the format changed without a version bump, so 2 now denotes both shapes and the missing `files` key is what rejects the older one. 883a3c47 therefore FAILED --verify-pack (rc 1) until this rebuild. Verified offline from a fresh clone of THIS SHA (--verify-pack, rc 0).",
         "deliveryVerifiedAt": "5b895f63dc5bee7f02c8b03bcb38769994cbacf5",
         "deliveryVerifiedNote": "The fresh-cloud delivery measurement above was taken against THIS SHA, not the current head. Skill names, content, layout and symlink topology are unchanged between the two, so the measurement is expected to carry over, but it has not been re-run."
       },
@@ -66,8 +66,8 @@
         "upstream": "Leonxlnx/taste-skill",
         "license": "MIT",
         "skills": 13,
-        "head": "57afa1a64a93c5a69019587853e7cb33a18ab0ec",
-        "headNote": "Rebuilt 2026-09-20 under PROVENANCE schemaVersion 2 for format parity with the cloudflare pack. No file changes mode: upstream marks none of its 14 files executable. Content is byte-identical to the previous head, and git reports no change under skills/ at all. Verified offline from a fresh clone of this SHA (--verify-pack, rc 0).",
+        "head": "2d53651236105c8ad20e3668dd2b69173e1e6968",
+        "headNote": "Rebuilt 2026-09-21 from the same pin e79ca9ec7e07, which was not moved, to add the PROVENANCE.json `files` block, as for the cloudflare pack. Measured against the previous head 57afa1a6 before pushing: 49 tree entries on both sides, no path added or removed, PROVENANCE.json the only one differing, all 14 skill file digests and the whole `skills` block identical, the 13 .claude/skills entries and .agents/skills -> ../skills unchanged, and no executable file on either side. Git reports one file changed, +14 lines. schemaVersion stays 2, as above. 57afa1a6 therefore FAILED --verify-pack (rc 1) until this rebuild. Verified offline from a fresh clone of THIS SHA (--verify-pack, rc 0).",
         "deliveryVerifiedAt": "05eec4173f24f51ba3e2ab80963f5f2ab94628dd",
         "deliveryVerifiedNote": "The fresh-cloud delivery measurement above was taken against THIS SHA, not the current head. Skill names, content, layout and symlink topology are unchanged between the two, so the measurement is expected to carry over, but it has not been re-run."
       }
