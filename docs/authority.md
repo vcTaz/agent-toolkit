@@ -6,7 +6,7 @@ Which file wins when two disagree.
 
 ```text
 1.  AGENTS.md                           project invariants and contribution rules
-    docs/concepts/orchestration.md      the invariants' full catalogue, O1-O28
+    docs/concepts/orchestration.md      the invariants' full catalogue, O1-O30
             ↓  may constrain, never redefine
 2.  roles/  skills/  workflows/         CANONICAL and portable
     agents/                             CANONICAL and host-specific
@@ -84,7 +84,7 @@ out. Five things could disagree about what the orchestrator is:
 
 | # | Source | Authoritative for | May never |
 |---|---|---|---|
-| 1 | `docs/concepts/orchestration.md` | what the rules of a run **are** — O1 to O28 | be contradicted by anything below |
+| 1 | `docs/concepts/orchestration.md` | what the rules of a run **are** — O1 to O30 | be contradicted by anything below |
 | 2 | `agents/orchestrator.md` | what the orchestrator **is**: its decisions, its state, its exclusions | contradict a principle it cites |
 | 3 | `.claude/agents/orchestrator.md`, outside the markers | this harness's `name`, `description`, `tools`, `model` and operating notes | restate a responsibility in its own words |
 | 4 | `.claude/agents/orchestrator.md`, between the markers | nothing — it is a mechanical copy | differ from its source by one byte |

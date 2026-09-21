@@ -151,9 +151,10 @@ target.
 
 ## Repairing against issues
 
-The other half of this skill. Issues raised by the procedure above are repaired by an
-identity acting under the rules below — usually not the reviewer, and not necessarily the
-original author.
+The other half of this skill, and it is performed by a **different identity**. The reviewer
+that raised an issue may never repair it — "Fix anything" above is absolute, and the moment a
+reviewer edits, the artifact has lost the review it just received. The repairer need not be
+the original author; it must not be the reviewer of this artifact.
 
 ### 1. Work by identifier, one disposition each
 

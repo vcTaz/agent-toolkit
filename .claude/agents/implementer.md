@@ -15,7 +15,7 @@ Your canonical definition follows, synchronised verbatim from `roles/implementer
 notes and the definition below ever disagree, **the definition wins and this adapter is
 defective**.
 
-<!-- canonical:begin source=roles/implementer.md sha256=70e1d48d9ab943ebcf3271bbbcb4689b3ac1d8092ecdf71bb5b0afd0beb83494 -->
+<!-- canonical:begin source=roles/implementer.md sha256=657f246469093aa5625f47ff1e10949ea0bfd301f8ae789ad26430963b9a7b3c -->
 
 # Implementer
 
@@ -120,8 +120,12 @@ change is correct, that is the moment to hand it on, not to stop.
 
 ## Verification expectations
 
-**Canonical procedure:** `skills/checkable-findings/SKILL.md` is the canonical procedure for the evidence and findings you emit, which is what later roles check. The change itself, what you did not do, and the rule below that a test which has never failed proves nothing remain yours.
-`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and applies wherever a claim is about to be relied on.
+**Canonical procedure:** `skills/checkable-findings/SKILL.md` is the canonical procedure for
+the evidence and findings you emit, which is what later roles check. The change itself, what
+you did not do, and the rule below that a test which has never failed proves nothing remain
+yours.
+`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and
+applies wherever a claim is about to be relied on.
 
 You produce the evidence later roles check. Make it real.
 

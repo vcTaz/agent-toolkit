@@ -83,9 +83,12 @@ completion.
 
 ## A fresh context of the same identity is not independent review
 
-This is the canonical rule. Where any other file in this repository — a role, a workflow's
-**Scaling it down** section, a host agent definition — appears to say otherwise, this
-paragraph wins.
+This is the canonical statement of the rule, and every place that used to prescribe the
+opposite — the host agent definition, all four workflows' **Scaling it down** sections,
+`workflows/README.md`, the generic-harness guidance — has been reconciled with it. If you
+find one that still disagrees, that file is the defective one and both should be fixed to
+match, per [`authority.md`](../authority.md). This document states the reasoning; it does
+not outrank a canonical file, and it does not define a role.
 
 - **A fresh context of the same identity is not independent review.** Independence is a
   property of an identity's history, not of the freshness of the current prompt or context

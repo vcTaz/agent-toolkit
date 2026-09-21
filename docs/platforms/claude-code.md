@@ -259,7 +259,10 @@ will not enforce it for you. In practice:
   agent told the conclusion is not independent of it. See
   [`bounded-context-handoff`](../../skills/bounded-context-handoff/SKILL.md).
 - **Where you cannot achieve independence, say so in the output** rather than recording a
-  self-review as a review.
+  self-review as a review. A fresh context of the same identity is a disclosed degraded
+  self-check and satisfies no criterion that requires independence; where completion requires
+  an independent review and no independent identity exists, the honest terminal state is
+  `EXHAUSTED`. See [`independence.md`](../concepts/independence.md).
 
 ## Known volatility
 

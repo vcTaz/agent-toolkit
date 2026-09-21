@@ -200,6 +200,12 @@ conflict.
 **Ignore it and:** the synthesis reports the same fact three times and reads it as
 corroboration.
 
+**Bounded by a rule stated elsewhere:** consolidation applies to *findings*. Two independent
+**reviews** of the same artifact stay separately attributable, and their findings and
+rankings may not be silently merged or re-ranked here — that is substantive review judgement,
+not routing. The rule and its reasoning are in
+[`independence.md`](independence.md#concurrent-reviews-stay-separately-attributable).
+
 ### O14 · Invalidation is transitive
 
 When a claim stops standing, everything that depended on it loses its status too, and so on

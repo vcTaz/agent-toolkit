@@ -106,8 +106,12 @@ change is correct, that is the moment to hand it on, not to stop.
 
 ## Verification expectations
 
-**Canonical procedure:** `skills/checkable-findings/SKILL.md` is the canonical procedure for the evidence and findings you emit, which is what later roles check. The change itself, what you did not do, and the rule below that a test which has never failed proves nothing remain yours.
-`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and applies wherever a claim is about to be relied on.
+**Canonical procedure:** `skills/checkable-findings/SKILL.md` is the canonical procedure for
+the evidence and findings you emit, which is what later roles check. The change itself, what
+you did not do, and the rule below that a test which has never failed proves nothing remain
+yours.
+`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and
+applies wherever a claim is about to be relied on.
 
 You produce the evidence later roles check. Make it real.
 

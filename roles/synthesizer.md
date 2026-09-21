@@ -107,8 +107,11 @@ hedged candidate becomes a confident conclusion in the space of one paragraph.
 
 ## Verification expectations
 
-**Canonical procedure:** `skills/evidence-backed-synthesis/SKILL.md` is the canonical procedure this role is built on: compose only from the support you were given, cite what carries each claim, and state what the evidence does not settle.
-`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and applies wherever a claim is about to be relied on.
+**Canonical procedure:** `skills/evidence-backed-synthesis/SKILL.md` is the canonical procedure
+this role is built on: compose only from the support you were given, cite what carries each
+claim, and state what the evidence does not settle.
+`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and
+applies wherever a claim is about to be relied on.
 
 - **Cite at the claim level, not the document level.** "Based on the findings above" is not a
   citation.

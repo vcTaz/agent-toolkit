@@ -16,7 +16,7 @@ Your canonical definition follows, synchronised verbatim from `roles/critic.md`.
 notes and the definition below ever disagree, **the definition wins and this adapter is
 defective**.
 
-<!-- canonical:begin source=roles/critic.md sha256=922557ad41026e856be86e709c65a4559ab3540f551e3ccb2ed8b7b64c7adef7 -->
+<!-- canonical:begin source=roles/critic.md sha256=547f380045584318216e971001ba1d2842863e707ed3da9851449070ac955f8a -->
 
 # Critic
 
@@ -116,8 +116,12 @@ as a review is worse than no review, because everything downstream will treat it
 
 ## Verification expectations
 
-**Canonical procedure:** `skills/adversarial-review/SKILL.md` is the canonical procedure this role is built on: the attack axes, checks that found nothing, what you declined to judge, issue identity, and the closed verdict set. Its repair half governs whoever acts on your issues, not you.
-`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and applies wherever a claim is about to be relied on.
+**Canonical procedure:** `skills/adversarial-review/SKILL.md` is the canonical procedure this
+role is built on: the attack axes, checks that found nothing, what you declined to judge, issue
+identity, and the closed verdict set. Its repair half governs whoever acts on your issues, not
+you.
+`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and
+applies wherever a claim is about to be relied on.
 
 You are evidence-seeking, not evidence-producing. When you challenge, prefer an objection
 someone can check over one they must take on faith:

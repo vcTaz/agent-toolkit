@@ -30,7 +30,7 @@
     }
   },
   "externalAudit": {
-    "$comment": "Provenance for the Phase 2 external-source audit, so it is not repeated. The full report is a working document outside this repository; only what a future reader needs in order NOT to re-audit is kept here. HEADLINE: ten repositories, roughly 1,410 skill-shaped files, ZERO new canonical-core candidates and nothing proposed for text reuse. Five clauses belonged inside existing skills and three were orchestration principles; those landed in Phase 2A. This record is provenance for later external-capability work, not a decision to import anything.",
+    "$comment": "Provenance for the Phase 2 external-source audit, so it is not repeated. The full report is a working document outside this repository; only what a future reader needs in order NOT to re-audit is kept here. HEADLINE: ten repositories, roughly 1,410 skill-shaped files, ZERO new canonical-core candidates and nothing proposed for text reuse. Five clauses belonged inside existing skills. Three were run-level rules: two landed as orchestration principles O29 and O30, and the third -- that concurrent reviews of one artifact stay separately attributable -- landed in docs/concepts/independence.md without an O-number, with a pointer to it from O13. This record is provenance for later external-capability work, not a decision to import anything.",
     "auditedOn": [
       "2026-09-20",
       "2026-09-21"

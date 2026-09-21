@@ -15,7 +15,7 @@ PACK_CLOUDFLARE_DIR=~/src/claude-skills-cloudflare \
 
 | Flag | Adds |
 |---|---|
-| *(none)* | 8 agents + 6 toolkit skills |
+| *(none)* | 8 agents + 7 toolkit skills |
 | `--with-packs` | skills from any checked-out pack named by `PACK_<NAME>_DIR` (resolved to an absolute path before anything is linked) |
 | `--with-plugins` | marketplaces and plugins from `profile/plugins.json` |
 

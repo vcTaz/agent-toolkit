@@ -187,11 +187,15 @@ is the moment to ask it, not after your conclusions rest on it.
 A received claim you have not checked is `inferred` in your own output, attributed to its
 source. It does not arrive verified because someone else's report said so.
 
-### 4. Retrieve the cheapest layer that answers the question
+### 4. Pull in the cheapest layer that answers the question
 
-Work outward, not inward. Read the summary, the index, the signature, the name — whatever
-the cheapest layer is here — and escalate to the expensive layer only once the cheap one has
-failed to answer the question you actually have.
+A delivery usually points somewhere — at an artifact, a source, a body of material — and
+following it is a second act of context construction, this time into your own window. The
+sending rules apply to it: bound it, and select rather than absorb.
+
+So work outward. Read the summary, the index, the signature, the name — whatever the cheapest
+layer is here — and escalate to the expensive layer only once the cheap one has failed to
+answer the question you actually have.
 
 Pulling everything in first and then deciding what mattered is the receiving-side version of
 forwarding your context: it costs the same and buries the signal the same way.

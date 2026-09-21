@@ -51,7 +51,8 @@ Build or change something, and be able to defend the claim that it works.
 ### 1 · Explore — `Explorer`, parallel
 
 **Skip when the territory is already understood.** Otherwise: what exists, what the
-invariants are, what will be affected.
+invariants are, what will be affected. Findings are reported per [`checkable-findings`](../skills/checkable-findings/SKILL.md), so the Critic and
+Validator downstream can check them without asking.
 
 Parallel Explorers must own **disjoint regions** and must not see each other's conclusions
 until their reports are in. Explorers who talk mid-run converge, and convergence looks like

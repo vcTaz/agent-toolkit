@@ -31,7 +31,16 @@ merely terse.
 | **What would settle it** | For anything not `observed`: the check or answer that would move it. |
 | **Boundary** | What this finding covers, and what it does not. |
 
-### 1. One claim, not a bundle
+### 1. Give the finding an identity
+
+A stable label — `F1`, `FINDING-3`, whatever the surrounding system uses — so the finding can
+be referred to, disputed, tracked and closed **by name**. Prose findings get discharged by
+prose: "all findings addressed" resolves nothing anyone can check.
+
+The label costs one token and is what lets a reviewer's objection and a repairer's disposition
+point at the same thing later.
+
+### 2. One claim, not a bundle
 
 "The discount is truncated as a float and the tax step truncates again" is two claims. They
 usually have different evidence, different status and different answers, and bundled they
@@ -40,7 +49,7 @@ get one verdict — normally the verdict the strongest half deserves.
 Split until each finding can be answered yes or no on its own. A finding that needs "partly"
 is still a bundle.
 
-### 2. A locator, in the subject's own terms
+### 3. A locator, in the subject's own terms
 
 A locator answers *where do I go to see this myself*. What counts depends on the subject, so
 the form is not fixed — the precision is.
@@ -56,7 +65,7 @@ the form is not fixed — the precision is.
 Naming a region is not a locator. "In the pricing code" and "somewhere in the retry path"
 cost the reader the search you already did.
 
-### 3. Record the evidence; do not describe it
+### 4. Record the evidence; do not describe it
 
 - **Reproduce what was produced**, not your reading of it. "The check reports a mismatch" is
   a description. The line the check actually emitted is evidence.
@@ -67,7 +76,7 @@ cost the reader the search you already did.
 - **Where you could not record it, say so.** Unrecorded evidence is a status, not a
   formatting problem.
 
-### 4. Status, and never the one above it
+### 5. Status, and never the one above it
 
 | Status | Means |
 |---|---|
@@ -83,7 +92,7 @@ confidence and carries it to the inference.
 case supports a claim about that case. The general rule behind it is `inferred` until
 something exercises the general rule.
 
-### 5. Say what would settle it
+### 6. Say what would settle it
 
 Every `inferred` and every `unresolved` finding names the check, artifact, measurement or
 answer that would move it. Without that, the next identity has to rediscover what you already
@@ -93,7 +102,7 @@ This is also how an `unresolved` finding stays useful. "I could not determine th
 rounding behaviour; the specification or the owner would settle it" is worth more than
 silence, and much more than a guess.
 
-### 6. State the boundary of the investigation
+### 7. State the boundary of the investigation
 
 **Silence reads as coverage.** A report that names three things it examined, and does not say
 what it left alone, will be read as a report on the whole subject.
@@ -102,13 +111,15 @@ State what was in range and not examined, and why — budget, access, relevance.
 concluded something was *not* the cause, that is itself a finding and needs its own locator
 and evidence; "ruled out" with nothing recorded is an assertion.
 
-### 7. Report failed approaches and open paths where omission would mislead
+## Two rules about the report, not about one finding
+
+### 8. Report failed approaches and open paths where omission would mislead
 
 Not everything you tried. The ones whose absence would leave the reader with a false picture:
 an approach that looked obvious and does not work, a path that is still open and will look
 unexplored for no reason, a check that was unavailable.
 
-### 8. Do not certify your own evidence
+### 9. Do not certify your own evidence
 
 *Verified*, *confirmed*, *proven*, *validated*, *root cause* and *ruled out* are the
 vocabulary of an identity that is not you. You propose; something else establishes.

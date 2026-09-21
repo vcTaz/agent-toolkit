@@ -119,7 +119,7 @@ local setup. Be blunt; a clean pass on everything is not the expected result.
 
 | Symptom | Likely cause |
 |---|---|
-| All 6 skills absent, agents present | `.claude/skills/` entry symlinks not followed, despite being the documented form and despite two fresh-session pack tests following them on 2026-09-20. Report it: it would contradict a measured result |
+| All 7 skills absent, agents present | `.claude/skills/` entry symlinks not followed, despite being the documented form and despite two fresh-session pack tests following them on 2026-09-20. Report it: it would contradict a measured result |
 | Third-party skills present from this repo | `vendor/` has come back, or an entry points outside `skills/`. `tools/test.sh` fails on a reintroduced `vendor/`; `tools/check.py` catches the stray entry but not the directory, so run both |
 | Both absent | The repository is not attached to the project, or the Claude GitHub App is not installed on it |
 | Plugins absent | Expected for anything this repository could declare — it declares none, and repository-declared plugins were measured not to arrive. For an account or Project-settings plugin: no network access to the marketplace, or the marketplace source is unreachable |

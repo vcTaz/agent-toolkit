@@ -40,6 +40,10 @@ and what it does not.
 
 ### 1 · Investigate — `Explorer` and `Specialist`, parallel
 
+Findings are reported per [`checkable-findings`](../skills/checkable-findings/SKILL.md) — one claim each, with a locator, the evidence as recorded
+and an `observed`/`inferred`/`unresolved` status — because stage 2 consolidates on content
+and cannot deduplicate what is written as prose.
+
 This is the stage parallelism genuinely earns its cost, and the reason is not speed.
 Sequential investigation **anchors**: once one theory has been explored, everything after is
 biased toward it. Independent investigators do not share that anchor.

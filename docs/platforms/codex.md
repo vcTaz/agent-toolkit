@@ -62,9 +62,11 @@ verified against:
 | `MAX_CONFIGURED_SKILL_METADATA_TOKEN_BUDGET` | `10_000` | ceiling on an explicitly configured token budget |
 | `MAX_CATALOG_SKILL_DESCRIPTION_CHARS` | `1_024` | each description is truncated to this before budgeting |
 
-The two figures are **not two ways of saying the same limit**: 2% is a token budget, 8,000
-characters is the fallback when there is no context window to take a percentage of, and
-`skill_metadata_budget()` chooses between them in that order.
+The two figures are **not two ways of saying the same limit**: 2% is a token budget and
+8,000 characters is the fallback when there is no context window to take a percentage of.
+`skill_metadata_budget()` tries three branches in order — an explicitly configured
+`max_context_tokens`, capped at 10,000 tokens; then 2% of a known context window, in tokens;
+then the 8,000-character default.
 
 Omission is **not silent**. `omission_marker()` emits `- N additional skills omitted from
 this bounded skills list.` into the rendered list, and the render report emits *"Exceeded

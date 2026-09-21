@@ -81,7 +81,7 @@ answer is "nothing, the work just moves", it is a persona.
 |---|---|
 | **A** | The run is held by one identity for its whole duration. That is a lifecycle, not a brief. |
 | **B** | The principles it enforces are orchestration; the identity that enforces them is not a rule and cannot be one. No role, skill or workflow owns dispatch. |
-| **C** | `O1` to `O28` must mean the same thing on every harness, while dispatching can only be described in one harness's terms — subagent or teammate, team size, tool surface. |
+| **C** | `O1` to `O30` must mean the same thing on every harness, while dispatching can only be described in one harness's terms — subagent or teammate, team size, tool surface. |
 | **D** | Before it existed, the orchestration principles were addressed to an identity this repository never defined. Delete the file and that hole returns. |
 
 ## Why Codex adapters are not generated here

@@ -91,7 +91,7 @@ because most real tasks should use a reduced form.
 [verification](docs/concepts/verification.md) ·
 [orchestration](docs/concepts/orchestration.md)
 
-Twenty-eight numbered orchestration principles, each with what it is, why it exists, and what
+Thirty numbered orchestration principles, each with what it is, why it exists, and what
 breaks when you ignore it.
 
 ### 5 · Platform adapters

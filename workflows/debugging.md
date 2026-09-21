@@ -71,6 +71,9 @@ Three to five. Each investigator gets:
 - a **region or layer to own**
 - **no other investigator's theory**
 
+Each hypothesis is reported per [`checkable-findings`](../skills/checkable-findings/SKILL.md): the disproof condition is what would settle it, and
+"this would explain the symptom" is `inferred` until something exercises it.
+
 Each must produce not just a theory, but **what would disprove it** — stated before
 investigating. A hypothesis with no disproof condition is not a hypothesis; it is a
 preference, and it will survive every test.

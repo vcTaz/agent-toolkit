@@ -134,14 +134,22 @@ strongest   controlled reproduction        the thing was made to happen, and to 
 weakest     speculation                    no support; a candidate for investigation
 ```
 
-The axes are orthogonal, and every combination is real:
+These are **separate axes and must never be collapsed into one scale**. Strength is a
+property of the support; status is a property of what has been established. Knowing one does
+not give you the other:
 
-- Controlled reproduction over **the wrong subject** establishes nothing — strong evidence,
-  status `NOT ESTABLISHED`. The four-part test above is what catches this.
+- Controlled reproduction over **the wrong subject** establishes nothing — the strongest
+  evidence there is, status `NOT ESTABLISHED`. The four-part test above is what catches this.
 - A primary artifact read directly can leave a claim about *behaviour* merely `REVIEWED`,
   because reading is not running.
 - Circumstantial evidence assessed by an independent identity is honestly `REVIEWED`. Weak
   evidence, real status.
+
+The relation between them is **one-directional, and it is a ceiling rather than a
+correspondence**. Strength bounds status from above: a claim cannot be `VERIFIED` on evidence
+weaker than something that entails it, so speculation can never carry a `VERIFIED`. But
+strength never *raises* status, and the same rung supports several statuses depending on what
+the four-part test returns — which is what the three examples above show.
 
 Two rules follow, and they are the ones worth enforcing:
 

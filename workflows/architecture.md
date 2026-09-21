@@ -56,7 +56,8 @@ See [roles/README.md](../roles/README.md) on the admission bar for a new role.
 ### 1 · Explore — `Explorer`
 
 What exists, what it assumes, what constrains the change. Existing interfaces, data shapes,
-deployment reality, team conventions, prior attempts.
+deployment reality, team conventions, prior attempts — reported per [`checkable-findings`](../skills/checkable-findings/SKILL.md), since stage 2's
+assumptions are drawn from this stage's findings and inherit their status.
 
 **A design produced without this stage is a design for a system that does not exist.** This is
 the most commonly skipped stage and the most commonly regretted.
