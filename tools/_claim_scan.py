@@ -30,6 +30,23 @@ Two passes, because the claim appears in two shapes:
                one is a tripwire for a careless restatement, NOT a proof: a sentence
                containing a negation word anywhere satisfies it. See the note on SAFE.
 
+               MEASURED 2026-09-21, and it is worse in both directions than "one known
+               evasion" said. Seven restatements of the false claim appended to
+               cloud/README.md: ONE caught, SIX missed -- "If you open a cloud session,
+               the plugin declared in .claude/settings.json installs automatically" walks
+               past on `if`, "Without any extra work..." on `without`, "Rather than
+               installing by hand..." on `rather than`, and "extension" for "plugin"
+               evades the vocabulary entirely. Four correct, scoped sentences appended
+               the same way: FOUR flagged, including "The plugin composition lives in
+               profile/plugins.json; .claude/settings.json holds permissions", which is
+               the true statement this whole check exists to protect. tools/test.sh gates
+               on PROBLEMS 0, so writing a correct sentence on this subject fails the
+               suite. Tightening it has been tried and reverted once already (requiring
+               corroboration flagged ten correct passages to catch one crafted sentence).
+               What establishes anything here is STRUCTURAL and HEADING-SCOPED. Read this
+               pass as a smoke alarm with a known false-alarm rate, and do not let its
+               green mean the claim is absent.
+
 It is deliberately NOT gated on what settings.json currently holds. The "installs in
 cloud" half was falsified by a measurement, not by the declaration, so gating the whole
 check on the declaration would re-admit the sentence the moment a plugin key came back.
