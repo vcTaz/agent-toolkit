@@ -3,9 +3,11 @@
 Verified against **Claude Code 2.1.278**, measured with `claude --version` in a cloud
 session on 2026-09-20. This header read 2.1.269 until then, with a month and no date and no
 record of how it was obtained, while five other files said 2.1.278; the number here is now a
-measured one rather than the more popular one. Mechanisms change; if something
-here disagrees with the official documentation, the official documentation is right and this
-file is stale.
+measured one rather than the more popular one. That standard does not extend to every claim
+below: **What was checked, and how** at the foot of the file gives each one its own method
+and date, because running a mechanism and reading about it are not the same evidence.
+Mechanisms change; if something here disagrees with the official documentation, the official
+documentation is right and this file is stale.
 
 ## What this repository provides
 
@@ -52,12 +54,33 @@ the entry. Do not "tidy" the two into the same shape.
 ## Subagents
 
 `.claude/agents/<role>.md` is the currently supported project-level mechanism. Files are
-discovered by walking up from the working directory, and project definitions take precedence
-over `~/.claude/agents/` and over plugin-supplied agents.
+discovered by walking up from the working directory — every `.claude/agents/` between there
+and the repository root is scanned, and where more than one of them defines the same `name`,
+the definition closest to the working directory wins.
 
-An adapter's frontmatter carries these four keys and nothing else. Only the first two are
-required, and omitting either of the others is a meaningful choice rather than an oversight —
-see the asymmetry below:
+Project definitions outrank `~/.claude/agents/` and plugin-supplied agents, and are themselves
+outranked. The order, highest first:
+
+```text
+1  managed settings          organisation-wide
+2  --agents CLI flag         that session only
+3  .claude/agents/           this repository        ← where the adapters live
+4  ~/.claude/agents/         that machine's user
+5  a plugin's agents/        where the plugin is enabled
+```
+
+So a session launched with `--agents`, or a machine under managed settings, can supply a
+different `critic` under this repository's own name, and nothing here prevents it.
+
+The frontmatter supports eighteen fields: `name`, `description`, `tools`, `disallowedTools`,
+`model`, `permissionMode`, `maxTurns`, `skills`, `mcpServers`, `hooks`, `memory`,
+`background`, `omitClaudeMd`, `effort`, `isolation`, `color`, `initialPrompt` and
+`experimental`. They are listed rather than counted because a bare number rots without
+anyone noticing.
+
+An adapter here carries four of them and nothing else. Only the first two are required, and
+omitting either of the others is a meaningful choice rather than an oversight — see the
+asymmetry below:
 
 ```yaml
 name: critic              # required
@@ -91,9 +114,25 @@ copy verifiable rather than trusted.
 
 **Honest limitation:** `Bash` can write. The read-only constraint on Explorer, Specialist,
 Critic, Validator and Final Reviewer is enforced by instruction, not by the tool list, because
-those roles genuinely need to run tests and inspection commands. Claude Code has no read-only
-Bash. If you need it enforced, run those roles under a permission mode that prompts on writes,
-or use the Codex adapters, where `sandbox_mode = "read-only"` is actually enforced.
+those roles genuinely need to run tests and inspection commands. There is no read-only `Bash`
+to ask for, and `tools` cannot narrow the one there is.
+
+Three routes enforce it rather than instruct it, and this repository takes none of them by
+default:
+
+- A **`PreToolUse` hook** on `Bash`, declared in the `hooks` frontmatter field. This is the
+  mechanism built for the job — the official documentation presents it as how to allow some
+  operations of a tool while blocking others, and its worked example is a read-only agent
+  whose hook script exits 2 to block a write.
+- A **permission mode** that prompts on writes.
+- The **Codex adapters**, where `sandbox_mode = "read-only"` is enforced by the harness.
+
+The hook is left out on purpose. It has to be an executable script that runs before every
+`Bash` call a role makes, which makes it a runtime the canonical layer can observe — exactly
+what the host-layer bound in `AGENTS.md` excludes, on top of that file's standing rule against
+adding a runtime without a concrete need. Instruction is the weaker constraint and it is the
+one this repository can honestly claim. Adopt the hook in your own project if instruction is
+not enough for you.
 
 `model: inherit` means "use the lead's model". Pinning a specific model ID would rot; the
 aliases and `inherit` will not.
@@ -233,3 +272,59 @@ will not enforce it for you. In practice:
 
 Nothing canonical in this repository depends on Agent Teams. If it changed tomorrow, the roles,
 skills and workflows would be unaffected and only this file would need editing.
+
+## What was checked, and how
+
+`AGENTS.md` asks whether there is evidence outside the models, and that a claim with no check
+for its kind be labelled rather than asserted. Two labels appear below and they are not
+interchangeable. **Verified** means the behaviour was run here and observed, at the version
+and date given. **Documented** means the official documentation states it and was read on the
+date given — a primary source, but not a run.
+
+| Claim | Status |
+|---|---|
+| `claude --version` reports 2.1.278 | **verified** — run 2026-09-21 |
+| `.claude/agents/*.md` is discovered and all eight adapters are offered | **verified** — 2.1.278, 2026-09-21 |
+| `tools:` is applied — Synthesizer is offered as `Read, Grep, Glob`, with no `Bash` | **verified** — 2.1.278, 2026-09-21 |
+| The `.claude/skills/` entry symlinks are followed and all six skills are discovered | **verified** — cloud session 2026-09-20, re-run at 2.1.278 on 2026-09-21 |
+| Discovery scans every `.claude/agents/` between the working directory and the repository root | **verified** — 2.1.278, 2026-09-21, nested fixture |
+| On a name clash the definition closest to the working directory wins | **verified** — 2.1.278, 2026-09-21, same fixture |
+| `--agents` outranks a project definition of the same name | **verified** — 2.1.278, 2026-09-21, against an unflagged control run |
+| The tools and model table above matches the eight adapters | **verified** — read off the adapter frontmatter, 2026-09-21 |
+| The rest of the precedence order — managed settings above `--agents`, then the user directory, then plugin agents | **documented** — `sub-agents`, 2026-09-21 |
+| The eighteen frontmatter fields | **documented** — `sub-agents` field table, counted 2026-09-21 |
+| A `PreToolUse` hook in the `hooks` field is the route to a read-only `Bash` | **documented** — `sub-agents`, 2026-09-21 |
+| A `<skill-name>` entry may be a symlink, with `SKILL.md` read from the target; a symlinked *container* is not documented | **documented** — `skills`, 2026-09-21 |
+| `model` resolution order, and that omitting `model` is not `inherit` | **documented** — `sub-agents`, 2026-09-19 |
+| A split-pane teammate replaces its system prompt; an in-process one has the body appended | **documented** — `agent-teams`, 2026-09-21 |
+| `skills:` is not applied to teammates | **documented** — `agent-teams`, 2026-09-21 |
+| Agent Teams is experimental, env-gated and interactive-only | **documented** — `agent-teams`, 2026-09-21 |
+| No project-level team config file is read | **documented** — `agent-teams`, 2026-09-21 |
+| The Windows `core.symlinks` caveat | **unchecked** — see below |
+
+Three limits on this table. The **documented** rows describe intent; only the verified rows
+establish that this repository's own layout is discovered. The Agent Teams page states its own
+baseline — *"This page describes agent teams as of v2.1.178"* — so agreeing with it is not
+evidence about 2.1.278 specifically. And exactly one step of the precedence order was run —
+`--agents` over a project definition of the same name. Managed settings, `~/.claude/agents/`
+and plugin agents were read rather than run; there is no managed installation, user directory
+or plugin here to test the rest against.
+
+The Windows row is unchecked in both senses. `core.symlinks` is a Git behaviour rather than a
+Claude Code one, the Claude Code documentation does not address it, and no Windows checkout
+has been made here. It is carried because a Windows clone that silently turns the skill
+entries into text files is a real failure worth warning about, not because it was confirmed.
+
+The verified rows were run in a cloud session with this repository as the only project
+repository. Session shape can change what a repository's configuration reaches, so a result
+established in one shape should not be assumed to hold in another.
+
+### What was deliberately not carried over
+
+The precedence order, the field set, the `PreToolUse` route and this section were recovered
+from an abandoned branch, `claude/project-thread-lkr5gf`, whose copy of this file predates the
+skills-layout correction. Two of its claims are superseded and were **not** reapplied: that
+`.claude/skills` is a container symlink to `skills/` — see *The skills directory is a real
+directory of symlinks* above, which `tools/check.py` enforces — and its header, which dated
+the whole file to a documentation read, where the measured version pin at the top stands.
+Anyone mining that branch again should reject the same two.
