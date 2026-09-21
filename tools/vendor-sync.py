@@ -33,6 +33,7 @@ Network is required for --pack and --update; verification is offline.
 import hashlib
 import io
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -73,20 +74,36 @@ def file_digest(path: Path) -> dict:
 
 
 def digest_tree(root: Path) -> dict:
-    """sha256 AND mode per file, relative paths, sorted. The unit of provenance.
+    """sha256 AND mode per file, symlinks by target, relative paths, sorted.
 
     Mode is recorded because content alone does not describe a skill. `turnstile-spin`
     ships four scripts its own SKILL.md tells the agent to run; a pack that reproduced
     their bytes and dropped their executable bit verified clean and could not do what it
     documented. Recording the mode is what makes chmod-only drift visible.
+
+    Links are recorded because leaving them out made them INVISIBLE. This walked
+    `rglob('*')` filtered by `is_file()`, which is False for a symlink to a directory,
+    and `rglob` does not descend into one either -- so `skills/<name>/ref -> ../../x`
+    and every file under it was compared against nothing, and a fresh clone carrying
+    unrecorded content inside a declared skill verified `ok`. A built pack contains no
+    link at all: `members_for()` drops link members at extraction. So a link found here
+    can only mean drift, and recording it is what lets the comparison say so.
+
+    Real directories are deliberately NOT recorded. They carry no bytes, and adding
+    them would change every digest already published.
     """
     out = {}
-    for path in sorted(p for p in root.rglob('*') if p.is_file()):
-        out[str(path.relative_to(root))] = {
-            'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
-            'mode': file_mode(path),
-        }
-    return out
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        here = Path(dirpath)
+        for name in dirnames + filenames:
+            path = here / name
+            if path.is_symlink():
+                out[str(path.relative_to(root))] = {'symlink': os.readlink(path)}
+            elif path.is_file():
+                out[str(path.relative_to(root))] = {
+                    'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                    'mode': file_mode(path)}
+    return dict(sorted(out.items()))
 
 
 def fetch(url: str) -> bytes:
@@ -210,6 +227,18 @@ def frontmatter_name(skill_md: Path) -> str:
 PACK_MANAGED = ('skills', '.claude', '.agents', 'LICENSE', 'NOTICE',
                 'PROVENANCE.json', 'PACK.json', 'README.md')
 
+# The same names, split by what verification can ASK of each one. `allowed_root` used to
+# be the flat set above, tested by name only, and that was the hole: a pack whose spec
+# sets `noticeFile: null` records no NOTICE, so anything named NOTICE -- a file, or a
+# directory of files nested arbitrarily deep -- sat at the pack root under no hash and
+# verified `ok`.
+PACK_HASHED = ('LICENSE', 'NOTICE', 'PACK.json', 'README.md')  # recorded under `files`
+PACK_DIRS = ('skills', '.claude', '.agents')                   # structure, checked by shape
+# Git's own bookkeeping. A pack is a repository, so it carries these and the builder does
+# not write them. They are not content and not delivered, but they are still checked for
+# shape: a DIRECTORY named .gitattributes is not git's bookkeeping.
+PACK_GIT_FILES = ('.gitignore', '.gitattributes')
+
 PACK_README = """# {pack} skills
 
 Third-party skills, committed verbatim from a pinned upstream commit. **Nothing here is
@@ -263,6 +292,30 @@ def load_pack(name: str) -> dict:
 DESTINATION_IGNORES = ('.git',)
 
 
+def ignorable_destination_entry(entry: Path, pack: str) -> bool:
+    """May the emptiness test look past this entry? Decided by SHAPE, never by name.
+
+    This was a name test, and that was the hole. A directory whose only entry was a
+    SYMLINK named `.<pack>.staging` read as empty, so the guard returned; `shutil.rmtree`
+    cannot remove a symlink and `ignore_errors=True` hid that it had not; the build then
+    happened inside the link's TARGET and the promote loop moved `PACK_MANAGED` names out
+    of it. An unrelated project lost its README, its LICENSE and its `.claude/agents/`
+    at exit status 0 -- the original defect's signature exactly, reached through the one
+    door the guard left open. A plain FILE at `.<pack>.previous` was accepted the same
+    way and left a 393-file orphan behind an uncaught FileExistsError.
+
+    A leftover scratch entry from an interrupted build is a DIRECTORY. Nothing else at
+    those names is this tool's, and `.git` is git's own -- a directory, or the file a
+    worktree uses, but not a link out of the destination.
+    """
+    if entry.is_symlink():
+        return False
+    if entry.name in DESTINATION_IGNORES:
+        return True
+    return (entry.is_dir() and entry.name.startswith(f'.{pack}.')
+            and entry.name.endswith(('.staging', '.previous')))
+
+
 def refuse_unless_pack(into: Path, pack: str) -> None:
     """Refuse a destination that is not empty and is not a pack this tooling built.
 
@@ -290,9 +343,8 @@ def refuse_unless_pack(into: Path, pack: str) -> None:
     if not into.is_dir():
         raise SystemExit(f'--into {into} exists and is not a directory')
 
-    contents = [p.name for p in into.iterdir() if p.name not in DESTINATION_IGNORES
-                and not (p.name.startswith(f'.{pack}.')
-                         and p.name.endswith(('.staging', '.previous')))]
+    contents = [p.name for p in into.iterdir()
+                if not ignorable_destination_entry(p, pack)]
     if not contents:
         return
 
@@ -387,6 +439,20 @@ def write_pack_metadata(staging: Path, spec: dict, archive: tarfile.TarFile) -> 
     (staging / '.agents' / 'skills').symlink_to(Path('..') / 'skills')
 
 
+def clear_scratch(path: Path) -> None:
+    """Remove one of this builder's own scratch paths, whatever shape it is in.
+
+    `shutil.rmtree(path, ignore_errors=True)` alone was not enough and hid that it was
+    not: it cannot remove a symlink or a file, and swallowed the error, so the build
+    carried on and wrote THROUGH the link. `mkdir()` on a leftover file raised
+    uncaught afterwards. Both are handled here, before anything is written.
+    """
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    else:
+        shutil.rmtree(path, ignore_errors=True)
+
+
 def build_pack(name: str, into: Path) -> int:
     spec = load_pack(name)
     up = spec['upstream']
@@ -401,7 +467,7 @@ def build_pack(name: str, into: Path) -> int:
         fetch_tree(up['repo'], up['ref'])), mode='r:*')
 
     staging = into / f'.{name}.staging'
-    shutil.rmtree(staging, ignore_errors=True)
+    clear_scratch(staging)
     (staging / 'skills').mkdir(parents=True)
     try:
         for skill in extract_skills(archive, spec['skills'], staging / 'skills'):
@@ -421,14 +487,17 @@ def build_pack(name: str, into: Path) -> int:
         write_pack_metadata(staging, spec, archive)
         if problems:
             raise ValueError(f'{len(problems)} problem(s) building the pack')
-    except Exception:
-        shutil.rmtree(staging, ignore_errors=True)
+    # BaseException, not Exception: Ctrl-C is a KeyboardInterrupt, which is the canonical
+    # interrupted build and which `except Exception` does not see. A destination that
+    # started empty was left holding a part-extracted staging tree.
+    except BaseException:
+        clear_scratch(staging)
         raise
 
     # Promote entry by entry, keeping the previous version until the swap succeeds, so an
     # interrupted build can never leave a half-populated pack -- and so .git survives.
     previous = into / f'.{name}.previous'
-    shutil.rmtree(previous, ignore_errors=True)
+    clear_scratch(previous)
     previous.mkdir()
 
     def discard(target: Path) -> None:
@@ -444,23 +513,32 @@ def build_pack(name: str, into: Path) -> int:
     try:
         for entry in PACK_MANAGED:
             new = staging / entry
-            if not new.exists() and not new.is_symlink():
-                continue
             old = into / entry
+            if not new.exists() and not new.is_symlink():
+                # This build did not produce this entry, so a pack built from this spec
+                # does not have one. Leaving the previous pack's behind made the result
+                # something no build produces -- and PROVENANCE.json records only what
+                # the build wrote, so a NOTICE left over from an older spec sat in the
+                # pack under no hash at all. It goes into `previous` like any displaced
+                # entry, so a failure still restores it.
+                if old.exists() or old.is_symlink():
+                    old.rename(previous / entry)
+                    moved.append(entry)
+                continue
             if old.exists() or old.is_symlink():
                 old.rename(previous / entry)
                 moved.append(entry)
             else:
                 created.append(entry)
             new.rename(old)
-    except Exception:
+    except BaseException:
         for entry in created:
             discard(into / entry)
         for entry in moved:
             discard(into / entry)
             (previous / entry).rename(into / entry)
-        shutil.rmtree(staging, ignore_errors=True)
-        shutil.rmtree(previous, ignore_errors=True)
+        clear_scratch(staging)
+        clear_scratch(previous)
         raise
     shutil.rmtree(previous, ignore_errors=True)
     shutil.rmtree(staging, ignore_errors=True)
@@ -477,20 +555,54 @@ def verify_pack(into: Path) -> int:
     if not prov_path.is_file() or not spec_path.is_file():
         fail(into, 'not a built pack: PROVENANCE.json or PACK.json missing')
         return 1
-    prov = json.loads(prov_path.read_text())
-    spec = json.loads(spec_path.read_text())
-    up = spec['upstream']
+    # Report unreadable metadata rather than raising through the caller. refuse_unless_pack
+    # already handled this case and verify_pack did not, so a pack with a truncated
+    # PROVENANCE.json answered with a traceback.
+    try:
+        prov = json.loads(prov_path.read_text(encoding='utf-8'))
+        spec = json.loads(spec_path.read_text(encoding='utf-8'))
+    except (ValueError, UnicodeDecodeError) as exc:
+        fail(into, f'PROVENANCE.json or PACK.json is not readable JSON: {exc}')
+        return 1
+    if not isinstance(prov, dict) or not isinstance(spec, dict):
+        fail(into, 'PROVENANCE.json and PACK.json must each be a JSON object')
+        return 1
+    up = spec.get('upstream')
+    if not isinstance(up, dict) or not isinstance(spec.get('skills'), dict):
+        fail(spec_path, "not a pack specification: no 'upstream' object or 'skills' map")
+        return 1
 
-    if prov.get('ref') != up['ref']:
-        fail(prov_path, f"pinned at {prov.get('ref')!r}, PACK.json says {up['ref']!r}")
+    if prov.get('ref') != up.get('ref'):
+        fail(prov_path, f"pinned at {prov.get('ref')!r}, PACK.json says {up.get('ref')!r}")
+    # PROVENANCE.json cannot hash itself, so every field in it that restates something
+    # PACK.json also says is checked against PACK.json instead. Without this a pack could
+    # name a different upstream, a different licence or a different pack entirely and
+    # still verify -- and the verifier prints some of those fields in its own success line.
+    for key, expected, where in (('pack', spec.get('pack'), 'PACK.json'),
+                                 ('source', up.get('repo'), "PACK.json's upstream.repo"),
+                                 ('url', up.get('url'), "PACK.json's upstream.url"),
+                                 ('license', up.get('license'),
+                                  "PACK.json's upstream.license")):
+        if prov.get(key) != expected:
+            fail(prov_path, f'{key} is {prov.get(key)!r}; {where} says {expected!r}')
+    if prov.get('upstreamPaths') != dict(spec['skills']):
+        fail(prov_path, 'upstreamPaths disagrees with the skill mapping in PACK.json')
+
     if not (into / 'LICENSE').is_file():
         fail(into / 'LICENSE', 'the licence must travel with the content')
     # Fail closed rather than silently checking less. A schema-1 pack records no mode, so
     # verifying it would pass over exactly the drift this version exists to catch.
-    if prov.get('schemaVersion') != 2:
-        fail(prov_path, f'schemaVersion {prov.get("schemaVersion")!r}: this pack predates '
-                        'file-mode provenance and cannot be verified for chmod drift. '
-                        'Rebuild it with --pack.')
+    schema = prov.get('schemaVersion')
+    if schema != 2:
+        if isinstance(schema, int) and not isinstance(schema, bool) and schema > 2:
+            fail(prov_path, f'schemaVersion {schema!r} is newer than this copy of '
+                            'tools/vendor-sync.py understands, which is 2. Verify it with '
+                            'the version that built it rather than with less than it '
+                            'records.')
+        else:
+            fail(prov_path, f'schemaVersion {schema!r}: this pack predates file-mode '
+                            'provenance and cannot be verified for chmod drift. '
+                            'Rebuild it with --pack.')
         return 1
 
     entries = into / '.claude' / 'skills'
@@ -570,9 +682,28 @@ def verify_pack(into: Path) -> int:
     # same way), a CLAUDE.md at the pack root, a regular file directly under skills/
     # (filtered out by the is_dir()/is_symlink() test before the comparison), and an extra
     # entry beside the .agents/skills container symlink.
-    allowed_root = set(PACK_MANAGED) | {'.git', '.gitignore', '.gitattributes'}
+    # A name alone is not enough. This tested `entry.name not in allowed_root` and nothing
+    # else, so an entry at a permitted name could be any shape: `NOTICE/payload/evil.md`
+    # is a directory tree at the pack root, under a name the builder is allowed to write
+    # and -- for a spec with `noticeFile: null` -- never does. It verified `ok`.
     for entry in sorted(into.iterdir(), key=lambda e: e.name):
-        if entry.name not in allowed_root:
+        name = entry.name
+        if name == '.git':
+            continue                                # git's own, whatever shape it is
+        elif name in PACK_DIRS:
+            if entry.is_symlink() or not entry.is_dir():
+                fail(entry, 'a built pack has this as a real directory. A file or a link '
+                            'here is content that arrived some other way.')
+        elif name in PACK_HASHED or name == 'PROVENANCE.json':
+            if entry.is_symlink() or not entry.is_file():
+                fail(entry, 'a built pack writes this as a regular file. A directory here '
+                            'carries content no hash covers; a link points outside the '
+                            'pack entirely.')
+        elif name in PACK_GIT_FILES:
+            if entry.is_symlink() or not entry.is_file():
+                fail(entry, 'expected git\'s own file, not a directory or a link. A '
+                            'directory at this name is unrecorded content.')
+        else:
             fail(entry, 'not part of a built pack. A pack carries only '
                         f'{", ".join(PACK_MANAGED)}. Remove it, or if it belongs '
                         'upstream, declare it and rebuild.')
@@ -580,7 +711,11 @@ def verify_pack(into: Path) -> int:
     skills_dir = into / 'skills'
     if skills_dir.is_dir():
         for child in sorted(skills_dir.iterdir(), key=lambda e: e.name):
-            if not (child.is_dir() or child.is_symlink()):
+            if child.is_symlink():
+                fail(child, 'a link directly under skills/. Extraction drops link members, '
+                            'so a built pack has none: this one names content the pack '
+                            'does not carry and provenance cannot follow.')
+            elif not child.is_dir():
                 fail(child, 'a file directly under skills/. Every entry there is a skill '
                             'directory; a loose file is unrecorded content.')
             elif child.name not in declared_skills:
@@ -618,7 +753,24 @@ def verify_pack(into: Path) -> int:
         fail(prov_path, 'records no hash for LICENSE, NOTICE, PACK.json or README.md. '
                         'This pack predates whole-pack provenance, so those files cannot '
                         'be verified. Rebuild it with --pack.')
+    elif not isinstance(recorded_files, dict):
+        fail(prov_path, f'`files` is {type(recorded_files).__name__}, not an object.')
     else:
+        # BOTH directions, and the second one is the one that matters. Reading the list of
+        # what to check out of the file being checked is not a check: emptying `files` to
+        # {} made a LICENSE replaced with "All rights reserved" verify clean again, which
+        # is the original defect reached by a one-key edit. What MUST be recorded is
+        # computed from the disk instead -- the same rule as the uninstall sweep, which
+        # has to see a superset of what the action considers.
+        stray = sorted(set(recorded_files) - set(PACK_HASHED))
+        if stray:
+            fail(prov_path, f'`files` records {", ".join(stray)}. It covers '
+                            f'{", ".join(PACK_HASHED)} and nothing else, so an entry '
+                            'outside that set was not written by a build.')
+        for rel in sorted(n for n in PACK_HASHED
+                          if (into / n).is_file() and n not in recorded_files):
+            fail(into / rel, 'present in the pack and recorded by nothing. Its bytes are '
+                             'covered by no hash. Rebuild it with --pack.')
         for rel, expected in sorted(recorded_files.items()):
             here = into / rel
             if not here.is_file():

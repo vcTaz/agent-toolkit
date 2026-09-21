@@ -230,6 +230,73 @@ try:
     vs.build_pack('notdemo', other); print('CROSSPACK BUILT')
 except SystemExit:
     print('CROSSPACK REFUSED')
+
+# The guard read the ignore list by NAME. A directory holding nothing but a SYMLINK at
+# `.demo.staging` therefore read as empty, rmtree could not remove a link and
+# ignore_errors hid it, and the build happened inside the link's TARGET -- the original
+# defect's outcome, at exit status 0, through the one door the guard left open.
+vs.load_pack = lambda name: {
+    'pack': 'demo', 'packRepo': 'x/demo',
+    'upstream': {'repo': 'x/y', 'url': 'https://example.invalid', 'ref': 'a' * 40,
+                 'license': 'MIT', 'licenseFile': 'LICENSE', 'noticeFile': None},
+    'skills': {'demo': 'skills/demo'}, 'layout': {'claudeEntries': True}}
+
+
+def make_victim(where):
+    (where / '.claude' / 'agents').mkdir(parents=True)
+    (where / '.claude' / 'agents' / 'mine.md').write_text('MY AGENT\n')
+    (where / 'README.md').write_text('# my project\n')
+    (where / 'LICENSE').write_text('my licence\n')
+    (where / 'src').mkdir(); (where / 'src' / 'main.py').write_text('print(1)\n')
+
+
+linkvictim = root / 'linkvictim'; linkvictim.mkdir(); make_victim(linkvictim)
+linkbait = root / 'linkbait'; linkbait.mkdir()
+(linkbait / '.demo.staging').symlink_to(linkvictim)
+vbefore = snapshot(linkvictim)
+print('STAGINGLINK', build(linkbait))
+print('LINKVICTIM',
+      'UNCHANGED' if snapshot(linkvictim) == vbefore else 'MUTATED',
+      'agent-kept' if (linkvictim / '.claude' / 'agents' / 'mine.md').is_file()
+      else 'AGENT-LOST')
+
+# A plain FILE at the scratch name was accepted the same way, and previous.mkdir() then
+# raised uncaught, leaving the whole extracted pack behind as an orphan.
+filebait = root / 'filebait'; filebait.mkdir()
+(filebait / '.demo.previous').write_text('stale\n')
+print('PREVIOUSFILE', build(filebait))
+print('NOORPHAN' if not (filebait / '.demo.staging').exists() else 'ORPHAN-LEFT')
+
+# The same shapes inside a GENUINE pack, where the metadata check accepts the destination
+# and the emptiness test never runs. Only clear_scratch() protects this one.
+packvictim = root / 'packvictim'; packvictim.mkdir(); make_victim(packvictim)
+realpack = root / 'realpack'; realpack.mkdir()
+build(realpack)
+(realpack / '.demo.staging').symlink_to(packvictim)
+pbefore = snapshot(packvictim)
+print('PACKRELINK', build(realpack))
+print('PACKVICTIM',
+      'UNCHANGED' if snapshot(packvictim) == pbefore else 'MUTATED',
+      'agent-kept' if (packvictim / '.claude' / 'agents' / 'mine.md').is_file()
+      else 'AGENT-LOST')
+vs.problems.clear(); print(f'PACKRELINKVERIFIES rc={vs.verify_pack(realpack)}')
+
+# An interrupt is a BaseException. `except Exception` did not see it, so Ctrl-C during
+# extraction left a part-built staging tree in a destination that started empty.
+interrupted = root / 'interrupted'; interrupted.mkdir()
+real_extract = vs.extract_skills
+vs.extract_skills = lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt())
+try:
+    vs.problems.clear(); vs.build_pack('demo', interrupted)
+    print('INTERRUPT BUILT')
+except KeyboardInterrupt:
+    print('INTERRUPT RAISED')
+except BaseException as exc:
+    print(f'INTERRUPT OTHER-{type(exc).__name__}')
+vs.extract_skills = real_extract
+print('INTERRUPTCLEAN' if not any(interrupted.iterdir()) else
+      f'INTERRUPT-ORPHAN {[p.name for p in interrupted.iterdir()]}')
+print('INTERRUPTRETRY', build(interrupted))
 PY
 )"
   for case in 'EMPTY BUILT:an empty destination still builds' \
@@ -238,7 +305,17 @@ PY
               'ARBITRARY REFUSED:an arbitrary directory is refused' \
               'UNCHANGED:the refused directory is left content-identical' \
               'agent-survived:the refusal left .claude/agents/mine.md in place' \
-              'CROSSPACK REFUSED:building one pack over a different pack is refused'; do
+              'CROSSPACK REFUSED:building one pack over a different pack is refused' \
+              'STAGINGLINK REFUSED:a directory holding only a symlink at the staging name is refused' \
+              'LINKVICTIM UNCHANGED agent-kept:and the directory that symlink pointed at is untouched' \
+              'PREVIOUSFILE REFUSED:a directory holding only a file at the scratch name is refused' \
+              'NOORPHAN:and no orphan staging tree is left behind' \
+              'PACKRELINK BUILT:a genuine pack rebuilds through a symlink left at its scratch name' \
+              'PACKVICTIM UNCHANGED agent-kept:without writing into what that symlink pointed at' \
+              'PACKRELINKVERIFIES rc=0:and the rebuilt pack verifies' \
+              'INTERRUPT RAISED:an interrupt propagates rather than being swallowed' \
+              'INTERRUPTCLEAN:and leaves no staging tree in a destination that started empty' \
+              'INTERRUPTRETRY BUILT:so the next build succeeds'; do
     token="${case%%:*}"; label="${case#*:}"
     if printf '%s' "$out" | grep -qF "$token"; then ok "${label:-$token}"
     else no "${label:-$token} — got: $out"; fi
@@ -341,6 +418,101 @@ def old_schema(p):
     prov['skills']['demo'] = {k: v['sha256'] for k, v in prov['skills']['demo'].items()}
     (p / 'PROVENANCE.json').write_text(json.dumps(prov, indent=2))
 case('SCHEMA1', old_schema)
+
+# Everything below guards a hole found AFTER the cases above were written, each one
+# measured verifying `ok` on the code they were written against.
+case('NOTICEFILE', lambda p: (p / 'NOTICE').write_text('not from upstream\n'))
+def notice_dir(p):
+    (p / 'NOTICE' / 'payload').mkdir(parents=True)
+    (p / 'NOTICE' / 'payload' / 'evil.md').write_text('unrecorded\n')
+case('NOTICEDIR', notice_dir)
+def gitattr_dir(p):
+    (p / '.gitattributes' / 'x').mkdir(parents=True)
+    (p / '.gitattributes' / 'x' / 'a.md').write_text('unrecorded\n')
+case('GITATTRDIR', gitattr_dir)
+# The other direction: git's own files are not content and must still pass.
+case('GITIGNORE', lambda p: (p / '.gitignore').write_text('*.pyc\n'))
+def sym_dir_in_skill(p):
+    (p / 'NOTICE').mkdir()
+    (p / 'NOTICE' / 'reference.md').write_text('unrecorded\n')
+    (p / 'skills' / 'demo' / 'ref').symlink_to(pathlib.Path('..') / '..' / 'NOTICE')
+case('SYMDIR', sym_dir_in_skill)
+case('SYMSKILL', lambda p: (p / 'skills' / 'aliased').symlink_to(pathlib.Path('demo')))
+def files_empty(p):
+    prov = json.loads((p / 'PROVENANCE.json').read_text())
+    prov['files'] = {}
+    (p / 'PROVENANCE.json').write_text(json.dumps(prov, indent=2))
+    (p / 'LICENSE').write_text('All rights reserved. No licence granted.\n')
+case('FILESEMPTY', files_empty)
+def files_pop(p):
+    prov = json.loads((p / 'PROVENANCE.json').read_text())
+    prov['files'].pop('LICENSE')
+    (p / 'PROVENANCE.json').write_text(json.dumps(prov, indent=2))
+    (p / 'LICENSE').write_text('All rights reserved. No licence granted.\n')
+case('FILESPOP', files_pop)
+def files_stray(p):
+    prov = json.loads((p / 'PROVENANCE.json').read_text())
+    prov['files']['skills/demo/SKILL.md'] = {'sha256': 'x' * 64, 'mode': '0644'}
+    (p / 'PROVENANCE.json').write_text(json.dumps(prov, indent=2))
+case('FILESSTRAY', files_stray)
+case('BADJSON', lambda p: (p / 'PROVENANCE.json').write_text('not json\n'))
+def schema_ahead(p):
+    prov = json.loads((p / 'PROVENANCE.json').read_text())
+    prov['schemaVersion'] = 3
+    (p / 'PROVENANCE.json').write_text(json.dumps(prov, indent=2))
+case('SCHEMA3', schema_ahead)
+def prov_fields(p):
+    prov = json.loads((p / 'PROVENANCE.json').read_text())
+    prov['license'], prov['pack'] = 'Proprietary', 'somethingelse'
+    (p / 'PROVENANCE.json').write_text(json.dumps(prov, indent=2))
+case('PROVFIELDS', prov_fields)
+def prov_paths(p):
+    prov = json.loads((p / 'PROVENANCE.json').read_text())
+    prov['upstreamPaths'] = {}
+    (p / 'PROVENANCE.json').write_text(json.dumps(prov, indent=2))
+case('PROVPATHS', prov_paths)
+
+# A pack that legitimately SHIPS a NOTICE: the rejections above must not come from
+# refusing the name, and a tampered one must still be caught by its recorded hash.
+nbuf = io.BytesIO()
+with tarfile.open(fileobj=nbuf, mode='w:gz') as tar:
+    for name, body, mode in (
+            ('up/skills/demo/SKILL.md', '---\nname: demo\ndescription: d\n---\nbody\n', 0o644),
+            ('up/LICENSE', 'Apache-2.0\n', 0o644),
+            ('up/NOTICE', 'Copyright someone\n', 0o644)):
+        info = tarfile.TarInfo(name); data = body.encode()
+        info.size, info.mode = len(data), mode
+        tar.addfile(info, io.BytesIO(data))
+vs.fetch_tree = lambda repo, ref: nbuf.getvalue()
+vs.load_pack = lambda name: {
+    'pack': 'demo', 'packRepo': 'x/demo',
+    'upstream': {'repo': 'x/y', 'url': 'https://example.invalid', 'ref': 'a' * 40,
+                 'license': 'Apache-2.0', 'licenseFile': 'LICENSE', 'noticeFile': 'NOTICE'},
+    'skills': {'demo': 'skills/demo'}, 'layout': {'claudeEntries': True}}
+withnotice = root / 'withnotice'
+vs.problems.clear(); vs.build_pack('demo', withnotice)
+print('NOTICERECORDED',
+      'NOTICE' in json.loads((withnotice / 'PROVENANCE.json').read_text())['files'])
+pristine = withnotice
+case('NOTICEPACK', lambda p: None)
+case('NOTICETAMPER', lambda p: (p / 'NOTICE').write_text('Copyright somebody else\n'))
+
+# A rebuild must not leave behind a PACK_MANAGED entry this spec does not produce. The
+# builder promoted only what it had built, so a NOTICE from an older spec stayed in the
+# pack -- under no hash, because `files` records what the build wrote.
+vs.fetch_tree = lambda repo, ref: buf.getvalue()
+vs.load_pack = lambda name: {
+    'pack': 'demo', 'packRepo': 'x/demo',
+    'upstream': {'repo': 'x/y', 'url': 'https://example.invalid', 'ref': 'a' * 40,
+                 'license': 'MIT', 'licenseFile': 'LICENSE', 'noticeFile': None},
+    'skills': {'demo': 'skills/demo'}, 'layout': {'claudeEntries': True}}
+stale = root / 'stale'
+vs.problems.clear(); vs.build_pack('demo', stale)
+(stale / 'NOTICE').mkdir()
+(stale / 'NOTICE' / 'evil.md').write_text('unrecorded\n')
+vs.problems.clear(); vs.build_pack('demo', stale)
+print('STALEGONE', not (stale / 'NOTICE').exists())
+vs.problems.clear(); print(f'STALEVERIFIES rc={vs.verify_pack(stale)}')
 PY
 )"
   printf '%s' "$out" | grep -q 'BASELINE rc=0' \
@@ -349,11 +521,42 @@ PY
   for case in 'CONTENT:edited file content' 'EXTRA:an added file' \
               'CHMOD:a chmod-only change' 'ENTRY:a removed .claude/skills entry' \
               'LICENCE:a deleted LICENSE' 'LOOP:a self-looping .agents/skills' \
-              'SCHEMA1:a pack predating file-mode provenance'; do
+              'SCHEMA1:a pack predating file-mode provenance' \
+              'NOTICEFILE:a NOTICE this pack does not record' \
+              'NOTICEDIR:a directory of content named NOTICE' \
+              'GITATTRDIR:a directory of content named .gitattributes' \
+              'SYMDIR:a symlink to a directory inside a declared skill' \
+              'SYMSKILL:a symlink directly under skills/' \
+              'FILESEMPTY:a replaced LICENSE with files emptied to {}' \
+              'FILESPOP:a replaced LICENSE with its files entry deleted' \
+              'FILESSTRAY:a files entry outside LICENSE/NOTICE/PACK.json/README.md' \
+              'BADJSON:an unparseable PROVENANCE.json' \
+              'SCHEMA3:a provenance schema newer than this tool' \
+              'PROVFIELDS:a rewritten provenance pack name and licence' \
+              'PROVPATHS:provenance upstreamPaths disagreeing with PACK.json' \
+              'NOTICETAMPER:a tampered NOTICE in a pack that ships one'; do
     token="${case%%:*}"; label="${case#*:}"
     if printf '%s' "$out" | grep -q "$token rc=1"; then ok "--verify-pack rejects $label"
     else no "--verify-pack did NOT reject $label: $out"; fi
   done
+  printf '%s' "$out" | grep -q 'GITIGNORE rc=0' \
+      && ok "a real .gitignore is not treated as pack content" \
+      || no "--verify-pack rejected git's own .gitignore: $out"
+  printf '%s' "$out" | grep -q 'NOTICERECORDED True' \
+      && ok "a pack whose spec declares a NOTICE records its hash" \
+      || no "a declared NOTICE was not recorded under files: $out"
+  printf '%s' "$out" | grep -q 'NOTICEPACK rc=0' \
+      && ok "a pack that ships a NOTICE still verifies" \
+      || no "a pack shipping a NOTICE did not verify: $out"
+  printf '%s' "$out" | grep -q 'STALEGONE True' \
+      && ok "a rebuild drops an entry this spec no longer produces" \
+      || no "a rebuild left a stale NOTICE behind: $out"
+  printf '%s' "$out" | grep -q 'STALEVERIFIES rc=0' \
+      && ok "and the rebuilt pack verifies afterwards" \
+      || no "the rebuilt pack did not verify: $out"
+  printf '%s' "$out" | grep -qi 'Traceback' \
+      && no "verify_pack raised instead of reporting: $out" \
+      || ok "no case raised a traceback out of verify_pack"
 fi
 
 # ---------------------------------------------------------------------------------------
@@ -1578,6 +1781,177 @@ else
   [ "$claimed" = "$actual" ] \
       && ok "and it matches the tree ($actual tracked files)" \
       || no "docs say $claimed tracked files; the tree has $actual"
+fi
+
+# ---------------------------------------------------------------------------------------
+group "bootstrap.sh: a link it cannot attribute is named, never passed over in silence"
+
+# The closing sweep had two branches -- a link whose target identifies itself, and a link
+# whose target is GONE -- and no third. A link whose target EXISTS but says nothing about
+# itself fell through both, and the remover needs the same attribution, so ONE gate failed
+# on both sides and the run said nothing. That is the round-6 defect on the owner axis
+# instead of the name axis, and it reproduced on the upgrade path this fallback exists for:
+# an install made by a checkout older than the marker link_owner_of_dir reads left 14 of 14
+# links in place under "removed 0 link(s), left 0 alone. Nothing else was touched.", exit 0.
+
+if [ ! -x "$ROOT/local/bootstrap.sh" ]; then
+  skip "local/bootstrap.sh not executable"
+else
+  # An "older checkout": a real directory tree holding the skill, identifying itself as
+  # neither a pack (PACK.json + PROVENANCE.json) nor a toolkit checkout.
+  anon="$TMPROOT/anon"
+  mkdir -p "$anon/skills/adversarial-review" "$anon/skills/not-a-toolkit-name"
+  printf 'x\n' > "$anon/skills/adversarial-review/SKILL.md"
+  printf 'x\n' > "$anon/skills/not-a-toolkit-name/SKILL.md"
+
+  cfg7="$TMPROOT/cfg-unattributable"; mkdir -p "$cfg7/skills"
+  ln -s "$anon/skills/adversarial-review" "$cfg7/skills/adversarial-review"
+  out7="$(CLAUDE_CONFIG_DIR="$cfg7" "$ROOT/local/bootstrap.sh" --uninstall 2>&1)"; rc=$?
+  [ "$rc" -eq 1 ] && ok "an unattributable link at one of our names exits 1" \
+                  || no "exited $rc over an unattributable link: $out7"
+  printf '%s' "$out7" | grep -q 'cannot attribute' \
+      && ok "and is named in the summary" \
+      || no "it was not named: $out7"
+  printf '%s' "$out7" | grep -q 'Nothing else was touched' \
+      && no "the clean-undo claim was still made: $out7" \
+      || ok "and the clean-undo claim is withheld"
+  [ -L "$cfg7/skills/adversarial-review" ] \
+      && ok "and it is left in place rather than guessed at" \
+      || no "an unattributable link was deleted"
+
+  # The other direction, or every hand-made link would fail every uninstall: the same
+  # shape at a name this toolkit does NOT install is somebody else's arrangement.
+  cfg8="$TMPROOT/cfg-foreign"; mkdir -p "$cfg8/skills"
+  ln -s "$anon/skills/not-a-toolkit-name" "$cfg8/skills/not-a-toolkit-name"
+  out8="$(CLAUDE_CONFIG_DIR="$cfg8" "$ROOT/local/bootstrap.sh" --uninstall 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] && ok "a link at a name this toolkit never installs is not flagged" \
+                  || no "exited $rc over a foreign link: $out8"
+  [ -L "$cfg8/skills/not-a-toolkit-name" ] \
+      && ok "and is left alone" || no "a foreign link was deleted"
+fi
+
+# ---------------------------------------------------------------------------------------
+group "bootstrap.sh: with a usable record, an unrecorded link is reported, not deleted"
+
+# The fallback remover ran unconditionally, though this file's own header and
+# local/README.md both say it is for the case where there is no record. So a link the USER
+# made by hand -- their own clone of a published pack, linked at its own name -- was
+# deleted by a run whose record was present, complete and silent about it.
+
+if [ ! -x "$ROOT/local/bootstrap.sh" ]; then
+  skip "local/bootstrap.sh not executable"
+elif ! command -v jq >/dev/null 2>&1; then
+  skip "jq absent — the pack skill names cannot be read"
+else
+  # A PACK skill name: one this toolkit installs, but only with --with-packs. The install
+  # below is a plain one, so the record is complete and never mentions this path -- which
+  # is exactly what made the old code delete it.
+  packname="$(jq -r '.skills | keys[0]' "$ROOT/packs/cloudflare.json" 2>/dev/null)"
+  if [ -z "$packname" ]; then
+    skip "could not read a pack skill name from packs/cloudflare.json"
+  else
+    mine="$TMPROOT/my-own-pack"
+    mkdir -p "$mine/skills/$packname"
+    printf 'x\n' > "$mine/skills/$packname/SKILL.md"
+    printf '{"pack":"mine"}\n' > "$mine/PACK.json"
+    printf '{"vendoredBy":"tools/vendor-sync.py","pack":"mine"}\n' > "$mine/PROVENANCE.json"
+
+    cfg9="$TMPROOT/cfg-recorded"; mkdir -p "$cfg9/skills"
+    # The user's own link, made before the install and never recorded by it.
+    ln -s "$mine/skills/$packname" "$cfg9/skills/$packname"
+    CLAUDE_CONFIG_DIR="$cfg9" "$ROOT/local/bootstrap.sh" >/dev/null 2>&1
+    recorded9=0
+    grep -q "/skills/$packname\b" "$cfg9/.toolkit-install-state.tsv" 2>/dev/null \
+      && recorded9=1
+    [ "$recorded9" -eq 0 ] \
+        && ok "a plain install does not record the user's own pack-named link" \
+        || no "the fixture is wrong: the install recorded $packname"
+    out9="$(CLAUDE_CONFIG_DIR="$cfg9" "$ROOT/local/bootstrap.sh" --uninstall 2>&1)"; rc=$?
+    [ -L "$cfg9/skills/$packname" ] \
+        && ok "a link the record never named survives --uninstall" \
+        || no "--uninstall deleted a link its own complete record never named: $out9"
+    [ "$rc" -eq 1 ] && ok "and the run reports it rather than claiming a clean undo" \
+                    || no "exited $rc over an unrecorded leftover: $out9"
+    printf '%s' "$out9" | grep -q 'this toolkit created are still in place' \
+        && no "the summary asserts it created a link it cannot know it created: $out9" \
+        || ok "and the summary does not claim it created that link"
+  fi
+fi
+
+# ---------------------------------------------------------------------------------------
+group "bootstrap.sh: a relative PACK_<NAME>_DIR resolves to the same place in both uses"
+
+# The probe resolved it against the CALLER's working directory; the link resolved it
+# against $CLAUDE_DIR/skills/. Both accepted it and every link created was dead: measured,
+# 13 broken links under "linked 27 ... problems 0", exit 0, doctor.sh reporting no warning.
+
+if [ ! -x "$ROOT/local/bootstrap.sh" ]; then
+  skip "local/bootstrap.sh not executable"
+elif ! command -v jq >/dev/null 2>&1; then
+  skip "jq absent — --with-packs cannot read the pack specs"
+else
+  relpack="$TMPROOT/relpack"
+  relfirst="$(jq -r '.skills | keys[0]' "$ROOT/packs/cloudflare.json" 2>/dev/null)"
+  if [ -z "$relfirst" ]; then
+    skip "could not read a skill name from packs/cloudflare.json"
+  else
+    mkdir -p "$relpack/skills/$relfirst"
+    printf -- '---\nname: %s\ndescription: fixture\n---\n' "$relfirst" \
+      > "$relpack/skills/$relfirst/SKILL.md"
+    printf '{"pack":"rel"}\n' > "$relpack/PACK.json"
+    printf '{"vendoredBy":"tools/vendor-sync.py","pack":"rel"}\n' > "$relpack/PROVENANCE.json"
+    cfg10="$TMPROOT/cfg-relative"
+    ( cd "$TMPROOT" && CLAUDE_CONFIG_DIR="$cfg10" PACK_CLOUDFLARE_DIR="relpack" \
+        "$ROOT/local/bootstrap.sh" --with-packs >/dev/null 2>&1 )
+    if [ -L "$cfg10/skills/$relfirst" ]; then
+      [ -e "$cfg10/skills/$relfirst" ] \
+          && ok "a link made from a relative PACK_*_DIR resolves" \
+          || no "a relative PACK_*_DIR produced a broken link"
+    else
+      ok "a relative PACK_*_DIR was refused rather than linked blindly"
+    fi
+    broken10=0
+    for l in "$cfg10"/skills/* "$cfg10"/agents/*; do
+      [ -L "$l" ] || continue
+      [ -e "$l" ] || broken10=$((broken10 + 1))
+    done
+    [ "$broken10" -eq 0 ] && ok "and the install leaves no broken link behind" \
+                          || no "$broken10 broken link(s) after a relative PACK_*_DIR install"
+  fi
+fi
+
+# ---------------------------------------------------------------------------------------
+group "a skill name is a plain directory name, in the spec and at the link"
+
+# A key carrying a path separator passed check.py and put a link at
+# $CLAUDE_DIR/skills/<sub>/<name>, one level below where --uninstall's sweep looks: 27
+# links installed, one left behind under "removed 26 link(s), left 0 alone."
+
+if ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent — spec validation cannot run"
+else
+  specroot="$TMPROOT/specname"
+  mkdir -p "$specroot"
+  ( cd "$ROOT" && tar -c --exclude=.git . ) | tar -x -C "$specroot" 2>/dev/null
+  for bad in 'sub/wrangler' '../escape' '.'; do
+    python3 - "$specroot" "$bad" <<'PY'
+import json, sys
+root, bad = sys.argv[1], sys.argv[2]
+p = f'{root}/packs/cloudflare.json'
+spec = json.loads(open(p).read())
+first = next(iter(spec['skills']))
+spec['skills'][bad] = spec['skills'].pop(first)
+open(p, 'w').write(json.dumps(spec, indent=2) + '\n')
+PY
+    ( cd "$specroot" && python3 tools/check.py >/dev/null 2>&1 )
+    [ $? -eq 1 ] && ok "check.py rejects a skill name of '$bad'" \
+                 || no "check.py accepted a skill name of '$bad'"
+    ( cd "$ROOT" && git show HEAD:packs/cloudflare.json > "$specroot/packs/cloudflare.json" \
+        2>/dev/null ) || cp "$ROOT/packs/cloudflare.json" "$specroot/packs/cloudflare.json"
+  done
+  ( cd "$specroot" && python3 tools/check.py >/dev/null 2>&1 )
+  [ $? -eq 0 ] && ok "and accepts the real specs unchanged" \
+               || no "check.py rejected the repository's own pack specs"
 fi
 
 # ---------------------------------------------------------------------------------------
