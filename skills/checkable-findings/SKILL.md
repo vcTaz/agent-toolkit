@@ -40,6 +40,16 @@ prose: "all findings addressed" resolves nothing anyone can check.
 The label costs one token and is what lets a reviewer's objection and a repairer's disposition
 point at the same thing later.
 
+**What triggers the requirement is the assertion, not the topic.** Anything you surface as a
+substantive concern — something that could change what the reader does, or that someone has
+to follow up — takes a finding's identity and status, wherever in the report it sits. Saying
+you did not look at something does not: "the retry path was not examined" is a boundary line,
+it costs nothing, and ordinary unexplored paths should stay that cheap. The requirement begins
+the moment you assert something about that path. A concern raised in narrative prose, or
+tucked inside a not-investigated list, has no identity to dispute it by, no status to qualify
+it and no evidence to attack — which is the one shape a reader cannot act on and cannot
+close.
+
 ### 2. One claim, not a bundle
 
 "The discount is truncated as a float and the tax step truncates again" is two claims. They
@@ -123,6 +133,11 @@ State what was in range and not examined, and why — budget, access, relevance.
 concluded something was *not* the cause, that is itself a finding and needs its own locator
 and evidence; "ruled out" with nothing recorded is an assertion.
 
+Each item here is therefore one of two things and never both: a path you genuinely left alone,
+named and nothing claimed about it, or a finding that has wandered out of place. A paragraph
+saying a path was out of scope *and* saying what is probably wrong with it has made a claim
+under a heading that excuses it from carrying one.
+
 ## Two rules about the report, not about one finding
 
 ### 8. Report failed approaches and open paths where omission would mislead
@@ -131,20 +146,26 @@ Not everything you tried. The ones whose absence would leave the reader with a f
 an approach that looked obvious and does not work, a path that is still open and will look
 unexplored for no reason, a check that was unavailable.
 
-### 9. Do not certify your own evidence
+### 9. Certifying language is not a status
 
-*Verified*, *confirmed*, *proven*, *validated*, *root cause* and *ruled out* are the
-vocabulary of an identity that is not you. You propose; something else establishes.
+*Verified*, *confirmed*, *proven*, *validated*, *root cause* and *ruled out* name a judgement
+that an identity other than you gets to make. They are not forbidden words. They are words
+that cannot do a status's work, and the failure is using them where the status belongs.
 
-**This binds headings and summaries at least as hard as it binds the status field.** A heading
-is read first, quoted most and travels furthest from its evidence, so "proves", "confirms" and
-"the root cause is" certify the finding in exactly the line least likely to arrive with the
-evidence attached. Use that vocabulary only where something *outside the models* has already
-established the status under a rule that says what it establishes, and name what did it.
-Another identity's agreement is not that. Your finding still carries one of the three statuses
-above: the certification belongs to the check you name, never to your claim.
+**Never as a heading, never as a status, never in place of the evidence.** A heading is read
+first, quoted most and travels furthest from its evidence, so "proves", "confirms" and "the
+root cause is" certify the finding in the one line least likely to arrive with the evidence
+attached. In a status field the word is a fourth value, and there are only three. Standing
+alone in place of the evidence it is the assertion the evidence was supposed to replace.
 
-This is not modesty. A producer who marks its own work established removes the only signal
+**In body prose they are fine where the sentence carries its own support.** Name the check or
+the outside-the-models evidence the statement rests on, and say what that check establishes
+and what it does not: "ruled out for the discount path by a search that returned no match —
+which does not rule it out elsewhere" is a recorded finding. "Ruled out" on its own is not,
+which is what §7 above is asking you to fix.
+
+Either way the finding still carries `observed`, `inferred` or `unresolved`. **No wording
+upgrades it**, and a producer who marks its own work established removes the only signal
 telling a reviewer where to look hardest.
 
 ## Check the conclusion against the evidence you cited
