@@ -20,6 +20,13 @@ there is no flag that overrides it. See `refuse_unless_pack`. Provenance records
 mode as well as a sha256, so a pack whose scripts stopped being executable no longer
 verifies clean; that is `schemaVersion` 2, and a schema-1 pack must be rebuilt.
 
+`schemaVersion` 2 covers two shapes and is not enough on its own to tell them apart. The
+`files` block -- a sha256 and mode for LICENSE, NOTICE, PACK.json and README.md -- was
+added later and without a version bump, so a pack built between the two changes says 2
+and carries no `files`. What rejects it is the absence of that key, not the number; see
+`verify_pack`, which fails closed on both. A future format change should bump the number
+rather than rely on that.
+
 Stdlib only, like tools/check.py: urllib and tarfile, no dependency to install.
 Network is required for --pack and --update; verification is offline.
 """
@@ -602,8 +609,10 @@ def verify_pack(into: Path) -> int:
     # The licence is fetched from upstream rather than trusted from a metadata field, so
     # it is content and belongs under the same hash as everything else. It was checked
     # only with is_file(): replacing its text with "All rights reserved" verified clean.
-    # Recorded from schemaVersion 2 onward under `files`; a pack built before this key
-    # existed says so rather than passing quietly.
+    # Recorded under `files`. This key was added after schemaVersion 2 already existed
+    # and without bumping it, so "schemaVersion 2" does not imply it: a pack built in
+    # between says 2 and carries no `files`, and is rejected here by the key's absence
+    # rather than by the number.
     recorded_files = prov.get('files')
     if recorded_files is None:
         fail(prov_path, 'records no hash for LICENSE, NOTICE, PACK.json or README.md. '
