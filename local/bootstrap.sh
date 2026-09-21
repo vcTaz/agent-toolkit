@@ -124,7 +124,7 @@ for arg in "$@"; do
   esac
 done
 
-linked=0; skipped=0; backed_up=0; removed=0; problems=0; kept=0; stranded=0; broken=0; unclaimed=0
+linked=0; skipped=0; backed_up=0; removed=0; problems=0; kept=0; stranded=0; broken=0; unclaimed=0; unattributable=0
 
 say()  { printf '%s\n' "$*"; }
 act()  { if [ "$DRY_RUN" -eq 1 ]; then printf '  would %s\n' "$*"; else printf '  %s\n' "$*"; fi; }
@@ -393,7 +393,19 @@ do_packs() {
     if [ -z "$dir" ]; then
       say "  $name: not checked out — set $var to link it"
       continue
-    elif [ ! -d "$dir/skills" ]; then
+    fi
+    # A RELATIVE PACK_<NAME>_DIR is resolved HERE against the caller's working directory
+    # and, once written into a link, against $CLAUDE_DIR/skills/. Those are two different
+    # places, so every acceptance test below passed and every link created was dead:
+    # measured, 13 broken links under "linked 27 ... problems 0", exit 0, and doctor.sh
+    # reporting no warning. Resolve it once, up front, so the test and the link are the
+    # same path.
+    if ! dir="$(canonical_path "$dir")"; then
+      warn "$name: cannot resolve $var=${!var} — refusing rather than writing links that"
+      warn "  resolve differently from ${CLAUDE_DIR#"$HOME"/}/skills/ than they do here."
+      continue
+    fi
+    if [ ! -d "$dir/skills" ]; then
       warn "$name: $var=$dir has no skills/ — build it with tools/vendor-sync.py --pack"
       continue
     elif probe="$(jq -r '.skills | keys[0] // empty' "$spec")"
@@ -421,6 +433,17 @@ do_packs() {
     fi
     while IFS= read -r skill; do
       [ -n "$skill" ] || continue
+      # A skill name is a NAME. One carrying a path separator puts the link at
+      # $CLAUDE_DIR/skills/<sub>/<name>, which --uninstall's sweep does not look at: it
+      # scans one level of two fixed directories. Measured, a spec with such a key passed
+      # tools/check.py, installed 27 links and left one behind under "removed 26 link(s),
+      # left 0 alone. Nothing else was touched.", exit 0.
+      case "$skill" in
+        */*|.|..)
+          warn "$name/$skill: not a plain skill name. A link outside"
+          warn "  ${CLAUDE_DIR#"$HOME"/}/skills/ is one --uninstall cannot see. Not linked."
+          continue ;;
+      esac
       # An explicit if, not `[ -d ] && link_one`: under `set -e` a trailing false test is
       # the loop's exit status, and a pack missing its last skill would abort the whole
       # run silently, after linking everything before it.
@@ -447,6 +470,7 @@ do_packs() {
 # No pack directory is consulted and no target is guessed. PACK_<NAME>_DIR is documented
 # for --with-packs and is normally unset here, which is exactly why guessing fails.
 DECIDED=""
+RECORD_USABLE=0
 already_decided() { [ -n "$DECIDED" ] && grep -qxF -- "$1" "$DECIDED"; }
 
 do_uninstall() {
@@ -462,6 +486,7 @@ do_uninstall() {
       unlink_recorded "$dest" "$target" "$(basename -- "$dest")"
     done < "$STATE_FILE"
     say "  $n recorded"
+    [ "$n" -gt 0 ] && RECORD_USABLE=1
   else
     say "  no install record — falling back to links this toolkit can still recognise"
   fi
@@ -497,6 +522,13 @@ do_uninstall() {
     # The same three-way gate the broken-link counter uses -- shape, name, owner -- so
     # there is one rule here and not two.
     installs_name "${dest2##*/}" || continue
+    # ...AND only where there is no usable record, which is what the header of this file
+    # and local/README.md both promise. It ran unconditionally, so a link the USER had
+    # made by hand -- their own clone of a published pack, linked at its own name -- was
+    # deleted by a run whose record was present, complete and silent about it. A record
+    # that named every link it created is evidence that a link outside it was not created
+    # by that install. The sweep below still names these, so nothing goes quiet.
+    if [ "$RECORD_USABLE" -eq 1 ]; then continue; fi
     owner="$(link_owner "$dest2")"
     [ -n "$owner" ] || continue
     name="$(basename -- "$dest2")"
@@ -533,7 +565,7 @@ do_uninstall() {
   # Not gated on DRY_RUN: it only reads, and a preview that promises a clean undo the real
   # run will not deliver is worse than no preview.
   if true; then
-    local leftover
+    local leftover leftover_owner
     for leftover in "$CLAUDE_DIR"/skills/* "$CLAUDE_DIR"/agents/*; do
       [ -L "$leftover" ] || continue
       already_decided "$leftover" && continue
@@ -553,7 +585,9 @@ do_uninstall() {
       # The cost is a link of the user's own, at one of our names, inside a pack checkout:
       # correctly not removed, and reported here as something to look at. That is the
       # trade this takes deliberately -- a named link to check beats a false clean undo.
-      if [ "$DRY_RUN" -eq 0 ] && [ -n "$(link_owner "$leftover")" ]; then
+      leftover_owner=""
+      [ -e "$leftover" ] && leftover_owner="$(link_owner "$leftover")"
+      if [ "$DRY_RUN" -eq 0 ] && [ -n "$leftover_owner" ]; then
         if installs_name "${leftover##*/}"; then
           stranded=$((stranded + 1))
           say "  ${leftover##*/}: still here, and points into a pack or a checkout of this toolkit"
@@ -581,6 +615,26 @@ do_uninstall() {
       if [ ! -e "$leftover" ] && installs_name "${leftover##*/}"; then
         broken=$((broken + 1))
         say "  ${leftover##*/}: points at $(readlink -- "$leftover"), which no longer exists — cannot tell whose it is, left alone"
+        continue
+      fi
+      # THE THIRD CASE, and it was the silent one. The target EXISTS and says nothing
+      # about itself: a toolkit checkout older than the marker link_owner_of_dir reads, a
+      # pack whose PACK.json was removed or whose directory was replaced. The first branch
+      # needs an owner and the second needs a dead target, so neither sees it -- and the
+      # remover needs an owner too, so the SAME gate failed on both sides and the run said
+      # nothing. That is the round-6 defect on the owner axis rather than the name axis:
+      # measured on the upgrade path this whole fallback exists for, an install made by an
+      # older copy of this script left 14 of 14 links in place under
+      # "removed 0 link(s), left 0 alone. Nothing else was touched.", exit 0.
+      #
+      # installs_name still applies here, and only here it is safe to: it fails OPEN when
+      # it cannot build its list, so a name gate that breaks cannot re-silence this the
+      # way it silenced the remover. Without it, every hand-made link of the user's own
+      # shaped NAME -> .../NAME would be reported by every uninstall.
+      if [ "$DRY_RUN" -eq 0 ] && [ -e "$leftover" ] && [ -z "$leftover_owner" ] \
+         && installs_name "${leftover##*/}"; then
+        unattributable=$((unattributable + 1))
+        say "  ${leftover##*/}: still here, at a name this toolkit installs, and $(readlink -- "$leftover") identifies itself as neither a pack nor a checkout of this toolkit — cannot attribute it, left alone"
       fi
     done
   fi
@@ -663,14 +717,22 @@ fi
 
 say ""
 if [ "$UNINSTALL" -eq 1 ]; then
-  if [ "$stranded" -gt 0 ] || [ "$broken" -gt 0 ] || [ "$unclaimed" -gt 0 ]; then
+  if [ "$stranded" -gt 0 ] || [ "$broken" -gt 0 ] || [ "$unclaimed" -gt 0 ] \
+     || [ "$unattributable" -gt 0 ]; then
     say "removed $removed link(s), left $kept alone."
     # Explicit ifs, not a `[ ] && warn && warn` chain: a false test as the last command of
     # a block is the block's exit status, and under `set -e` that has already cost this
     # script one silent abort. warn() also increments `problems`, so the run exits 1 --
     # an uninstall that did not undo cleanly should not report success.
     if [ "$stranded" -gt 0 ]; then
-      warn "$stranded link(s) this toolkit created are still in place and were not recognised."
+      # Not "link(s) this toolkit created": it does not know that. This reaches a link
+      # this script created and failed to remove, AND a link of the user's own that the
+      # install record never named and this script therefore refused to delete. The
+      # wording has to be true of both, because the whole point of the counter is that
+      # the two are indistinguishable from here.
+      warn "$stranded link(s) look exactly like ones this script creates -- the same name,"
+      warn "pointing into a pack or a checkout of this toolkit -- and were not removed."
+      warn "If one of them is this toolkit's, remove it by hand."
     fi
     if [ "$broken" -gt 0 ]; then
       warn "$broken broken link(s) remain. Their targets are gone, so this script cannot tell"
@@ -680,6 +742,13 @@ if [ "$UNINSTALL" -eq 1 ]; then
       warn "$unclaimed link(s) point into a pack or a checkout of this toolkit at a name this"
       warn "toolkit does not install. They were left alone because they are probably yours."
       warn "If one is ours -- an older pin declared it and this one does not -- remove it by hand."
+    fi
+    if [ "$unattributable" -gt 0 ]; then
+      warn "$unattributable link(s) sit at names this toolkit installs, but what they point at"
+      warn "identifies itself as neither a pack nor a checkout of this toolkit -- an older"
+      warn "checkout, or one whose pack metadata has since been removed or moved. This script"
+      warn "will not delete what it cannot attribute. Check them and remove by hand the ones"
+      warn "that are its."
     fi
     warn "This run did NOT undo cleanly."
   else

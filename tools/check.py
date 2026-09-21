@@ -311,6 +311,17 @@ def check_packs():
         if not skills:
             fail(path, 'declares no skills')
         for name in skills:
+            # A skill name is a directory name, and it is used as one in three places: the
+            # pack's own skills/<name>/, its .claude/skills/<name> entry, and the link
+            # local/bootstrap.sh writes into a config directory. A name carrying a path
+            # separator passed every check here and put that last link at
+            # skills/<sub>/<name>, which --uninstall's sweep does not look at -- it reads
+            # one level of two fixed directories. Measured: 27 links installed, one left
+            # behind under "removed 26 link(s), left 0 alone. Nothing else was touched."
+            if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*', name):
+                fail(path, f'skill name {name!r} is not a plain directory name. It is used '
+                           'as one in the pack, in its .claude/skills entry and in the '
+                           'link an install creates.')
             if name in canonical:
                 fail(path, f'pack skill {name!r} collides with a canonical skill; it '
                            'would shadow the one this toolkit exists to deliver')

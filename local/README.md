@@ -16,7 +16,7 @@ PACK_CLOUDFLARE_DIR=~/src/claude-skills-cloudflare \
 | Flag | Adds |
 |---|---|
 | *(none)* | 8 agents + 6 toolkit skills |
-| `--with-packs` | skills from any checked-out pack named by `PACK_<NAME>_DIR` |
+| `--with-packs` | skills from any checked-out pack named by `PACK_<NAME>_DIR` (resolved to an absolute path before anything is linked) |
 | `--with-plugins` | marketplaces and plugins from `profile/plugins.json` |
 
 **`--with-packs` is opt-in, and so is every individual pack.** A pack lives in its own
@@ -49,17 +49,33 @@ before anything moves.
   removed and that everything else is left alone. Both halves were wrong: a pack link
   points outside the toolkit by definition, and an upgrade-path uninstall measured that day
   left **26 of 26 pack links** in place while reporting that nothing else was touched.
+
+  **Where there is a usable record, that fallback does not remove anything.** It used to
+  run either way, so a link of your own — your own clone of a published pack, linked at
+  its own name — was deleted by a run whose record was present, complete, and silent
+  about it. A record that names every link an install created is evidence that a link
+  outside it came from somewhere else. Such a link is reported by the scan below, not
+  removed.
 - **The undo is computed, not asserted, and the check is wider than the removal.** After
-  removing, the script re-reads the config directory for links it can still attribute to
-  itself and for broken links it cannot judge
-  — the target is gone, so there is nothing to read. It names them, withholds
+  removing, the script re-reads the config directory for three kinds of leftover: links
+  it can still attribute to itself, broken links it cannot judge — the target is gone, so
+  there is nothing to read — and links at one of its own names whose target *exists* and
+  identifies itself as neither a pack nor a toolkit checkout. It names them, withholds
   `Nothing else was touched`, and exits non-zero. `--dry-run` previews the broken-link
   half of that scan, so it cannot promise a clean undo the real run will not deliver;
-  the attributable-leftover half needs the removals to have happened and is a backstop
-  for the real run only.
+  the other two halves need the removals to have happened and are a backstop for the
+  real run only.
+
+  That third kind was added on 2026-09-21 and it is the one that had been silent. A
+  checkout older than the marker this script reads, or a pack whose metadata has since
+  been removed or moved, answers the attribution question with nothing — and the remover
+  asks the same question, so **one gate failed on both sides**. Measured on the upgrade
+  path this fallback exists for: an install made by an older copy left **14 of 14** links
+  in place under `removed 0 link(s), left 0 alone. Nothing else was touched.`, exit 0.
+  That is the same shape as the two failures before it, on a third axis.
 
   The closing check deliberately looks at **more** than the remover acts on: it does not
-  apply the name gate. Applying the same gate to both made every gate failure silent —
+  apply the name gate, and it does not require the attribution the remover requires. Applying the same gate to both made every gate failure silent —
   a pack specification reformatted by a JSON writer, still valid and still accepted by
   `tools/check.py`, once made the name list come back empty, so the remover skipped all
   thirteen pack links and the check skipped them too. The cost is that a link of your own
