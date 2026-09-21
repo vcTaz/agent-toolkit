@@ -49,6 +49,18 @@ get one verdict — normally the verdict the strongest half deserves.
 Split until each finding can be answered yes or no on its own. A finding that needs "partly"
 is still a bundle.
 
+**The rule binds the whole finding, not the claim field.** A heading, a title or a summary
+sentence that carries a second assertion has bundled the finding again, whatever the field
+beneath it says. The heading is what a reader quotes, disputes and carries away, so it is
+held to the same one-claim standard as the claim it heads.
+
+**Mechanism, prevalence and consequence are three claims, not three clauses.** *How* something
+goes wrong, *how often* or *on which inputs*, and *what it costs* are separately resolvable and
+usually separately supported — the mechanism can be `observed` from one run while the
+prevalence is `inferred` and the consequence `unresolved`. Split them wherever each could be
+answered on its own. Fitting under one claim label is not evidence that it is one claim, and
+compressing three claims into one sentence is not splitting them.
+
 ### 3. A locator, in the subject's own terms
 
 A locator answers *where do I go to see this myself*. What counts depends on the subject, so
@@ -124,6 +136,14 @@ unexplored for no reason, a check that was unavailable.
 *Verified*, *confirmed*, *proven*, *validated*, *root cause* and *ruled out* are the
 vocabulary of an identity that is not you. You propose; something else establishes.
 
+**This binds headings and summaries at least as hard as it binds the status field.** A heading
+is read first, quoted most and travels furthest from its evidence, so "proves", "confirms" and
+"the root cause is" certify the finding in exactly the line least likely to arrive with the
+evidence attached. Use that vocabulary only where something *outside the models* has already
+established the status under a rule that says what it establishes, and name what did it.
+Another identity's agreement is not that. Your finding still carries one of the three statuses
+above: the certification belongs to the check you name, never to your claim.
+
 This is not modesty. A producer who marks its own work established removes the only signal
 telling a reviewer where to look hardest.
 
@@ -137,6 +157,19 @@ So before you state it, take the evidence you cited as the specification, apply 
 recommendation to it, and record the result. A recommendation that does not satisfy the
 evidence the same report offered as the standard is the most expensive defect this skill
 prevents, because everything around it looks careful.
+
+**Each branch of an either/or remediation is a separate claim, and each is checked
+separately.** "Floor it or round it" is two recommendations. Where the evidence you cited
+admits one and contradicts the other, offering them as interchangeable throws away the work
+that found the difference and hands the reader back the defect. Check each branch against the
+cited evidence, state which one it supports, and say how the other fails it. Where the check
+cannot separate them, that is a finding about the evidence, with a status of its own.
+
+**Where the right remediation depends on something unresolved, stop at the decision point.**
+If a specification, a rule or an owner's intent is what decides which fix is correct, name the
+decision, name what would settle it, and stop there. A conditional recommendation carries an
+unchecked implementation choice on the back of an honest uncertainty, and reads as covered
+ground. The unresolved finding with its decision named is the deliverable.
 
 ## Shape
 
@@ -164,6 +197,7 @@ can carry all seven, and usually stops carrying the last three first.
 | Failure | What it looks like |
 |---|---|
 | Compound finding | One heading, two claims, one verdict — earned by the stronger half. |
+| Mechanism fused to prevalence | How it breaks and how often it breaks, resolved as one claim with one status. |
 | No identity | Objections and resolutions are prose, so nothing can be closed by name. |
 | Region as locator | "In the retry path." The reader repeats the search you already did. |
 | Evidence described | Your reading of the result, in place of the result. |
@@ -172,8 +206,10 @@ can carry all seven, and usually stops carrying the last three first.
 | One case, general claim | A single measured instance, reported as the mechanism. |
 | Unstated boundary | Three things examined; the reader assumes the rest was too. |
 | Silent exclusion | "Ruled out", with nothing recorded that rules it out. |
-| Self-certification | The producer calls its own finding verified, confirmed or the root cause. |
+| Self-certification | The producer calls its own finding verified, confirmed or the root cause — most often in a heading. |
 | Unchecked recommendation | The proposed fix does not satisfy the evidence the report cited. |
+| Interchangeable remediations | Two fixes offered as equivalent when the cited evidence admits one of them. |
+| Smuggled conditional | An unresolved decision wrapped around an implementation choice nobody checked. |
 
 ## Related
 
