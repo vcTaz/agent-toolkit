@@ -45,7 +45,7 @@ substantive concern — something that could change what the reader does, or tha
 to follow up — takes a finding's identity and status, wherever in the report it sits. Saying
 you did not look at something does not: "the retry path was not examined" is a boundary line,
 it costs nothing, and ordinary unexplored paths should stay that cheap. The requirement begins
-the moment you assert something about that path. A concern raised in narrative prose, or
+the moment you assert something substantive about that path. A concern raised in narrative prose, or
 tucked inside a not-investigated list, has no identity to dispute it by, no status to qualify
 it and no evidence to attack — which is the one shape a reader cannot act on and cannot
 close.
@@ -133,10 +133,11 @@ State what was in range and not examined, and why — budget, access, relevance.
 concluded something was *not* the cause, that is itself a finding and needs its own locator
 and evidence; "ruled out" with nothing recorded is an assertion.
 
-Each item here is therefore one of two things and never both: a path you genuinely left alone,
-named and nothing claimed about it, or a finding that has wandered out of place. A paragraph
-saying a path was out of scope *and* saying what is probably wrong with it has made a claim
-under a heading that excuses it from carrying one.
+Each item here is therefore one of two things and never both: a path you genuinely left alone
+— named, with the reason you left it, and nothing substantive claimed about it beyond that
+reason — or a finding that has wandered out of place. "Out of scope for a pricing bug" is the
+reason and stays cheap. "Out of scope, *and* probably where the duplicate charge comes from"
+is a claim made under a heading that excuses it from carrying one.
 
 ## Two rules about the report, not about one finding
 
@@ -155,14 +156,19 @@ that cannot do a status's work, and the failure is using them where the status b
 **Never as a heading, never as a status, never in place of the evidence.** A heading is read
 first, quoted most and travels furthest from its evidence, so "proves", "confirms" and "the
 root cause is" certify the finding in the one line least likely to arrive with the evidence
-attached. In a status field the word is a fourth value, and there are only three. Standing
-alone in place of the evidence it is the assertion the evidence was supposed to replace.
+attached. In a status field the word is a fourth value, and there are only three.
 
 **In body prose they are fine where the sentence carries its own support.** Name the check or
-the outside-the-models evidence the statement rests on, and say what that check establishes
-and what it does not: "ruled out for the discount path by a search that returned no match —
-which does not rule it out elsewhere" is a recorded finding. "Ruled out" on its own is not,
-which is what §7 above is asking you to fix.
+evidence the statement rests on — something *outside the models*, named precisely enough to be
+run again — and say what it establishes and what it does not. Another identity's agreement is
+not such a check.
+
+Where that sentence may sit follows from §7 above, not from this rule. Inside a finding whose
+evidence records the check and what produced it, "ruled out for the discount path, and not
+beyond it" is a scoped reading of evidence already on the page. Standing alone in a boundary
+list or a summary it is the assertion the evidence was supposed to replace — and §7 has
+already said that concluding something is *not* the cause is a finding, with its own locator
+and evidence, rather than a line under a boundary.
 
 Either way the finding still carries `observed`, `inferred` or `unresolved`. **No wording
 upgrades it**, and a producer who marks its own work established removes the only signal
@@ -227,7 +233,7 @@ can carry all seven, and usually stops carrying the last three first.
 | One case, general claim | A single measured instance, reported as the mechanism. |
 | Unstated boundary | Three things examined; the reader assumes the rest was too. |
 | Silent exclusion | "Ruled out", with nothing recorded that rules it out. |
-| Self-certification | The producer calls its own finding verified, confirmed or the root cause — most often in a heading. |
+| Self-certification | The producer's own verdict standing in for the evidence — as a heading, as a status, or alone in prose. |
 | Unchecked recommendation | The proposed fix does not satisfy the evidence the report cited. |
 | Interchangeable remediations | Two fixes offered as equivalent when the cited evidence admits one of them. |
 | Smuggled conditional | An unresolved decision wrapped around an implementation choice nobody checked. |
