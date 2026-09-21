@@ -45,3 +45,37 @@ That leaves a three-way split which this repository should keep intact:
 
 The habit this section is really about survives the result. The caution was right, the
 correction that replaced it was wrong, and the thing that settled it was neither — it was a run.
+
+## 2. The seventh skill's cloud delivery is not established, and the gate is written
+
+`checkable-findings` was added on 2026-09-21, making seven canonical skills. **No fresh cloud
+session has run since.** Everything this repository says about skills being discovered in a
+cloud session was measured when it carried six, and it has been scoped rather than updated:
+
+- `docs/platforms/claude-code.md` reads "all six skills **this repository carried at the
+  time** are discovered — verified, cloud session 2026-09-20", with a separate row marking
+  the seventh **not established**.
+- `docs/host-integration.md`'s "33 skills loaded in the smoke test" is likewise scoped to
+  when this repository carried 33, and is history rather than a current-state claim.
+
+Editing either into a seven-skill claim would be the exact failure section 1 is about: a
+correction asserted from expectation rather than from a run. The measurement is cheap and it
+has not been taken.
+
+**What the gate has to establish**, and the fifth item is the one that is easy to fake:
+
+1. all seven canonical skills are discovered by the harness;
+2. all seven `.claude/skills/` entries resolve;
+3. `checkable-findings` appears under its intended name and description;
+4. it can be invoked through the harness's skill mechanism;
+5. **invocation loads the body as active instructions** — not merely that the file is
+   readable.
+
+Point 5 needs a discriminator, because points 1–4 are all satisfied by a session that simply
+read the file. The one written for this asks questions whose answers exist **only in the
+skill's body and nowhere in its description**, with file-reading tools forbidden, and
+requires the tool log to show the path was never opened. A pass on the questions with a read
+in the log establishes 1–4 and says nothing about 5.
+
+Until that session runs and reports, the honest status is `NOT ESTABLISHED` — not
+`INCONCLUSIVE`, and not an assumption carried over from the six.
