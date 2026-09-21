@@ -1241,16 +1241,18 @@ if ! command -v python3 >/dev/null 2>&1; then
 else
   undo_tree="$TMPROOT/undo-scan"; rm -rf "$undo_tree"; mkdir -p "$undo_tree"
   ( cd "$ROOT" && tar -c --exclude=./.git . ) | ( cd "$undo_tree" && tar -x )
-  undo_missed=0; undo_n=0
+  undo_missed=0; undo_n=0; undo_hard=0
   while IFS='|' read -r target text; do
     [ -n "$target" ] || continue
     undo_n=$((undo_n + 1))
     mkdir -p "$undo_tree/$(dirname "$target")"
     cp -- "$undo_tree/$target" "$undo_tree/$target.bak" 2>/dev/null || : > "$undo_tree/$target.bak"
     printf '\n%s\n' "$text" >> "$undo_tree/$target"
-    got="$( cd "$undo_tree" && python3 tools/_claim_scan.py 2>/dev/null \
-            | sed -n 's/^PROBLEMS //p' )"
+    scanout="$( cd "$undo_tree" && python3 tools/_claim_scan.py 2>/dev/null )"
+    got="$(printf '%s' "$scanout" | sed -n 's/^ADVISORIES //p')"
+    hard="$(printf '%s' "$scanout" | sed -n 's/^PROBLEMS //p')"
     [ "${got:-0}" -gt 0 ] || { undo_missed=$((undo_missed + 1)); printf '        missed: %s\n' "$text"; }
+    [ "${hard:-0}" -eq 0 ] || { undo_hard=$((undo_hard + 1)); printf '        gated: %s\n' "$text"; }
     mv -- "$undo_tree/$target.bak" "$undo_tree/$target" 2>/dev/null || rm -f -- "$undo_tree/$target"
   done <<'PLANTS'
 docs/host-integration.md|`--uninstall` removes only links resolving inside this checkout.
@@ -1265,8 +1267,14 @@ local/INSTALL|--uninstall removes only links resolving inside this repository.
 local/README.md|`--uninstall` removes only links resolving inside this repository.
 PLANTS
   [ "$undo_missed" -eq 0 ] \
-      && ok "$undo_n phrasings and locations of the undo claim are all caught" \
+      && ok "$undo_n phrasings and locations of the undo claim are all reported" \
       || no "$undo_missed of $undo_n phrasings of the undo claim were missed"
+  # This family lives in the same free-form prose pass as the plugin one and is demoted
+  # with it: it REPORTS all ten and gates on none. Its own record is better -- 10 of 10
+  # here, 10 of 10 missed at eda2da4 -- but a prose regex is not a thing to fail a suite on.
+  [ "$undo_hard" -eq 0 ] \
+      && ok "and none of them is counted as a hard problem" \
+      || no "$undo_hard of $undo_n undo plants still gate the suite"
   rm -rf "$undo_tree"
 fi
 
@@ -1756,13 +1764,25 @@ else
   else
     no "the settings file could not be read — $(printf '%s' "$out" | head -1)"
   fi
-  [ "$rc" -eq 0 ] && ok "the settings-claim scan ran to completion" \
-                  || no "the settings-claim scan exited $rc"
   if printf '%s' "$out" | grep -qx 'PROBLEMS 0'; then
-    ok "no file claims settings.json declares a plugin, structurally or in prose"
+    ok "no file claims settings.json declares a plugin, structurally or by heading"
   else
     no "$(printf '%s' "$out" | grep '^CLAIM ' | head -6)"
   fi
+  # The exit status agrees with PROBLEMS, so it is asserted AFTER the line it mirrors --
+  # this scan used to exit 0 whatever it found, which made an rc-based probe of it read
+  # every plant as a pass.
+  [ "$rc" -eq 0 ] && ok "and the scan's exit status agrees with that" \
+                  || no "the settings-claim scan exited $rc"
+  # ADVISORY, NOT A GATE. The free-form prose heuristic caught 1 of 7 restatements of the
+  # claim it looks for and flagged 4 of 4 correct, scoped sentences (measured 2026-09-21),
+  # so it reports and this suite does not fail on it. Reported here so a hit is still seen.
+  advn="$(printf '%s' "$out" | sed -n 's/^ADVISORIES //p')"
+  if [ "${advn:-0}" -gt 0 ]; then
+    printf '  note  %s prose-heuristic advisory/ies (not a failure):\n' "$advn"
+    printf '%s' "$out" | grep '^ADVISORY ' | head -6 | sed 's/^/          /'
+  fi
+  ok "the prose heuristic is advisory: it reports ${advn:-0} and gates nothing"
 fi
 
 # ---------------------------------------------------------------------------------------
@@ -1952,6 +1972,116 @@ PY
   ( cd "$specroot" && python3 tools/check.py >/dev/null 2>&1 )
   [ $? -eq 0 ] && ok "and accepts the real specs unchanged" \
                || no "check.py rejected the repository's own pack specs"
+fi
+
+# ---------------------------------------------------------------------------------------
+group "the claim scan's hard gate is the structural and heading-scoped passes, only"
+
+# The free-form prose heuristic was a hard gate until 2026-09-21, when it was measured:
+# 1 of 7 restatements of the false claim caught, 6 missed, and 4 of 4 correct, scoped
+# sentences flagged -- so writing a TRUE sentence about this subject failed the suite
+# while six false ones passed. It now reports and gates nothing. These four cases are
+# that split, asserted rather than described: two that must still fail the whole suite,
+# and two that must not.
+#
+# The last two run `bash tools/test.sh` itself in a planted copy, because "does not make
+# tools/test.sh fail" is a claim about this file and nothing smaller proves it.
+# CLAIM_GATE_PROOF stops the nested run from recursing into this group.
+
+if [ -n "${CLAIM_GATE_PROOF:-}" ]; then
+  :                                  # nested run: this group is what is being measured
+elif ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent — the claim-gate split cannot be measured"
+else
+  gate_tree() {
+    rm -rf "$1"; mkdir -p "$1"
+    ( cd "$ROOT" && tar -c --exclude=./.git . ) | ( cd "$1" && tar -x )
+  }
+  suite_failed() {                   # echoes the nested suite's FAILED count
+    ( cd "$1" && CLAIM_GATE_PROOF=1 bash tools/test.sh 2>&1 ) \
+      | sed -n 's/^\([0-9]*\) passed, \([0-9]*\) failed.*/\2/p' | tail -1
+  }
+
+  # 1. STRUCTURAL false claim -> hard failure.
+  gt="$TMPROOT/gate-structural"; gate_tree "$gt"
+  python3 - "$gt" <<'PY'
+import json, sys
+p = f'{sys.argv[1]}/profile/plugins.json'
+blob = json.loads(open(p).read())
+first = next(iter(blob['plugins']))
+blob['plugins'][first]['enabledInRepoSettings'] = True
+open(p, 'w').write(json.dumps(blob, indent=2) + '\n')
+PY
+  gout="$( cd "$gt" && python3 tools/_claim_scan.py 2>&1 )"; grc=$?
+  printf '%s' "$gout" | grep -q '^PROBLEMS 0' \
+      && no "a structural false claim was not counted as a problem: $gout" \
+      || ok "a structural false claim is a hard problem"
+  [ "$grc" -eq 1 ] && ok "and the scan exits 1 on it" || no "the scan exited $grc on it"
+
+  # 2. HEADING-SCOPED false claim -> hard failure. A row under "What is here, and why"
+  #    naming a key the settings file does not declare; its own words name no file, so
+  #    the prose pass cannot see it, and it is Markdown, so the structural pass cannot.
+  gt2="$TMPROOT/gate-heading"; gate_tree "$gt2"
+  python3 - "$gt2" <<'PY'
+import sys
+p = f'{sys.argv[1]}/.claude/SETTINGS-NOTES.md'
+lines = open(p).read().splitlines()
+out, placed = [], False
+for line in lines:
+    out.append(line)
+    if not placed and line.strip().startswith('| `permissions.deny`'):
+        out.append('| `extraKnownMarketplaces` | Registers the marketplace for a session. |')
+        placed = True
+assert placed, 'anchor row not found'
+open(p, 'w').write('\n'.join(out) + '\n')
+PY
+  g2out="$( cd "$gt2" && python3 tools/_claim_scan.py 2>&1 )"; g2rc=$?
+  printf '%s' "$g2out" | grep -q '^PROBLEMS 0' \
+      && no "a heading-scoped false claim was not counted as a problem: $g2out" \
+      || ok "a heading-scoped false claim is a hard problem"
+  [ "$g2rc" -eq 1 ] && ok "and the scan exits 1 on it too" \
+                    || no "the scan exited $g2rc on the heading-scoped plant"
+
+  # ...and both of those must actually fail the SUITE, not merely the scan.
+  gt3="$TMPROOT/gate-hardsuite"; gate_tree "$gt3"
+  python3 - "$gt3" <<'PY'
+import json, sys
+p = f'{sys.argv[1]}/profile/plugins.json'
+blob = json.loads(open(p).read())
+first = next(iter(blob['plugins']))
+blob['plugins'][first]['enabledInRepoSettings'] = True
+open(p, 'w').write(json.dumps(blob, indent=2) + '\n')
+PY
+  hard_failed="$(suite_failed "$gt3")"
+  [ "${hard_failed:-0}" -gt 0 ] \
+      && ok "and tools/test.sh itself fails on a structural false claim ($hard_failed failed)" \
+      || no "tools/test.sh reported no failure over a structural false claim"
+
+  # 3 and 4. A prose-heuristic HIT, and the four correct sentences the heuristic flags,
+  #    in ONE tree: the suite must report them and pass.
+  gt4="$TMPROOT/gate-advisory"; gate_tree "$gt4"
+  {
+    printf '\nThe plugin declared in `.claude/settings.json` installs in a cloud session.\n'
+    printf '\nThe plugin composition lives in `profile/plugins.json`; `.claude/settings.json` holds permissions.\n'
+    printf '\n`.claude/settings.json` is the channel that reaches cloud; it carries permissions and a plugin declaration would be ignored there.\n'
+    printf '\nTo declare a plugin you would edit `.claude/settings.json`, and a cloud session would still install nothing.\n'
+    printf '\nThe marketplace is reachable from a cloud session; installation is a separate step.\n'
+  } >> "$gt4/cloud/README.md"
+  g4out="$( cd "$gt4" && python3 tools/_claim_scan.py 2>&1 )"; g4rc=$?
+  g4adv="$(printf '%s' "$g4out" | sed -n 's/^ADVISORIES //p')"
+  [ "${g4adv:-0}" -ge 5 ] \
+      && ok "a prose-heuristic hit is reported ($g4adv advisories)" \
+      || no "the prose heuristic reported ${g4adv:-0} advisories over 5 planted sentences"
+  printf '%s' "$g4out" | grep -q '^PROBLEMS 0' \
+      && ok "and is not counted as a problem" \
+      || no "a prose-heuristic hit was counted as a problem: $(printf '%s' "$g4out" | grep '^CLAIM ')"
+  [ "$g4rc" -eq 0 ] && ok "and the scan exits 0 over it" \
+                    || no "the scan exited $g4rc over an advisory-only hit"
+  adv_failed="$(suite_failed "$gt4")"
+  [ "${adv_failed:-1}" -eq 0 ] \
+      && ok "and tools/test.sh passes with one false and four correct sentences planted" \
+      || no "tools/test.sh reported $adv_failed failure(s) over prose-heuristic hits"
+  rm -rf "$gt" "$gt2" "$gt3" "$gt4"
 fi
 
 # ---------------------------------------------------------------------------------------

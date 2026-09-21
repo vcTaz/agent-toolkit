@@ -17,21 +17,33 @@ boolean in profile/plugins.json. Each fix addressed the wording the previous rev
 named, and each time another phrasing of the same claim was still in the tree. A check
 tied to a phrasing would have missed all three.
 
-Two passes, because the claim appears in two shapes:
+Three passes. The first two RESOLVE A NAMED KEY AGAINST PARSED DATA -- one right answer,
+no judgement -- and they are the hard gate. The third matches free-form prose and is
+advisory only; the difference is stated on each, and `tools/test.sh` enforces it.
 
-  STRUCTURAL   a field asserting this repository's settings enable a plugin must agree
-               with what the settings file actually declares. It matches any key ending
-               `InRepoSettings` and any truthy spelling of the value, so a rename or a
-               stringified boolean does not evade it -- but it is a rule about a shape of
-               key, not about meaning, and a genuinely different encoding would need a
-               new rule here.
+
+  STRUCTURAL   HARD. A field asserting this repository's settings enable a plugin must
+               agree with what the settings file actually declares. It matches any key
+               ending `InRepoSettings` and any truthy spelling of the value, so a rename
+               or a stringified boolean does not evade it -- but it is a rule about a
+               shape of key, not about meaning, and a genuinely different encoding would
+               need a new rule here.
+  HEADING-     HARD. Every key named in the first column of `.claude/SETTINGS-NOTES.md`'s
+  SCOPED       "What is here, and why" table must actually be in the settings file, whole
+               dotted path resolved. It fails closed on a missing heading or an empty
+               table. It exists because the assertion can be carried by the HEADING rather
+               than by the row: see the long note in main().
   TEXTUAL      a passage putting settings.json and a plugin together, or saying a plugin
-               arrives in cloud, must carry a negation, a past tense or a condition. This
-               one is a tripwire for a careless restatement, NOT a proof: a sentence
-               containing a negation word anywhere satisfies it. See the note on SAFE.
+               arrives in cloud, must carry a negation, a past tense or a condition. The
+               same pass also looks for the `--uninstall` reversibility claim. **ADVISORY
+               ONLY, and non-authoritative.** It prints `ADVISORY` lines, it is not
+               counted in `PROBLEMS`, and `tools/test.sh` does not fail on it. It is a
+               tripwire for a careless restatement, nothing more: a sentence containing a
+               negation word anywhere satisfies it. See the note on SAFE.
 
-               MEASURED 2026-09-21, and it is worse in both directions than "one known
-               evasion" said. Seven restatements of the false claim appended to
+               MEASURED 2026-09-21, and that measurement is why it was demoted from a
+               hard gate. It is worse in both directions than "one known evasion" said.
+               Seven restatements of the false claim appended to
                cloud/README.md: ONE caught, SIX missed -- "If you open a cloud session,
                the plugin declared in .claude/settings.json installs automatically" walks
                past on `if`, "Without any extra work..." on `without`, "Rather than
@@ -45,7 +57,9 @@ Two passes, because the claim appears in two shapes:
                corroboration flagged ten correct passages to catch one crafted sentence).
                What establishes anything here is STRUCTURAL and HEADING-SCOPED. Read this
                pass as a smoke alarm with a known false-alarm rate, and do not let its
-               green mean the claim is absent.
+               green mean the claim is absent. Its hits are worth reading before a claim
+               about this subject lands; they are not worth blocking a change over, and
+               since 2026-09-21 they do not.
 
 It is deliberately NOT gated on what settings.json currently holds. The "installs in
 cloud" half was falsified by a measurement, not by the declaration, so gating the whole
@@ -192,7 +206,15 @@ def units(path: pathlib.Path, lines: list) -> list:
 
 def main() -> int:
     root = pathlib.Path('.')
+    # TWO lists, and the split is the point. `problems` are the checks that resolve a
+    # named key against parsed data -- they answer a question with one right answer, and
+    # they are what tools/test.sh fails on. `advisories` are the free-form prose
+    # heuristic, which is NOT authoritative: measured 2026-09-21 it caught 1 of 7
+    # restatements of the false claim and flagged 4 of 4 correct, scoped sentences. It was
+    # a hard gate until then, which meant writing a true sentence on this subject failed
+    # the suite while six false ones passed. It reports; it does not decide.
     problems = []
+    advisories = []
 
     try:
         blob_settings = json.loads((root / '.claude/settings.json').read_text())
@@ -292,24 +314,35 @@ def main() -> int:
                                 'in settings.json has nothing to check, which is how it '
                                 'was defeated once: heading kept, table moved elsewhere.')
 
+    # --- ADVISORY from here down. Regex over prose, both families. Neither fails a suite.
     for path, lines in text_files(root):
         for start, text in units(path, lines):
             if UNDO.search(text) and not UNDO_CORRECTION.search(text):
-                problems.append(f'{path}:{start}: claims --uninstall touches only what is '
-                                'inside this repository. A pack link resolves outside it '
-                                'by definition and is removed.')
+                advisories.append(f'{path}:{start}: claims --uninstall touches only what '
+                                  'is inside this repository. A pack link resolves outside '
+                                  'it by definition and is removed.')
             if SAFE.search(text):
                 continue
             if PAIR.search(text) and PLUGIN.search(text):
-                problems.append(f'{path}:{start}: puts settings.json and a plugin together '
-                                'with no negation, past tense or condition')
+                advisories.append(f'{path}:{start}: puts settings.json and a plugin '
+                                  'together with no negation, past tense or condition')
             elif PLUGIN.search(text) and CLOUD.search(text) and ARRIVE.search(text):
-                problems.append(f'{path}:{start}: says a plugin arrives in cloud, unqualified')
+                advisories.append(f'{path}:{start}: says a plugin arrives in cloud, '
+                                  'unqualified')
 
     for problem in problems:
         print('CLAIM ' + problem)
+    for advisory in advisories:
+        print('ADVISORY ' + advisory)
     print('PROBLEMS ' + str(len(problems)))
-    return 0
+    print('ADVISORIES ' + str(len(advisories)))
+    if advisories:
+        print('NOTE the ADVISORY lines are a prose heuristic, not authoritative: it has '
+              'missed 6 of 7 restatements of the claim it looks for and flagged 4 of 4 '
+              'correct, scoped sentences. Read them; do not treat them as findings.')
+    # The exit status agrees with PROBLEMS. It used to be 0 either way, which made an
+    # rc-based probe of this script read every plant, true and false, as a pass.
+    return 1 if problems else 0
 
 
 if __name__ == '__main__':
