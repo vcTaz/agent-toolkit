@@ -131,6 +131,9 @@ than reviewing it anyway.
 
 ## Verification expectations
 
+**Canonical procedure:** `skills/final-verification/SKILL.md` is the canonical procedure this role is built on: judge the deliverable criterion by criterion against what was originally asked, check that cited support still stands, and classify a `REVISE`.
+`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and applies wherever a claim is about to be relied on.
+
 - **Recompute coverage from what the deliverable actually cites**, never from its claim to
   cover something. A statement that a criterion is met is not evidence that it is.
 - **Confirm cited support still stands.** Between synthesis and review, a claim may have been

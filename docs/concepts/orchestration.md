@@ -59,6 +59,30 @@ the same answer twice.
 **Ignore it and:** you pay latency and tokens for a decision that is now also
 non-reproducible.
 
+### O29 · Escalation is sticky until discharged by evidence
+
+When a run or a task triggers a stronger classification — more review, higher risk, an
+authority level above routine execution — that requirement **stays in force until something
+discharges it**. It does not lapse because the run is nearly done, because the budget is
+tight, or because the trigger is no longer being talked about.
+
+This is not an absolute ratchet. A classification may come down; it may not come down
+quietly. Downgrading requires all three:
+
+```text
+1. an explicit ruling            recorded, by whoever holds the authority to make it
+2. evidence the trigger is gone  the condition that raised it no longer applies, shown
+3. preservation of what accrued  any independent-review obligation already made necessary
+                                 by the escalation survives the downgrade
+```
+
+The third is the one that gets dropped. An escalation that required an independent review
+does not un-require it by being reclassified afterwards — the reason for the review was the
+state the work passed through, and the work still passed through it.
+
+**Ignore it and:** every escalation decays at exactly the moment it becomes expensive, which
+is the moment it was for.
+
 ---
 
 ## Work and ownership
@@ -227,6 +251,33 @@ is not a trigger. Triggers are concrete, consumed records — an undelivered dis
 unanswered follow-up request.
 
 **Ignore it and:** the loop terminates only when the budget does.
+
+### O30 · A loop cap is a decision point, not another iteration
+
+When a repair or review loop reaches its configured cap, **do not silently run another
+round**, and do not silently stop either. Reaching the cap is an event that has to be
+resolved.
+
+Every still-open finding gets an explicit disposition, from a closed set:
+
+| Disposition | Means |
+|---|---|
+| resolved under a ruling | judged acceptable, with the ruling and its reason recorded |
+| parked as unresolved | preserved, still open, and carried into the outcome |
+| terminates the branch or run | the gap is load-bearing: `EXHAUSTED`, with reasons (**O22**) |
+| continuation authorised | explicitly, under a new ruling, where the architecture permits it |
+
+A finding with no disposition is the failure this principle exists to prevent: the loop ends,
+the report does not mention it, and an open defect becomes indistinguishable from a closed
+one.
+
+**Everything established survives termination.** Hitting a cap ends iteration, not the
+record: the evidence collected, the issues still open and the reasons the loop could not
+close them all outlive the branch, exactly as a stop reason does (**O16**). A run that
+discards its unresolved gaps on the way out has converted `EXHAUSTED` into silence.
+
+**Ignore it and:** caps are either ignored — the loop runs on — or honoured silently, which
+reports a clean finish over an unexamined pile.
 
 ---
 

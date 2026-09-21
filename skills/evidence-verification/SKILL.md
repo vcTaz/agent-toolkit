@@ -46,6 +46,15 @@ satisfies 1 and 2 and establishes nothing about the change.
 | "it's faster" | it feels faster | same workload, measured before and after |
 | "the root cause is X" | the theory explains the symptom | changing X changes the symptom; reverting restores it |
 | "this is thread-safe" | it looks synchronised | the race detector runs the concurrent path and reports nothing |
+| "the work is complete" | an agent reported it complete | the resulting artifact, state or diff, read directly, shows the work present |
+| "the capability is available" | it is listed, visible or installed | it was exercised for *this* action and returned what the action needs |
+| "the limit is N" | nothing has exceeded N so far | N measured, with the scope of the measurement stated |
+
+**An agent's statement that work is complete is not evidence of completion.** It is a report
+about a report. Check the artifact, the state, the diff or whatever primary evidence the work
+was supposed to produce — the thing itself, not the account of it. This is the claim kind most
+often waved through, because the reporting agent is usually right and the one time it is not
+is indistinguishable.
 
 ## Verifier kinds, and failing closed
 
@@ -75,23 +84,76 @@ Three consequences:
 - **Extending to a new domain means writing a check that can say what that domain's evidence
   establishes** — never relaxing the checks you have.
 
+### Unknown is not unlimited
+
+An unmeasured limit remains **unknown**, and unknown is not a synonym for absent, generous or
+safe. "No limit has been hit" is a fact about what has been attempted, not about the limit.
+
+The same rule covers availability, and this is where it is most often broken:
+
+> **That a capability, marketplace, resource, tool or service is visible does not establish
+> that it is usable, or available for the required action.**
+
+Listed is not installed. Installed is not reachable. Reachable is not permitted. Permitted is
+not sufficient for *this* operation. Each step is a separate claim needing its own evidence,
+and the evidence for one of them is not evidence for the next. Treat every unmeasured step as
+`INCONCLUSIVE` and say which step was actually exercised.
+
 ## Verified is not the same as reviewed
 
 Most claims worth making **cannot** be mechanically verified. "This architecture is
 maintainable" has no verifier. Neither does "users will find this confusing" or "this is the
 idiomatic approach".
 
-Keep the two grades visibly apart:
+Keep the grades visibly apart:
 
-| | **Verified** | **Reviewed** |
-|---|---|---|
-| Basis | external evidence entails the claim | independent judgement found no defect |
-| Strength | may be relied on | may be acted on, and may be wrong |
-| Correct use | load-bearing conclusions, acceptance criteria | direction, prioritisation, design opinion |
+| | **VERIFIED** | **REVIEWED** | **NOT ESTABLISHED** |
+|---|---|---|---|
+| Basis | external evidence entails the claim | independent judgement found no defect | neither has happened, or what happened does not entail the claim |
+| Strength | may be relied on | may be acted on, and may be wrong | may be worked on; may not be relied on or acted on as fact |
+| Correct use | load-bearing conclusions, acceptance criteria | direction, prioritisation, design opinion | open questions, hypotheses, anything a check could not settle |
 
-A result may rest on both. What it must never do is present the second as the first. Labelling
-a judgement as judgement is not a weakness in the output — it is the part that makes the rest
-of it trustworthy.
+A result may rest on the first two at once. What it must never do is present a lower grade as
+a higher one. Labelling a judgement as judgement is not a weakness in the output — it is the
+part that makes the rest of it trustworthy.
+
+## Evidence strength is not epistemic status
+
+These are two different axes and collapsing them into one scale destroys both.
+
+**Epistemic status** — `VERIFIED`, `REVIEWED`, `NOT ESTABLISHED` — says what has actually been
+established about a claim. **Evidence strength** says what *kind* of support is on offer,
+before anyone decides what it establishes:
+
+```text
+strongest   controlled reproduction        the thing was made to happen, and to stop happening
+            primary artifact               the subject itself, read directly
+            convergent independent sources  separate origins, not one origin restated
+            single-source inference        one source, plus reasoning to the claim
+            circumstantial evidence        consistent with the claim; consistent with others too
+weakest     speculation                    no support; a candidate for investigation
+```
+
+The axes are orthogonal, and every combination is real:
+
+- Controlled reproduction over **the wrong subject** establishes nothing — strong evidence,
+  status `NOT ESTABLISHED`. The four-part test above is what catches this.
+- A primary artifact read directly can leave a claim about *behaviour* merely `REVIEWED`,
+  because reading is not running.
+- Circumstantial evidence assessed by an independent identity is honestly `REVIEWED`. Weak
+  evidence, real status.
+
+Two rules follow, and they are the ones worth enforcing:
+
+1. **Name the strength, then decide the status.** They are separate sentences. A report that
+   states one and lets the reader infer the other is where inflation happens.
+2. **Strength never promotes status on its own.** "This is a primary source" is not a
+   verification argument. It says which rung the evidence sits on, not what it entails.
+
+Convergence deserves its own warning. Convergent independent sources are only convergent if
+their **origins** are independent. Three documents descending from one upstream are one
+source read three times, and model agreement is not a source at all — see the top of this
+file.
 
 ## Evidence is recorded, not asserted
 

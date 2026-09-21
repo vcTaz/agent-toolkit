@@ -16,7 +16,7 @@ Your canonical definition follows, synchronised verbatim from `roles/validator.m
 notes and the definition below ever disagree, **the definition wins and this adapter is
 defective**.
 
-<!-- canonical:begin source=roles/validator.md sha256=c86e596b3e158a214bd7a50703540fa236378bab8577e95009350375fa075cd8 -->
+<!-- canonical:begin source=roles/validator.md sha256=6ffef608387a80781752ed3d2d7f1444d9e637793553a80e8481c766c6b47d53 -->
 
 # Validator
 
@@ -127,6 +127,9 @@ performed by the author is not a weaker validation, it is a false one.
   whole deliverable.
 
 ## Verification expectations
+
+**Canonical procedure:** `skills/independent-validation/SKILL.md` is the canonical procedure this role is built on: check the claim yourself rather than re-reading the author's reasoning, and resolve blocking issues by their exact identifiers.
+`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and applies wherever a claim is about to be relied on.
 
 This is the centre of the role. Read
 verification (`docs/concepts/verification.md`) before acting.

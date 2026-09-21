@@ -132,8 +132,8 @@ it does; an assertion that passes against broken code proves nothing.
 
 ### 6 · Verify the fix — `Validator`, not the Implementer
 
-The reproduction no longer reproduces, the new test fails without the fix, and nothing else
-broke.
+Uses [`independent-validation`](../skills/independent-validation/SKILL.md). The reproduction
+no longer reproduces, the new test fails without the fix, and nothing else broke.
 
 ## Independence requirements
 
@@ -169,8 +169,10 @@ is not.
 | Situation | Minimum |
 |---|---|
 | Two plausible causes | Two investigators, one round of cross-falsification, then prove by intervention. |
-| One agent available | Write down **three** hypotheses with disproof conditions *before* investigating any, then test each in turn. The structure does most of the work even without parallelism. |
+| One agent available | Write down **three** hypotheses with disproof conditions *before* investigating any, then test each in turn. The structure does most of the work even without parallelism. A fresh context used to attack the survivor is a degraded self-check. |
 | Obvious cause | Skip to intervention: change it, confirm the symptom changes, revert, confirm it returns. |
+
+A fresh context of the same identity is a **disclosed degraded self-check**, not independent review: it may be run and must be labelled as what it is, and it satisfies no criterion that requires independence. Where completion requires independent review and no independent identity exists, the honest terminal state is `EXHAUSTED` — see [independence](../docs/concepts/independence.md).
 
 Never drop: **reproduction**, **a stated disproof condition per hypothesis**, and
 **intervention as proof**. Those three are the workflow.

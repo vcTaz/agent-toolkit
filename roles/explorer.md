@@ -106,6 +106,9 @@ while being anchoring.
 
 ## Verification expectations
 
+**Canonical procedure:** `skills/checkable-findings/SKILL.md` is the canonical procedure for this role — one claim per finding, a locator, the evidence as recorded, an `observed`/`inferred`/`unresolved` status, what would settle the rest, and the boundary of what you covered. It owns the shape; the obligations below and in **Outputs** are yours and are not replaced by it.
+`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and applies wherever a claim is about to be relied on.
+
 You produce evidence; you do not verify. Make your findings **checkable**:
 
 - Locate everything: file and line, command and output, source and version.

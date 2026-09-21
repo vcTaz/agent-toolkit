@@ -50,10 +50,33 @@ Each skill's `SKILL.md` carries `name` (matching its directory) and `description
 
 ### One thing worth knowing about scale
 
-Codex caps the skill list it shows the model at 2% of the context window, shortens
-descriptions first, and **silently omits skills past that point**. A large skill library loses
-its tail without saying so. Six skills is comfortably clear of the limit — and that constraint
-is part of why this toolkit ships few skills with front-loaded descriptions rather than many.
+Codex bounds the skill list it shows the model, shortens descriptions to fit, and **omits
+skills past the bound**. Read from `codex-rs/ext/skills/src/render.rs` in `openai/codex` at
+tag `rust-v0.153.4` (commit `3d2ee51c`, 2026-09-04), which is the release this file is
+verified against:
+
+| Constant | Value | Effect |
+|---|---|---|
+| `SKILL_METADATA_CONTEXT_WINDOW_PERCENT` | `2` | the budget is 2% of the context window, **in tokens**, when the window is known |
+| `DEFAULT_SKILL_METADATA_CHAR_BUDGET` | `8_000` | the fallback budget, **in characters**, used only when the window is *not* known |
+| `MAX_CONFIGURED_SKILL_METADATA_TOKEN_BUDGET` | `10_000` | ceiling on an explicitly configured token budget |
+| `MAX_CATALOG_SKILL_DESCRIPTION_CHARS` | `1_024` | each description is truncated to this before budgeting |
+
+The two figures are **not two ways of saying the same limit**: 2% is a token budget, 8,000
+characters is the fallback when there is no context window to take a percentage of, and
+`skill_metadata_budget()` chooses between them in that order.
+
+Omission is **not silent**. `omission_marker()` emits `- N additional skills omitted from
+this bounded skills list.` into the rendered list, and the render report emits *"Exceeded
+skills context budget. All skill descriptions were removed and N additional skills were not
+included in the model-visible skills list."* A large library still loses its tail; it says
+so, in a line the model can read and a human may not.
+
+**Status: this is a primary artifact, read, not run.** The constants and the branch order are
+what the source says at that tag. Nothing here was measured by executing Codex.
+
+Seven skills is comfortably clear of the bound — and that constraint is part of why this
+toolkit ships few skills with front-loaded descriptions rather than many.
 
 ## Subagents
 

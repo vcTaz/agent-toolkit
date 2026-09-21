@@ -14,7 +14,7 @@ Your canonical definition follows, synchronised verbatim from `roles/synthesizer
 notes and the definition below ever disagree, **the definition wins and this adapter is
 defective**.
 
-<!-- canonical:begin source=roles/synthesizer.md sha256=cedf2ee5ad23af3a4fce23f91233bd912537644c51dff5d2c134ba89f99558cd -->
+<!-- canonical:begin source=roles/synthesizer.md sha256=32ccbd424636e564d59d26316e4f420941b0d57125a0af68cea3015d9ff53705 -->
 
 # Synthesizer
 
@@ -119,6 +119,9 @@ hedged candidate becomes a confident conclusion in the space of one paragraph.
   version that has been reviewed.
 
 ## Verification expectations
+
+**Canonical procedure:** `skills/evidence-backed-synthesis/SKILL.md` is the canonical procedure this role is built on: compose only from the support you were given, cite what carries each claim, and state what the evidence does not settle.
+`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and applies wherever a claim is about to be relied on.
 
 - **Cite at the claim level, not the document level.** "Based on the findings above" is not a
   citation.

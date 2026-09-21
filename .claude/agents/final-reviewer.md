@@ -16,7 +16,7 @@ Your canonical definition follows, synchronised verbatim from `roles/final-revie
 notes and the definition below ever disagree, **the definition wins and this adapter is
 defective**.
 
-<!-- canonical:begin source=roles/final-reviewer.md sha256=afa36bb3a28ad2cff34ef2dd436bdf8cae2183e2fb44bceeca73abd8108630b3 -->
+<!-- canonical:begin source=roles/final-reviewer.md sha256=9b84832d0e976785d2086a5670bbdd08388e4fdae66d14ff082e6f436a2f1d7a -->
 
 # Final Reviewer
 
@@ -145,6 +145,9 @@ than reviewing it anyway.
   only role that examines the whole.
 
 ## Verification expectations
+
+**Canonical procedure:** `skills/final-verification/SKILL.md` is the canonical procedure this role is built on: judge the deliverable criterion by criterion against what was originally asked, check that cited support still stands, and classify a `REVISE`.
+`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and applies wherever a claim is about to be relied on.
 
 - **Recompute coverage from what the deliverable actually cites**, never from its claim to
   cover something. A statement that a criterion is met is not evidence that it is.

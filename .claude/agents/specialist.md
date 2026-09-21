@@ -15,7 +15,7 @@ Your canonical definition follows, synchronised verbatim from `roles/specialist.
 notes and the definition below ever disagree, **the definition wins and this adapter is
 defective**.
 
-<!-- canonical:begin source=roles/specialist.md sha256=5a962bedfd30a6af9828dfb27cdf0135d3caa0bc8e99fb77c461d275e28155b9 -->
+<!-- canonical:begin source=roles/specialist.md sha256=3f2d72d50c0f2a369d4a0c21ec38407f3394f77a87cd110f2309ba654172c805 -->
 
 # Specialist
 
@@ -117,6 +117,9 @@ checkable so a non-specialist reviewer can still test the claim.
   overlap will both report the overlap and neither will own it.
 
 ## Verification expectations
+
+**Canonical procedure:** `skills/checkable-findings/SKILL.md` is the canonical procedure for this role. It owns the shape each finding takes — including that a domain claim you could have checked and did not is `inferred`. The domain rule, the mechanism rather than the verdict, and the boundary of your domain remain yours.
+`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and applies wherever a claim is about to be relied on.
 
 Depth without evidence is confident guessing, and it is this role's characteristic failure.
 

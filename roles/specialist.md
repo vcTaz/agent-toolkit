@@ -104,6 +104,9 @@ checkable so a non-specialist reviewer can still test the claim.
 
 ## Verification expectations
 
+**Canonical procedure:** `skills/checkable-findings/SKILL.md` is the canonical procedure for this role. It owns the shape each finding takes — including that a domain claim you could have checked and did not is `inferred`. The domain rule, the mechanism rather than the verdict, and the boundary of your domain remain yours.
+`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and applies wherever a claim is about to be relied on.
+
 Depth without evidence is confident guessing, and it is this role's characteristic failure.
 
 - Where your domain has a **tool** — a race detector, a profiler, a scanner, a type checker,

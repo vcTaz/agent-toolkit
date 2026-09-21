@@ -275,8 +275,9 @@ def check_packs():
     `--verify-pack`'s job, offline, against the built tree.
 
     The names matter beyond tidiness: a pack skill sharing a name with a canonical one
-    would shadow it in any Project attaching both, and the canonical six are the skills
-    this toolkit exists to deliver.
+    would shadow it in any Project attaching both, and the canonical skills in `skills/`
+    are the ones this toolkit exists to deliver. The set is read from the tree rather than
+    written down here, so adding one does not make this docstring stale.
     """
     import json
     packs, seen = {}, {}

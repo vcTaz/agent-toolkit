@@ -15,7 +15,7 @@ Your canonical definition follows, synchronised verbatim from `roles/explorer.md
 notes and the definition below ever disagree, **the definition wins and this adapter is
 defective**.
 
-<!-- canonical:begin source=roles/explorer.md sha256=79d18bf8f1187cd16a8264d7a62e0b0d62a04fed1f8a87f2900c6116c83d55c2 -->
+<!-- canonical:begin source=roles/explorer.md sha256=3054ce9bc3b207a841f7ddb088e7760f833d3a0c584f2006f2f690b99a7211d1 -->
 
 # Explorer
 
@@ -119,6 +119,9 @@ while being anchoring.
   a concrete reason, or `FOLLOW_UP_REQUESTED` — and never silently.
 
 ## Verification expectations
+
+**Canonical procedure:** `skills/checkable-findings/SKILL.md` is the canonical procedure for this role — one claim per finding, a locator, the evidence as recorded, an `observed`/`inferred`/`unresolved` status, what would settle the rest, and the boundary of what you covered. It owns the shape; the obligations below and in **Outputs** are yours and are not replaced by it.
+`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and applies wherever a claim is about to be relied on.
 
 You produce evidence; you do not verify. Make your findings **checkable**:
 

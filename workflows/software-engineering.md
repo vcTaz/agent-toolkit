@@ -153,7 +153,9 @@ property:
 |---|---|
 | Small, clear change | Implementer → Validator. One independent check is most of the value. |
 | Understood territory | Drop exploration. |
-| Risky change, one agent available | Implement, then start a **fresh context** to review. Say in the output that review was not independent. |
+| Risky change, one agent available | Implement, then start a **fresh context** to review, as a degraded self-check. |
+
+A fresh context of the same identity is a **disclosed degraded self-check**, not independent review: it may be run and must be labelled as what it is, and it satisfies no criterion that requires independence. Where completion requires independent review and no independent identity exists, the honest terminal state is `EXHAUSTED` — see [independence](../docs/concepts/independence.md).
 
 The one stage to never drop is **independent checking by someone who did not write it**.
 Everything else is optimisation.

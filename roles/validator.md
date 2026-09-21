@@ -113,6 +113,9 @@ performed by the author is not a weaker validation, it is a false one.
 
 ## Verification expectations
 
+**Canonical procedure:** `skills/independent-validation/SKILL.md` is the canonical procedure this role is built on: check the claim yourself rather than re-reading the author's reasoning, and resolve blocking issues by their exact identifiers.
+`skills/evidence-verification/SKILL.md` is cross-cutting: it belongs to no single role and applies wherever a claim is about to be relied on.
+
 This is the centre of the role. Read
 verification (`docs/concepts/verification.md`) before acting.
 

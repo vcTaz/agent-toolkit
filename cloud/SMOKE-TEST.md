@@ -26,13 +26,14 @@ Answer each item. If something is absent, say "none" — do not guess or fill in
 2. SKILLS
    - List every skill you can invoke, grouped by origin: this toolkit, a plugin,
      the claude.ai account, another repository.
-   - Confirm these six toolkit skills are present:
-     adversarial-review, bounded-context-handoff, evidence-backed-synthesis,
-     evidence-verification, final-verification, independent-validation
+   - Confirm these seven toolkit skills are present:
+     adversarial-review, bounded-context-handoff, checkable-findings,
+     evidence-backed-synthesis, evidence-verification, final-verification,
+     independent-validation
    - Confirm NO third-party skills arrive from this repository. wrangler,
      durable-objects, cloudflare, brandkit, minimalist-ui and orca-cli must NOT be
      present unless a pack repository is also attached to the project, or they come
-     from the account. This repository carries six skills and no third-party content.
+     from the account. This repository carries seven skills and no third-party content.
    - Report the TOTAL count of skills whose SKILL.md resolves under this repository.
    - For adversarial-review, report the path you would load its SKILL.md from, and whether
      that path is a symlink.

@@ -157,7 +157,9 @@ investigation is not a trigger; a named, consumable gap is.
 |---|---|
 | Two or three areas, low stakes | Two investigators → Critic → Synthesizer. Drop separate validation; grade findings inline. |
 | One area | One `Specialist` → `Critic`. This workflow is overhead. |
-| One agent available | Investigate, then review in a **fresh context**, then synthesise. Say in the output that the investigation was not independent. |
+| One agent available | Investigate, then review in a **fresh context**, then synthesise — as a degraded self-check. |
+
+A fresh context of the same identity is a **disclosed degraded self-check**, not independent review: it may be run and must be labelled as what it is, and it satisfies no criterion that requires independence. Where completion requires independent review and no independent identity exists, the honest terminal state is `EXHAUSTED` — see [independence](../docs/concepts/independence.md).
 
 Never drop: **the honest grading of what is verified versus reviewed**, and **the limitations
 section**. Those are what make a research answer usable rather than merely confident.

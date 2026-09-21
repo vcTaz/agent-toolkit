@@ -28,7 +28,7 @@ building a skill pack from its pin. Nothing reads them at use time; you run them
 ```text
 roles/            CANONICAL  seven agent roles, platform-neutral
 agents/           CANONICAL  free-form agents; where a new agent is added
-skills/           CANONICAL  six reusable procedures, Agent Skills format
+skills/           CANONICAL  seven reusable procedures, Agent Skills format
 workflows/        CANONICAL  four ways roles and skills cooperate
 docs/concepts/               why the canonical layer is shaped this way
 docs/platforms/              how to use it on one harness
@@ -52,7 +52,7 @@ The two skills paths are **not the same shape**, and `tools/check.py` enforces t
 difference. `.agents/skills` is a single container symlink to `skills/`. `.claude/skills/` is
 a real directory whose *entries* are symlinks, because only a `<skill-name>` entry is
 documented as symlinkable — a symlinked container is not. Every entry resolves into the
-canonical `skills/`; there are six, and there is no third-party content in this repository.
+canonical `skills/`; there are seven, and there is no third-party content in this repository.
 
 Third-party skills live in **optional pack repositories**, one per upstream, built from the
 specifications in `packs/` and attached to the Projects that want them. That question was

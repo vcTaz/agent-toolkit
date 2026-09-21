@@ -130,8 +130,9 @@ up front.
 
 ### 6 · Final review — `Final Reviewer`, independent of the designer
 
-Does the design meet the **original requirement** — not the requirement as the design
-reframed it? Are the unresolved issues acceptable? Are the limitations stated?
+Uses [`final-verification`](../skills/final-verification/SKILL.md). Does the design meet the
+**original requirement** — not the requirement as the design reframed it? Are the unresolved
+issues acceptable? Are the limitations stated?
 
 ## What an approved design must carry
 
@@ -181,7 +182,9 @@ What must not happen is a design chosen by whichever agent argued last.
 |---|---|
 | One reversible decision | Write the decision, the alternative, and the assumption it rests on. Three sentences. Check the assumption. |
 | Moderate stakes | Design → Critic → check the load-bearing assumption. Skip separate final review. |
-| One agent available | Write two options and their trade-offs, then **start a fresh context** to attack the recommendation. Say the review was not independent. |
+| One agent available | Write two options and their trade-offs, then **start a fresh context** to attack the recommendation, as a degraded self-check. |
+
+A fresh context of the same identity is a **disclosed degraded self-check**, not independent review: it may be run and must be labelled as what it is, and it satisfies no criterion that requires independence. Where completion requires independent review and no independent identity exists, the honest terminal state is `EXHAUSTED` — see [independence](../docs/concepts/independence.md).
 
 Never drop: **at least two options**, **an explicit list of assumptions**, and **checking the
 load-bearing one**. A design with one option and unexamined assumptions is a preference.

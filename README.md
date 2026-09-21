@@ -60,9 +60,10 @@ questions, accept different answers, and fail in different directions — see
 
 ### 2 · Skills
 
-Six reusable procedures, in the [Agent Skills](https://agentskills.io) format that both
+Seven reusable procedures, in the [Agent Skills](https://agentskills.io) format that both
 harnesses read directly.
 
+[`checkable-findings`](skills/checkable-findings/SKILL.md) ·
 [`adversarial-review`](skills/adversarial-review/SKILL.md) ·
 [`independent-validation`](skills/independent-validation/SKILL.md) ·
 [`evidence-verification`](skills/evidence-verification/SKILL.md) ·
@@ -108,7 +109,7 @@ them. `docs/authority.md` explains why they are separate layers.
 
 ### With Claude Code
 
-Open the repository. Eight subagents — the seven roles and the orchestrator — and six
+Open the repository. Eight subagents — the seven roles and the orchestrator — and seven
 skills are discovered with no setup.
 
 To use them in **every** project on a machine rather than only in this one, link them into

@@ -62,8 +62,9 @@ If no independent identity is available:
 
 - **Record the gap.** The absence of a review is a fact about the run, and it must reach
   whoever reads the result.
-- **Do not fall back to self-review.** A review by the author is not a weaker review; it is
-  a different and misleading thing, because it will be recorded as a review.
+- **Do not record a self-review as a review.** A review by the author is not a weaker
+  review; it is a different and misleading thing. What you may do instead is the *disclosed
+  degraded self-check* defined below, which satisfies nothing.
 - **Bound the retries.** An unfillable review that is re-created every cycle becomes an
   infinite queue. Attempt it a fixed number of times, then leave a recorded gap.
 
@@ -79,6 +80,65 @@ afford the independent review that would make the output trustworthy. Hold back 
 for one synthesis and one final review from the beginning, and treat that reserve as
 unavailable to optional work. A completion that "ran out of budget before review" is not a
 completion.
+
+## A fresh context of the same identity is not independent review
+
+This is the canonical rule. Where any other file in this repository — a role, a workflow's
+**Scaling it down** section, a host agent definition — appears to say otherwise, this
+paragraph wins.
+
+- **A fresh context of the same identity is not independent review.** Independence is a
+  property of an identity's history, not of the freshness of the current prompt or context
+  window. Clearing the context does not clear the history.
+- **It may be used as a disclosed degraded self-check** when only one identity is available.
+  Disclosed means the output says what it was: a self-check, by the identity that produced
+  the work, in a fresh context. That is a real and useful practice — it catches transcription
+  errors, contradictions and unstated assumptions — and it is not review.
+- **It never satisfies a requirement for independent evidence.** Not a workflow stage, not a
+  readiness criterion, not a completion condition, and not a Critic, Validator or Final
+  Reviewer requirement. Anything that explicitly requires independence remains unmet.
+- **If completion requires independent review and no independent identity is available, the
+  honest terminal state is `EXHAUSTED`.** The work happened; the independence the criterion
+  demanded was unobtainable. That is not a failure of the run and it is not a completion
+  either — see the terminal vocabulary in
+  [`orchestration.md`](orchestration.md) (**O22**).
+
+The tempting move is the one this rule exists to refuse: run the self-check, find nothing,
+and let the criterion quietly count it. A criterion satisfied by a degraded substitute is
+indistinguishable, afterwards, from one that was actually met.
+
+## Concurrent reviews stay separately attributable
+
+Independent reviews of the same artifact — run concurrently, or simply by different
+identities — are **separate results, and they stay separate**.
+
+> Their findings and rankings must not be silently merged or re-ranked by the orchestrator,
+> because doing so turns orchestration into substantive review judgement.
+
+The orchestrator may route, deduplicate on content, and order work. Deciding that one
+reviewer's blocking issue is really the same as another's, or that a ranked list of concerns
+should be re-ordered, is not routing — it is the review judgement the reviewers were
+dispatched to make, performed afterwards by an identity with no independence requirement of
+its own and no obligation to defend it.
+
+What is permitted:
+
+- **Consolidating exact duplicates on content**, keeping every original identity visible, so
+  that "two reviewers independently raised this" stays inspectable (**O13**).
+- **Recording an establishable contradiction as a conflict**, and passing all sides on
+  (**O13**, and the handoff rule against presenting one side of an open conflict).
+
+What is not:
+
+- Dropping one reviewer's finding because another's reads better.
+- Merging two near-but-not-identical findings into one, which loses whichever part the
+  wording did not survive.
+- Re-ranking a reviewer's severities, or promoting a non-blocking item to blocking, or
+  demoting a blocking one.
+
+Two reviews that disagree are a result, not a problem to be tidied. The disagreement is
+information about the artifact, and resolving it is a review question — so it goes to a
+review identity, not to the orchestrator's summary.
 
 ## Blocking issues have identity
 
@@ -124,9 +184,11 @@ The canonical rule is identity-based and harness-neutral. How you satisfy it dif
   that is handed the author's reasoning to review is not independent of it; it has been
   told the conclusion. What you pass matters as much as who you pass it to — see
   [`skills/bounded-context-handoff`](../../skills/bounded-context-handoff/SKILL.md).
-- **One session acting in sequence can preserve independence only by discipline.** A single
-  agent switching hats keeps the artifact and its own prior reasoning in context. If that
-  is all you have, say so in the output rather than claiming an independent review.
+- **One session acting in sequence cannot preserve independence.** A single agent switching
+  hats keeps the artifact and its own prior reasoning in its history, and a fresh context
+  does not remove it. If that is all you have, run it as a **disclosed degraded self-check**
+  under the rule above: say in the output what it was, and do not let it satisfy anything
+  that requires independence.
 - **Name your agents and track what they touched.** Independence cannot be enforced if you
   cannot answer "who wrote this?" — which is why hand-offs should carry provenance.
 

@@ -36,7 +36,7 @@ entries do the linking, and `tools/check.py` fails if either drifts:
 
 ```text
 .claude/skills/              real directory
-.claude/skills/<name>   →    ../../skills/<name>      the six canonical skills
+.claude/skills/<name>   →    ../../skills/<name>      the seven canonical skills
 .agents/skills          →    ../skills                container symlink (see below)
 ```
 
@@ -286,7 +286,8 @@ date given — a primary source, but not a run.
 | `claude --version` reports 2.1.278 | **verified** — run 2026-09-21 |
 | `.claude/agents/*.md` is discovered and all eight adapters are offered | **verified** — 2.1.278, 2026-09-21 |
 | `tools:` is applied — Synthesizer is offered as `Read, Grep, Glob`, with no `Bash` | **verified** — 2.1.278, 2026-09-21 |
-| The `.claude/skills/` entry symlinks are followed and all six skills are discovered | **verified** — cloud session 2026-09-20, re-run at 2.1.278 on 2026-09-21 |
+| The `.claude/skills/` entry symlinks are followed and all six skills **this repository carried at the time** are discovered | **verified** — cloud session 2026-09-20, re-run at 2.1.278 on 2026-09-21, when there were six |
+| The same holds for the seventh, `checkable-findings`, added 2026-09-21 | **not established** — no fresh-session measurement has been taken since it was added. The row above is scoped to the six that existed when it was measured and is not evidence about the seventh |
 | Discovery scans every `.claude/agents/` between the working directory and the repository root | **verified** — 2.1.278, 2026-09-21, nested fixture |
 | On a name clash the definition closest to the working directory wins | **verified** — 2.1.278, 2026-09-21, same fixture |
 | `--agents` outranks a project definition of the same name | **verified** — 2.1.278, 2026-09-21, against an unflagged control run |

@@ -1050,7 +1050,17 @@ ROWS
   # EMPTY prefix and returned 0, so the suffix alone became the answer: measured at
   # b5181f7, CLAUDE_CONFIG_DIR under an unreadable directory resolved to a path rooted at
   # / that had nothing to do with the one asked for, and the script would have installed
-  # there. Needs an unprivileged user, because root enters anything.
+  # there.
+  #
+  # The guard below is about THIS SUITE'S OWN uid, not about whether the machine has an
+  # unprivileged account. The case needs a process that cannot traverse the directory, and
+  # the way it gets one is `setpriv --reuid=65534`, which drops privileges -- an operation
+  # only root may perform. So the three conditions are: the suite is running as root, so it
+  # can drop; `setpriv` exists; and `nobody` exists to drop to. Any non-root runner fails
+  # the first condition and skips, even though it is itself unprivileged and `nobody` is
+  # present. That is why a GitHub-hosted `ubuntu-latest` job, which runs as an ordinary
+  # user, reports one skip here while a root container reports none. The skip is a
+  # statement about the suite's privileges, not about the machine's accounts.
   if [ "$(id -u)" -eq 0 ] && command -v setpriv >/dev/null 2>&1 \
      && getent passwd nobody >/dev/null 2>&1; then
     locked="$TMPROOT/locked"; mkdir -p "$locked/inner"; chmod 755 "$TMPROOT"; chmod 000 "$locked"
@@ -1061,7 +1071,7 @@ ROWS
         && ok "an ancestor it cannot enter is a failure, not a path rooted at /" \
         || no "an unenterable ancestor returned rc=$cp_rc and '$cp_out' instead of failing"
   else
-    skip "no unprivileged user available — cannot make an ancestor unenterable"
+    skip "this suite is not running as root, or setpriv/nobody is missing — it cannot drop privileges to make an ancestor unenterable"
   fi
 fi
 
@@ -1676,12 +1686,15 @@ else
     skip "not a git repository — cannot check tracked vendor/ files"
   fi
 
-  # The six canonical skills are the ones this toolkit exists to deliver. Anything else
-  # in .claude/skills/ means third-party content has crept back into core.
+  # The canonical skills are the ones this toolkit exists to deliver. Anything else in
+  # .claude/skills/ means third-party content has crept back into core. The expected list
+  # is spelled out rather than derived from skills/, so that adding a skill is a decision
+  # recorded here and not something a stray directory can do by itself.
   entries="$(ls "$ROOT/.claude/skills" 2>/dev/null | tr '\n' ' ')"
-  expected="adversarial-review bounded-context-handoff evidence-backed-synthesis evidence-verification final-verification independent-validation "
+  expected="adversarial-review bounded-context-handoff checkable-findings evidence-backed-synthesis evidence-verification final-verification independent-validation "
+  n_expected=7
   [ "$entries" = "$expected" ] \
-      && ok ".claude/skills carries exactly the six canonical entries" \
+      && ok ".claude/skills carries exactly the $n_expected canonical entries" \
       || no ".claude/skills is [$entries], expected [$expected]"
 
   if command -v python3 >/dev/null 2>&1; then

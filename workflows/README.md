@@ -93,6 +93,12 @@ more than the change.
 The stage never to drop: **independent checking by an identity that did not produce the
 work.** Everything else is optimisation.
 
+Reducing a workflow never reduces that stage to a fresh context of the producing identity.
+That is a disclosed degraded self-check, it satisfies no criterion requiring independence,
+and where completion requires independent review and no independent identity exists, the
+honest terminal state is `EXHAUSTED`. See
+[independence](../docs/concepts/independence.md).
+
 ## Adding a workflow
 
 The bar: a genuinely different **shape** of cooperation, not a different subject. "Security

@@ -78,7 +78,7 @@ no plugin hooks to run either way. See "Plugins declared here did not arrive" be
 | ├ `permissions.deny` | 17 rules | — | **measured:** enforced in a single-repo session; not read at all in a multi-repo project |
 | `enabledPlugins` / `extraKnownMarketplaces` | **0** | — | removed 2026-09-20; they were read and delivered nothing. See below |
 
-Six skills, and no third-party content. Until 2026-09-20 this repository also carried 27
+Seven skills, and no third-party content. Until 2026-09-20 this repository also carried 27
 third-party skills committed under a `vendor/` directory. They now live in **optional pack
 repositories** — `vcTaz/claude-skills-cloudflare` (13, Apache-2.0) and
 `vcTaz/claude-skills-frontend` (13, MIT) — attached to the Projects that want them and to no

@@ -29,6 +29,125 @@
       "reason": "Delivered by the ecc plugin locally, which is why they are not packaged. LOCAL DELIVERY IS REVIEWED, NOT VERIFIED, on the same footing as ui-ux-pro-max above: profile/plugins.json records installedLocally 1.10.0, which is installation rather than skill delivery. IN CLOUD, on 2026-09-20, in Anthropic's hosted environment, ecc@ecc was measured NOT INSTALLED and its marketplace never registered (docs/host-integration.md, profile/plugins.json cloudObservation). This field previously said the plugin is declared in .claude/settings.json; it is not, and the keys are in profile/plugins.json. Scope: that environment, that date, not cloud sessions generally. Project settings -> Plugins is the documented route, DOCUMENTED and not measured here."
     }
   },
+  "externalAudit": {
+    "$comment": "Provenance for the Phase 2 external-source audit, so it is not repeated. The full report is a working document outside this repository; only what a future reader needs in order NOT to re-audit is kept here. HEADLINE: ten repositories, roughly 1,410 skill-shaped files, ZERO new canonical-core candidates and nothing proposed for text reuse. Five clauses belonged inside existing skills and three were orchestration principles; those landed in Phase 2A. This record is provenance for later external-capability work, not a decision to import anything.",
+    "auditedOn": [
+      "2026-09-20",
+      "2026-09-21"
+    ],
+    "method": "Every repository read from its own cloned tree, never from a README or a web page: git clone --depth 1 --filter=tree:0, then git ls-tree -r --name-only HEAD, then SKILL.md bodies read in full. Plain HTTPS to github.com and codeload.github.com are proxy-denied in this environment, so no summary-fetching route existed.",
+    "refCaveat": "auditedRef is what the audit recorded at the time. Where refIsCompleteSha is false the ref is an abbreviated commit id, and where auditedRef is null the audit recorded no commit id at all -- it read that repository at its HEAD on the audit date. A null is NOT a licence to substitute today's HEAD: today's HEAD is a different claim about a different tree. Re-resolve and record a full sha before relying on any of these for a build.",
+    "categories": "The six buckets the audit placed every item into: canonical-core candidate; extension of an existing canonical skill; optional domain pack; workflow or orchestration idea; host or tooling capability; redundant or reject.",
+    "result": {
+      "newCanonicalCandidates": 0,
+      "proposedForTextReuse": 0,
+      "skillShapedFilesSeen": "approximately 1410",
+      "deliversSkillsByClaudeSkillsEntries": 0,
+      "deliveryNote": "None of the ten carries .claude/skills/ entries; all deliver by plugin manifest. Containing skill-shaped markdown and delivering skills are different claims."
+    },
+    "repositories": [
+      {
+        "repository": "obra/superpowers",
+        "auditedRef": "5bf4e78",
+        "refIsCompleteSha": false,
+        "auditDate": "2026-09-18",
+        "category": "optional domain pack at most; ideas only",
+        "disposition": "No canonical candidate. Corroborates checkable-findings (diagnosing-superpowers discards findings lacking a path:line) and the repair half of adversarial-review (receiving-code-review). Delivery is plugin-and-marketplace only; no .claude/skills/ anywhere in the tree.",
+        "provenanceCaveat": "MIT, Copyright (c) 2025 Jesse Vincent; LICENSE verbatim. Five of its seven plugin manifests redeclare MIT; .muse-plugin and .hermes-plugin declare none. No per-file headers on any of the 15 SKILL.md files."
+      },
+      {
+        "repository": "affaan-m/ECC",
+        "auditedRef": null,
+        "refIsCompleteSha": false,
+        "auditDate": "2026-09-21",
+        "category": "optional domain pack; redundant for core",
+        "disposition": "No canonical candidate. Drift against our own record: this manifest pins ECC at 1.10.0 with 181 skills; HEAD at audit was 2.2.2 with 292.",
+        "provenanceCaveat": "MIT, Copyright (c) 2026 Affaan Mustafa, WITH eight per-skill Apache-2.0 overrides among 18 skills carrying their own license key. The licence picture is REVIEWED, NOT EXHAUSTIVELY ESTABLISHED: the frontmatter capture the audit's coverage rests on did not record license: lines. COVERAGE: 31 of 292 skill bodies were read; 173 were never opened. Do not restate either wider than this."
+      },
+      {
+        "repository": "mattpocock/skills",
+        "auditedRef": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+        "refIsCompleteSha": true,
+        "auditDate": "2026-09-21",
+        "category": "workflow or orchestration idea; ideas only",
+        "disposition": "No canonical candidate. 169 tracked files, 38 skills. Its diagnosing-bugs (a red-capable reproduction BEFORE any hypothesis) is part of the evidence that causal-establishment is the strongest later canonical candidate; it does not decide it.",
+        "provenanceCaveat": "MIT, Copyright (c) 2026 Matt Pocock; no per-skill overrides. Its in-progress/pr skill carries a frontmatter metadata.credits block naming its upstream -- the attribution shape worth copying even when nothing else is."
+      },
+      {
+        "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+        "auditedRef": "54a7988",
+        "refIsCompleteSha": false,
+        "auditDate": "2026-08-31",
+        "category": "optional domain pack; excluded on context budget",
+        "disposition": "No canonical candidate. 818 domain skills; the skill-list budget answers the question by itself.",
+        "provenanceCaveat": "Apache-2.0 but NOT uniformly: 817 per-skill LICENSE files for 818 skills, in three distinct byte-forms -- 814 identical, two truncated Apache stubs, and skills/conducting-gdpr-compliance-assessment/LICENSE naming a DIFFERENT copyright holder (dakshverma23). Check the specific file; at least one is not the maintainer's to license."
+      },
+      {
+        "repository": "K-Dense-AI/scientific-agent-skills",
+        "auditedRef": "49c6e97",
+        "refIsCompleteSha": false,
+        "auditDate": "2026-09-21",
+        "category": "optional research pack; ideas only",
+        "disposition": "No canonical candidate. Its hypothesis-generation (rivals before tests, pre-timestamping against HARKing) is the other half of the causal-establishment evidence.",
+        "provenanceCaveat": "THE LICENSING FINDING OF THE AUDIT. The root MIT badge is not accurate for a material fraction of the tree: per-skill frontmatter carries at least nine regimes including GPLv3, CC BY-NC-SA 4.0 and PolyForm-Noncommercial. Four skills (docx, pdf, pptx, xlsx) are unmodified Anthropic content whose bundled LICENSE.txt forbids extraction, derivative works and distribution -- those cannot be reused at all, under any structure. Read each file's own frontmatter before reusing anything."
+      },
+      {
+        "repository": "multica-ai/andrej-karpathy-skills",
+        "auditedRef": "2c60614",
+        "refIsCompleteSha": false,
+        "auditDate": "2026-04-20",
+        "category": "redundant or reject",
+        "disposition": "No canonical candidate. Nine files.",
+        "provenanceCaveat": "MIT CLAIMED, NOT SHIPPED: asserted in the README, in SKILL.md frontmatter and in plugin.json, with NO LICENSE file anywhere in the tree. The plugin metadata also names a different owner (forrestchang) and a different location than the repository cloned -- unresolved. DO NOT REUSE."
+      },
+      {
+        "repository": "shanraisshan/claude-code-best-practice",
+        "auditedRef": "5372d67b",
+        "refIsCompleteSha": false,
+        "auditDate": "2026-09-21",
+        "category": "workflow or orchestration idea; ideas only",
+        "disposition": "No canonical candidate. A tips collection with one workflow idea. Its agent-browser reproduces the orca-cli failure mode -- a skill resolving a binary that is not present.",
+        "provenanceCaveat": "MIT, Copyright (c) 2025-2026 Shayan Rais, FOR THE REPOSITORY'S OWN MATERIAL ONLY. Most of the content is explicitly attributed to third parties -- named individuals' posts and reproduced screenshots. The repository's licence conveys no rights in aggregated material."
+      },
+      {
+        "repository": "Yeachan-Heo/oh-my-claudecode",
+        "auditedRef": "5281b19e",
+        "refIsCompleteSha": false,
+        "auditDate": "2026-09-11",
+        "category": "workflow or orchestration idea; ideas only",
+        "disposition": "No canonical candidate. Two ideas worth taking; its trace carries an evidence-strength ordering, which is part of why evidence-verification gained one in Phase 2A. Every body in it fails portability as text.",
+        "provenanceCaveat": "MIT, Copyright (c) 2025 Yeachan Heo. Moot in practice: portability excludes every body."
+      },
+      {
+        "repository": "thedotmack/claude-mem",
+        "auditedRef": "4e98d977cc6d9c4fe18c60d4956d948f57e7a1f6",
+        "refIsCompleteSha": true,
+        "auditDate": "2026-09-20",
+        "category": "host or tooling capability",
+        "disposition": "No canonical candidate. 1,243 tracked files. A memory system with a skill surface -- the clearest case of the tool-versus-skill-source distinction. Its pathfinder requires file:line per node and at least two citations per duplication claim, corroborating checkable-findings from the opposite side to superpowers.",
+        "provenanceCaveat": "Apache-2.0, Copyright 2026 Alex Newman, WITH A NOTICE FILE. Apache-2.0 section 4 applies including propagating the NOTICE contents -- an obligation MIT does not carry."
+      },
+      {
+        "repository": "rtk-ai/rtk",
+        "auditedRef": "0c279f54",
+        "refIsCompleteSha": false,
+        "auditDate": "2026-09-21",
+        "category": "host or tooling capability",
+        "disposition": "No canonical candidate, and not a skill source: a tool. The only genuine host-layer capability found in the ten.",
+        "provenanceCaveat": "Apache-2.0, Copyright 2024 rtk-ai and rtk-ai Labs; NO NOTICE file in the tree, so the NOTICE obligation does not arise here even though it does for claude-mem."
+      }
+    ],
+    "laterCandidateRecorded": {
+      "name": "causal-establishment",
+      "status": "RECORDED AS A CANDIDATE, NOT APPROVED AND NOT SCHEDULED",
+      "note": "The strongest later canonical candidate, to be reconsidered for dogfooding only after the seven-skill core has real usage evidence. Its subject is the epistemics of establishing a cause -- rival hypotheses named before testing, a reproduction that can fail before any hypothesis exists, and proof by intervention -- not debugging. Deliberately NOT added in Phase 2A.",
+      "alsoDeferred": [
+        "issue-directed-repair (folded into adversarial-review instead)",
+        "reconsideration-response (folded into bounded-context-handoff instead)",
+        "proof-by-intervention (subsumed by the candidate above)"
+      ]
+    }
+  },
   "multiAgentFanOut": {
     "$comment": "The skills CLI installs into every detected agent directory, not just Claude Code. Recorded because a reinstall reproduces this fan-out and it explains why identical content exists in seven trees on this machine.",
     "observedTargets": [

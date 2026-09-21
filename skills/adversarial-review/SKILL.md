@@ -1,6 +1,6 @@
 ---
 name: adversarial-review
-description: Attack a claim, design, diagnosis or change to find what is wrong with it before it is relied on. Use when reviewing work adversarially, critiquing a proposal, challenging an assumption, falsifying a hypothesis, stress-testing a design, or when work looks convincing and nobody has tried to break it. Produces a PASS/CHALLENGE/INCONCLUSIVE verdict with individually identified blocking issues.
+description: Attack a claim, design, diagnosis or change to find what is wrong with it before it is relied on, and repair against issues raised that way. Use when reviewing work adversarially, critiquing a proposal, challenging an assumption, falsifying a hypothesis, stress-testing a design, when work looks convincing and nobody has tried to break it, or when acting on a review's blocking issues. Produces a PASS/CHALLENGE/INCONCLUSIVE verdict with individually identified blocking issues, and a per-identifier disposition when those issues are repaired.
 ---
 
 # Adversarial review
@@ -60,7 +60,25 @@ A check that passed is information. A check you did not run is indistinguishable
 reader, from one that found nothing — so say which you actually performed. This is what makes
 a `PASS` mean something.
 
-### 5. Give every blocking issue an identity
+### 5. Name what you declined to judge
+
+A review is read as covering what it examined *and* what it did not mention. So every
+materially relevant issue or area you deliberately chose not to assess is **named**, not
+silently omitted:
+
+- outside your competence, and you say which competence it needs;
+- outside the scope you were given;
+- unexaminable with what you were given — no access, no evidence, a moving target;
+- deliberately deprioritised, because something else mattered more within the budget.
+
+"I did not assess the concurrency of the queue consumer" costs one line and tells the reader
+exactly where this review is not protection. Leaving it out converts a bounded review into
+an unbounded-looking one, which is how an unreviewed area acquires a reviewer's `PASS`.
+
+This is the counterpart of step 4. That one records checks that found nothing; this one
+records judgements not made.
+
+### 6. Give every blocking issue an identity
 
 Prose objections get discharged by prose. "Addressed all concerns" resolves nothing you can
 verify. So:
@@ -73,7 +91,7 @@ verify. So:
 - An identifier that was never issued resolves nothing. Naming a plausible-sounding issue
   buys nothing.
 
-### 6. Separate blocking from non-blocking
+### 7. Separate blocking from non-blocking
 
 | | |
 |---|---|
@@ -131,6 +149,77 @@ complaints that dilute the blocking issues and get the whole review discounted.
 Do not stop because you found something. Finding one defect does not excuse the rest of the
 target.
 
+## Repairing against issues
+
+The other half of this skill. Issues raised by the procedure above are repaired by an
+identity acting under the rules below — usually not the reviewer, and not necessarily the
+original author.
+
+### 1. Work by identifier, one disposition each
+
+Every issue you were given gets an explicit disposition, by its **exact identifier**:
+
+| Disposition | Means |
+|---|---|
+| `FIXED` | changed, with the change and its evidence stated |
+| `REFUTED` | checked against the artifact and the issue does not hold — with what you checked |
+| `DEFERRED` | real, not repaired here, with the reason and what it waits on |
+| `NEEDS_CLARIFICATION` | the issue is ambiguous; stated as a question, not guessed at |
+
+An identifier you were not given resolves nothing, and an identifier you were given and did
+not mention is unanswered — not implicitly fine.
+
+### 2. Verify the issue against the artifact before acting on it
+
+**Do not apply an issue blindly.** Read the artifact at the locator the issue names and
+establish that what it describes is actually there. Reviews are wrong sometimes: against a
+version that moved, against a misread, against a rule that does not apply here.
+
+A repair applied to a defect that was not present is a change nobody reviewed, justified by
+an issue nobody re-checked. `REFUTED` with your evidence is a legitimate and frequently
+correct answer.
+
+### 3. Ask when the issue is ambiguous
+
+If an issue admits two readings that imply different changes, **do not pick one**. Return
+`NEEDS_CLARIFICATION` with both readings. Guessing produces a change the reviewer did not ask
+for, which then passes as "addressed".
+
+### 4. Re-run the check the issue names
+
+An issue that cites a check, an input, a case or a measurement is discharged by **that
+evidence run again**, and its actual output recorded — not by a general check, and not by
+your reading of the code. The specific evidence is what the issue was about.
+
+### 5. No performative agreement, no silent scope expansion
+
+- "Addressed all concerns", "all feedback incorporated", "resolved" — these discharge
+  nothing. They are prose over a checklist, and the checklist is the point.
+- Change **what the issues name**. A refactor you noticed the need for is a finding, not a
+  licence; an improvement bundled into a repair makes the repair unreviewable, because the
+  reviewer can no longer tell which change answers which issue.
+
+### 6. Stop when the repair outgrows the issue
+
+If fixing an issue would require reopening an assumption, an interface or a scope that the
+issue did not question, **stop and report** with what you found. Do not resolve it by
+quietly widening the change. That decision belongs to whoever owns the scope, and it needs
+evidence of its own.
+
+### 7. You are not the reviewer of your own repair
+
+Producing the fix makes you the author of it. Your dispositions are **claims**, and they are
+checked by an identity that is not you — see
+[`independent-validation`](../independent-validation/SKILL.md), which resolves issues by the
+same identifiers. Do not mark an issue resolved; mark it `FIXED` with evidence and hand it
+on. `PASS` is not yours to record.
+
+```text
+ISSUE-3   FIXED              <what changed> — <the check re-run, and its actual output>
+ISSUE-4   REFUTED            <what you read at the locator, and what it actually says>
+ISSUE-7   NEEDS_CLARIFICATION  <reading A implies X; reading B implies Y>
+```
+
 ## Common failure modes
 
 | Failure | What it looks like |
@@ -141,11 +230,19 @@ target.
 | Unlocatable objections | "Error handling could be better." Nobody can act on this. |
 | Everything blocking | Twelve blocking issues, three of which actually block. The reader triages them, badly. |
 | Politeness | Hedging a real defect into a suggestion, so it gets ignored. |
-| Silent scope creep | You started fixing the thing you found. You are no longer the reviewer.
+| Silent scope creep | You started fixing the thing you found. You are no longer the reviewer. |
+| Silent abstention | A relevant area was not assessed and the review did not say so. |
+| Blind repair | An issue was applied without checking it was present in the artifact. |
+| Blanket discharge | "Addressed all concerns", against a list of identified issues. |
+| Bundled repair | Three fixes and a refactor in one change; no issue is separately checkable. |
+| Self-resolved issue | The repairer recorded its own fix as resolved and passed. |
 
 ## Related
 
 - Roles: [Critic](../../roles/critic.md) is the role built on this skill; any role may use it.
 - [`independent-validation`](../independent-validation/SKILL.md) is what happens next: your
   identifiers become its checklist.
-- [Independence](../../docs/concepts/independence.md) — why you may not be the author.
+- [Independence](../../docs/concepts/independence.md) — why you may not be the author, and
+  why concurrent reviews of one artifact stay separately attributable.
+- [`checkable-findings`](../checkable-findings/SKILL.md) — the producer-side contract your
+  locators and evidence rely on.
