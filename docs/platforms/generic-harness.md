@@ -32,8 +32,15 @@ Full treatment in `docs/concepts/roles-skills-workflows.md`.
 | Workflow | your orchestration script, your runbook, or your own head |
 | Orchestration principle | how you conduct the run — usually not a configurable object |
 
-If your harness has **no** notion of distinct agents, everything here still applies. Run the
-roles sequentially in fresh contexts. What matters is the separation, not the mechanism.
+If your harness has **no** notion of distinct agents, everything here still applies: run the
+roles sequentially in fresh contexts, because the separation of posture is most of the value
+and it does not depend on the mechanism.
+
+What it does **not** give you is independence. A fresh context of the same identity is a
+disclosed degraded self-check, never an independent review, and it satisfies no criterion
+that requires independent evidence — see `docs/concepts/independence.md`. Where a harness
+gives you only one identity and completion requires an independent review, the honest
+terminal state is `EXHAUSTED`, not a self-review recorded as a review.
 
 ## Minimum viable adoption
 
