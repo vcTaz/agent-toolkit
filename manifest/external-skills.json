@@ -36,14 +36,14 @@
       "2026-09-21"
     ],
     "method": "Every repository read from its own cloned tree, never from a README or a web page: git clone --depth 1 --filter=tree:0, then git ls-tree -r --name-only HEAD, then SKILL.md bodies read in full. Plain HTTPS to github.com and codeload.github.com are proxy-denied in this environment, so no summary-fetching route existed.",
-    "refCaveat": "auditedRef is what the audit recorded at the time. Where refIsCompleteSha is false the ref is an abbreviated commit id, and where auditedRef is null the audit recorded no commit id at all -- it read that repository at its HEAD on the audit date. A null is NOT a licence to substitute today's HEAD: today's HEAD is a different claim about a different tree. Re-resolve and record a full sha before relying on any of these for a build.",
+    "refCaveat": "auditedRef is what the audit recorded at the time. Where refIsCompleteSha is false the ref is an abbreviated commit id, and where auditedRef is null the audit recorded no commit id at all -- it read that repository at its HEAD on the audit date. A null is NOT a licence to substitute today's HEAD: today's HEAD is a different claim about a different tree. Re-resolve and record a full sha before relying on any of these for a build. OBSERVED 2026-09-22 in this environment: github.com refused a direct `git fetch origin <abbreviated-sha>` for each abbreviated ref tried, so an abbreviated ref could not be resolved that way. One route that did work here was `git clone --filter=blob:none` of the repository followed by `git rev-parse <abbrev>^{commit}`; other recovery routes were not tried and nothing here establishes that this is the only one. auditedRefFull below carries the resolved 40-character sha wherever one was established, and says how.",
     "categories": "The six buckets the audit placed every item into: canonical-core candidate; extension of an existing canonical skill; optional domain pack; workflow or orchestration idea; host or tooling capability; redundant or reject.",
     "result": {
       "newCanonicalCandidates": 0,
       "proposedForTextReuse": 0,
       "skillShapedFilesSeen": "approximately 1410",
-      "deliversSkillsByClaudeSkillsEntries": 0,
-      "deliveryNote": "None of the ten carries .claude/skills/ entries; all deliver by plugin manifest. Containing skill-shaped markdown and delivering skills are different claims."
+      "repositoriesCarryingClaudeSkillsEntries": 2,
+      "carryNote": "CORRECTED AND RENAMED 2026-09-22. The key was deliversSkillsByClaudeSkillsEntries, which asserted delivery; nothing here measures delivery. What is measured is that a repository CARRIES .claude/skills/ entries. The value read 0 with the note \"None of the ten carries .claude/skills/ entries; all deliver by plugin manifest\". Both halves were wrong for two of the ten, and the audit itself says so: rtk-ai/rtk carries a real .claude/skills/ directory of 12 SKILL.md files (audit 3.10) and shanraisshan/claude-code-best-practice carries one holding 7 SKILL.md (audit 3.7, which adds \"No plugin manifest anywhere\"). ALL TEN WERE RE-MEASURED 2026-09-22, each at its own auditedRefFull, counting paths under .claude/skills/: rtk 15 at 0c279f54e0cee3270b65882ca9bc97f7feba5b58 and shanraisshan 9 at 5372d67bc098b25c4a4c875bc20d57e3c375ba2b, and ZERO at each of the other seven resolved refs -- superpowers, mattpocock, mukul975, K-Dense, multica-ai, claude-mem and oh-my-claudecode. The two positives are therefore a transcription error in this record and not upstream drift, and the value 2 rests on ten measurements rather than on two plus eight carried zeros. THE TENTH, affaan-m/ECC, IS THE EXCEPTION: it has no audited ref, so its zero was measured at today's HEAD bf70150eb2df8070024e5bdf08e4aa08959e2735 and says nothing about the tree the audit read. Counting note: shanraisshan's 9 is a PATH count under .claude/skills/ (7 SKILL.md plus two reference files); the repository holds 9 SKILL.md in total, the other 2 being under agent-teams/.claude/skills/. Both positives carry the content as REAL DIRECTORIES, not symlinks into a skills/ tree. WHETHER ATTACHING EITHER WOULD DELIVER THOSE SKILLS IS NOT MEASURED -- neither has been attached to a Project, and this project's own scar is that a marketplace was reachable and the plugin still did not install. Containing skill-shaped markdown, carrying the entries, and delivering skills are three different claims. The narrower claim the pack tier rests on is untouched and remains VERIFIED: cloudflare/skills, Leonxlnx/taste-skill and stablyai/orca carry zero such entries (packs/README.md, \"The .claude/skills/ entries are load-bearing\", 2026-09-20)."
     },
     "repositories": [
       {
@@ -53,7 +53,11 @@
         "auditDate": "2026-09-18",
         "category": "optional domain pack at most; ideas only",
         "disposition": "No canonical candidate. Corroborates checkable-findings (diagnosing-superpowers discards findings lacking a path:line) and the repair half of adversarial-review (receiving-code-review). Delivery is plugin-and-marketplace only; no .claude/skills/ anywhere in the tree.",
-        "provenanceCaveat": "MIT, Copyright (c) 2025 Jesse Vincent; LICENSE verbatim. Five of its seven plugin manifests redeclare MIT; .muse-plugin and .hermes-plugin declare none. No per-file headers on any of the 15 SKILL.md files."
+        "provenanceCaveat": "MIT, Copyright (c) 2025 Jesse Vincent; LICENSE verbatim. Five of its seven plugin manifests redeclare MIT; .muse-plugin and .hermes-plugin declare none. No per-file headers on any of the 15 SKILL.md files.",
+        "auditedRefFull": "5bf4e78011075bcfc0dc295f0724994cd123ee71",
+        "auditedRefFullNote": "Resolved 2026-09-22 by prefix match against today's default-branch HEAD (ls-remote). That establishes the full sha and that today's HEAD is this commit; it does NOT by itself exclude the branch having moved and returned since the audit, and no uniqueness-of-abbreviation check was run for it.",
+        "phase2bRelationship": "IDEAS_ALREADY_ABSORBED",
+        "phase2bRelationshipBasis": "What it contributed landed in Phase 2A: the locator requirement in checkable-findings, \"name what you declined to judge\" and the repair half in adversarial-review, and the escalation ratchet and loop-cap breaker as O29 and O30. It also meets LOCAL_PROFILE_CAPABILITY's definition -- profile/plugins.json records it installed locally and not delivered in the tested cloud environment -- and the precedence in bucketRule decides it the other way, because its value here is text that is read rather than a tool that runs. One superpowers clause remains parked in alsoDeferred; see deferredNote."
       },
       {
         "repository": "affaan-m/ECC",
@@ -62,7 +66,11 @@
         "auditDate": "2026-09-21",
         "category": "optional domain pack; redundant for core",
         "disposition": "No canonical candidate. Drift against our own record: this manifest pins ECC at 1.10.0 with 181 skills; HEAD at audit was 2.2.2 with 292.",
-        "provenanceCaveat": "MIT, Copyright (c) 2026 Affaan Mustafa, WITH eight per-skill Apache-2.0 overrides among 18 skills carrying their own license key. The licence picture is REVIEWED, NOT EXHAUSTIVELY ESTABLISHED: the frontmatter capture the audit's coverage rests on did not record license: lines. COVERAGE: 31 of 292 skill bodies were read; 173 were never opened. Do not restate either wider than this."
+        "provenanceCaveat": "MIT, Copyright (c) 2026 Affaan Mustafa, WITH eight per-skill Apache-2.0 overrides among 18 skills carrying their own license key. The licence picture is REVIEWED, NOT EXHAUSTIVELY ESTABLISHED: the frontmatter capture the audit's coverage rests on did not record license: lines. COVERAGE: 31 of 292 skill bodies were read; 173 were never opened. Do not restate either wider than this.",
+        "auditedRefFull": null,
+        "auditedRefFullNote": "NOT RESOLVED, and not resolvable from this record: the audit recorded no ref, so the tree it read cannot be identified. Today's HEAD is bf70150eb2df8070024e5bdf08e4aa08959e2735 (2026-09-22), declaring version 2.2.2 with 292 directories under skills/, which matches the version and count the audit recorded. That is consistent with its having read this tree and does not establish it.",
+        "phase2bRelationship": "LOCAL_PROFILE_CAPABILITY",
+        "phase2bRelationshipBasis": "Already recorded as ecc@ecc in profile/plugins.json and as 181 unvendored skills here, and its value is a tool that runs: a plugin shipping its own MCP servers and hook userConfig. It also meets IDEAS_ALREADY_ABSORBED, since its living-docs-governance was one of three sources for the receiver half of bounded-context-handoff, which landed in 2A; the precedence in bucketRule decides it here. OPTIONAL_PACK was considered and is not proposed: the audit read 31 of 292 skill bodies, its frontmatter capture did not record license: lines, and 8 of the 18 skills that declare their own carry Apache-2.0 against a root MIT badge. A pack spec maps named skills, so a subset pack would need a per-file licence pass over the mapped subset rather than all 292 -- but no such pass has been done for any subset. That is a re-entry condition, not a permanent no."
       },
       {
         "repository": "mattpocock/skills",
@@ -71,7 +79,11 @@
         "auditDate": "2026-09-21",
         "category": "workflow or orchestration idea; ideas only",
         "disposition": "No canonical candidate. 169 tracked files, 38 skills. Its diagnosing-bugs (a red-capable reproduction BEFORE any hypothesis) is part of the evidence that causal-establishment is the strongest later canonical candidate; it does not decide it.",
-        "provenanceCaveat": "MIT, Copyright (c) 2026 Matt Pocock; no per-skill overrides. Its in-progress/pr skill carries a frontmatter metadata.credits block naming its upstream -- the attribution shape worth copying even when nothing else is."
+        "provenanceCaveat": "MIT, Copyright (c) 2026 Matt Pocock; no per-skill overrides. Its in-progress/pr skill carries a frontmatter metadata.credits block naming its upstream -- the attribution shape worth copying even when nothing else is.",
+        "auditedRefFull": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+        "auditedRefFullNote": "Already a full sha, and equal to today's default-branch HEAD (ls-remote, 2026-09-22).",
+        "phase2bRelationship": "REFERENCE_ONLY",
+        "phase2bRelationshipBasis": "Nothing from it landed in Phase 2A, and two records still cite it: the causal-establishment candidate below, and the grilling clause parked in alsoDeferred. Its in-progress/pr frontmatter metadata.credits block is an attribution SHAPE worth copying if anything is ever taken; no text is proposed for copying. 38 skills, 169 files, MIT with no per-skill overrides. The audit's superlative for it is that it is the only source of the ten whose material is MOSTLY PORTABLE in our sense before any rewriting (audit 3.3) -- not that it is the only one without licence divergence, which is false: claude-mem, rtk and superpowers show none either."
       },
       {
         "repository": "mukul975/Anthropic-Cybersecurity-Skills",
@@ -80,7 +92,11 @@
         "auditDate": "2026-08-31",
         "category": "optional domain pack; excluded on context budget",
         "disposition": "No canonical candidate. 818 domain skills; the skill-list budget answers the question by itself.",
-        "provenanceCaveat": "Apache-2.0 but NOT uniformly: 817 per-skill LICENSE files for 818 skills, in three distinct byte-forms -- 814 identical, two truncated Apache stubs, and skills/conducting-gdpr-compliance-assessment/LICENSE naming a DIFFERENT copyright holder (dakshverma23). Check the specific file; at least one is not the maintainer's to license."
+        "provenanceCaveat": "Apache-2.0 but NOT uniformly: 817 per-skill LICENSE files for 818 skills, in three distinct byte-forms -- 814 identical, two truncated Apache stubs, and skills/conducting-gdpr-compliance-assessment/LICENSE naming a DIFFERENT copyright holder (dakshverma23). Check the specific file; at least one is not the maintainer's to license.",
+        "auditedRefFull": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+        "auditedRefFullNote": "Resolved 2026-09-22 by prefix match against today's default-branch HEAD (ls-remote). That establishes the full sha and that today's HEAD is this commit; it does NOT by itself exclude the branch having moved and returned since the audit, and no uniqueness-of-abbreviation check was run for it.",
+        "phase2bRelationship": "REJECT",
+        "phase2bRelationshipBasis": "818 domain skills; the skill-list budget settles it before the licence is reached. The licence does not survive contact either: 817 per-skill LICENSE files for 818 skills, three distinct byte-forms, and conducting-gdpr-compliance-assessment/LICENSE naming a different copyright holder. Nothing from it landed in Phase 2A and no record in this repository cites it other than its own rows, which is what makes it REJECT rather than REFERENCE_ONLY. Note on that: the licence lesson it taught is recorded HERE, as this row and the provenanceCaveat above; this repository carries no generalised per-file licence rule, and the cross-cutting statement of it lives in the audit document, which is not committed. RE-ENTRY CONDITION, not a recommendation: a curated subset pack of named skills, each with its own licence file read, is a separate ask with its own evidence."
       },
       {
         "repository": "K-Dense-AI/scientific-agent-skills",
@@ -89,7 +105,11 @@
         "auditDate": "2026-09-21",
         "category": "optional research pack; ideas only",
         "disposition": "No canonical candidate. Its hypothesis-generation (rivals before tests, pre-timestamping against HARKing) is the other half of the causal-establishment evidence.",
-        "provenanceCaveat": "THE LICENSING FINDING OF THE AUDIT. The root MIT badge is not accurate for a material fraction of the tree: per-skill frontmatter carries at least nine regimes including GPLv3, CC BY-NC-SA 4.0 and PolyForm-Noncommercial. Four skills (docx, pdf, pptx, xlsx) are unmodified Anthropic content whose bundled LICENSE.txt forbids extraction, derivative works and distribution -- those cannot be reused at all, under any structure. Read each file's own frontmatter before reusing anything."
+        "provenanceCaveat": "THE LICENSING FINDING OF THE AUDIT. The root MIT badge is not accurate for a material fraction of the tree: per-skill frontmatter carries at least nine regimes including GPLv3, CC BY-NC-SA 4.0 and PolyForm-Noncommercial. Four skills (docx, pdf, pptx, xlsx) are unmodified Anthropic content whose bundled LICENSE.txt forbids extraction, derivative works and distribution -- those cannot be reused at all, under any structure. Read each file's own frontmatter before reusing anything.",
+        "auditedRefFull": "49c6e97775eaa18ba791bebe23162a70ae601c18",
+        "auditedRefFullNote": "Resolved 2026-09-22 by prefix match against today's default-branch HEAD (ls-remote). That establishes the full sha and that today's HEAD is this commit; it does NOT by itself exclude the branch having moved and returned since the audit, and no uniqueness-of-abbreviation check was run for it.",
+        "phase2bRelationship": "REFERENCE_ONLY",
+        "phase2bRelationshipBasis": "Nothing from it landed in Phase 2A, and its hypothesis-generation is the other half of the evidence for the causal-establishment candidate below, which still cites it. Nothing may be copied from it without a per-file frontmatter pass: at least nine licence regimes including GPLv3, CC BY-NC-SA 4.0 and PolyForm-Noncommercial under a root MIT badge, and four skills (docx, pdf, pptx, xlsx) are unmodified Anthropic content whose own LICENSE.txt forbids extraction, derivative works and distribution. Those four are reusable under no structure."
       },
       {
         "repository": "multica-ai/andrej-karpathy-skills",
@@ -98,7 +118,11 @@
         "auditDate": "2026-04-20",
         "category": "redundant or reject",
         "disposition": "No canonical candidate. Nine files.",
-        "provenanceCaveat": "MIT CLAIMED, NOT SHIPPED: asserted in the README, in SKILL.md frontmatter and in plugin.json, with NO LICENSE file anywhere in the tree. The plugin metadata also names a different owner (forrestchang) and a different location than the repository cloned -- unresolved. DO NOT REUSE."
+        "provenanceCaveat": "MIT CLAIMED, NOT SHIPPED: asserted in the README, in SKILL.md frontmatter and in plugin.json, with NO LICENSE file anywhere in the tree. The plugin metadata also names a different owner (forrestchang) and a different location than the repository cloned -- unresolved. DO NOT REUSE.",
+        "auditedRefFull": "2c606141936f1eeef17fa3043a72095b4765b9c2",
+        "auditedRefFullNote": "Resolved 2026-09-22 by prefix match against today's default-branch HEAD (ls-remote). That establishes the full sha and that today's HEAD is this commit; it does NOT by itself exclude the branch having moved and returned since the audit, and no uniqueness-of-abbreviation check was run for it.",
+        "phase2bRelationship": "REJECT",
+        "phase2bRelationshipBasis": "Nine files, one SKILL.md. MIT asserted in the README, in frontmatter and in plugin.json with no LICENSE file anywhere in the tree, and plugin metadata naming a different owner than the repository cloned. A frontmatter claim with no licence file is not a licence to rely on. Nothing from it landed in Phase 2A and no record cites it other than its own rows."
       },
       {
         "repository": "shanraisshan/claude-code-best-practice",
@@ -107,7 +131,11 @@
         "auditDate": "2026-09-21",
         "category": "workflow or orchestration idea; ideas only",
         "disposition": "No canonical candidate. A tips collection with one workflow idea. Its agent-browser reproduces the orca-cli failure mode -- a skill resolving a binary that is not present.",
-        "provenanceCaveat": "MIT, Copyright (c) 2025-2026 Shayan Rais, FOR THE REPOSITORY'S OWN MATERIAL ONLY. Most of the content is explicitly attributed to third parties -- named individuals' posts and reproduced screenshots. The repository's licence conveys no rights in aggregated material."
+        "provenanceCaveat": "MIT, Copyright (c) 2025-2026 Shayan Rais, FOR THE REPOSITORY'S OWN MATERIAL ONLY. Most of the content is explicitly attributed to third parties -- named individuals' posts and reproduced screenshots. The repository's licence conveys no rights in aggregated material.",
+        "auditedRefFull": "5372d67bc098b25c4a4c875bc20d57e3c375ba2b",
+        "auditedRefFullNote": "Resolved 2026-09-22 by blobless clone and `git rev-parse <abbrev>^{commit}`, which fails on an ambiguous abbreviation, so the abbreviation is unique in that repository. HEAD has since moved to 7a7644c728efbd10f0810d5d9543caaae42fb43f.",
+        "phase2bRelationship": "REJECT",
+        "phase2bRelationshipBasis": "A tips collection. Eight of its nine SKILL.md files are teaching demos, and its agent-browser reproduces the orca-cli failure mode -- a skill resolving a binary that is not present. Its MIT covers the repository's own material only; most of the content is explicitly attributed to named third parties and reproduced screenshots, in which the repository's licence conveys no rights. Nothing from it landed in Phase 2A and no record cites it other than its own rows. It does carry .claude/skills entries, which is what the corrected carryNote above is about; carrying them does not make the content worth attaching."
       },
       {
         "repository": "Yeachan-Heo/oh-my-claudecode",
@@ -116,7 +144,11 @@
         "auditDate": "2026-09-11",
         "category": "workflow or orchestration idea; ideas only",
         "disposition": "No canonical candidate. Two ideas worth taking; its trace carries an evidence-strength ordering, which is part of why evidence-verification gained one in Phase 2A. Every body in it fails portability as text.",
-        "provenanceCaveat": "MIT, Copyright (c) 2025 Yeachan Heo. Moot in practice: portability excludes every body."
+        "provenanceCaveat": "MIT, Copyright (c) 2025 Yeachan Heo. Moot in practice: portability excludes every body.",
+        "auditedRefFull": "5281b19e0d64f8e6dc6767f2130299a88af2dc71",
+        "auditedRefFullNote": "Resolved 2026-09-22 by blobless clone and `git rev-parse <abbrev>^{commit}`, which fails on an ambiguous abbreviation, so the abbreviation is unique in that repository. HEAD has since moved to 9fd35ece5d6de65b511bf43b55e42c499e4fc194.",
+        "phase2bRelationship": "IDEAS_ALREADY_ABSORBED",
+        "phase2bRelationshipBasis": "What it contributed landed in Phase 2A: its trace evidence-strength ordering is part of why evidence-verification gained a three-grade ordering held orthogonal to epistemic status. Two of its clauses remain parked in alsoDeferred -- team's Rejected field and deep-interview's topology lock -- and see deferredNote for why neither was Phase 2B work. Every body in it fails portability as text."
       },
       {
         "repository": "thedotmack/claude-mem",
@@ -125,7 +157,11 @@
         "auditDate": "2026-09-20",
         "category": "host or tooling capability",
         "disposition": "No canonical candidate. 1,243 tracked files. A memory system with a skill surface -- the clearest case of the tool-versus-skill-source distinction. Its pathfinder requires file:line per node and at least two citations per duplication claim, corroborating checkable-findings from the opposite side to superpowers.",
-        "provenanceCaveat": "Apache-2.0, Copyright 2026 Alex Newman, WITH A NOTICE FILE. Apache-2.0 section 4 applies including propagating the NOTICE contents -- an obligation MIT does not carry."
+        "provenanceCaveat": "Apache-2.0, Copyright 2026 Alex Newman, WITH A NOTICE FILE. Apache-2.0 section 4 applies including propagating the NOTICE contents -- an obligation MIT does not carry.",
+        "auditedRefFull": "4e98d977cc6d9c4fe18c60d4956d948f57e7a1f6",
+        "auditedRefFullNote": "Already a full sha. Four of the ten have moved since their audits -- this one, rtk, shanraisshan and oh-my-claudecode -- and of those four this is the only one recorded as a full sha, so it is the only one that could be fetched directly rather than recovered by clone. Re-fetched 2026-09-22 and re-counted at 1,243 files, reproducing the audit's own count. HEAD has since moved to 4520de9e0f8d6cdc20597520e383d8b51d93137f.",
+        "phase2bRelationship": "LOCAL_PROFILE_CAPABILITY",
+        "phase2bRelationshipBasis": "Its value is a tool that runs -- a persistent local database plus a stdio MCP server -- already recorded as claude-mem@thedotmack in profile/plugins.json with cloud: no, a stated technical blocker rather than a measurement gap. It also meets IDEAS_ALREADY_ABSORBED, since its pathfinder corroborated checkable-findings, which landed in 2A; the precedence in bucketRule decides it here. OPTIONAL_PACK considered and declined: the audit's one pack-shaped nomination in it, design-is, hands off to a claude-mem plugin command and depends on a skill the repository does not ship, so extracting it would reproduce the orca-cli failure mode recorded under notVendored."
       },
       {
         "repository": "rtk-ai/rtk",
@@ -134,7 +170,11 @@
         "auditDate": "2026-09-21",
         "category": "host or tooling capability",
         "disposition": "No canonical candidate, and not a skill source: a tool. The only genuine host-layer capability found in the ten.",
-        "provenanceCaveat": "Apache-2.0, Copyright 2024 rtk-ai and rtk-ai Labs; NO NOTICE file in the tree, so the NOTICE obligation does not arise here even though it does for claude-mem."
+        "provenanceCaveat": "Apache-2.0, Copyright 2024 rtk-ai and rtk-ai Labs; NO NOTICE file in the tree, so the NOTICE obligation does not arise here even though it does for claude-mem.",
+        "auditedRefFull": "0c279f54e0cee3270b65882ca9bc97f7feba5b58",
+        "auditedRefFullNote": "Resolved 2026-09-22 by blobless clone and `git rev-parse <abbrev>^{commit}`, which fails on an ambiguous abbreviation, so the abbreviation is unique in that repository. HEAD has since moved to b748a5f75563f410103551689097650be7210d99.",
+        "phase2bRelationship": "LOCAL_PROFILE_CAPABILITY",
+        "phase2bRelationshipBasis": "Its value is a tool that runs -- a binary invoked from a PreToolUse hook -- already recorded in profile/machine-binaries.json at installedVersion 0.42.1 with the crates.io name-collision warning; upstream is 0.48.0 as of 2026-09-22, and that file records a machine rather than upstream, so the difference is not a defect. Its 12 .claude/skills bodies are the maintainers' own tooling -- a gh-dependent GitHub-maintenance cluster, partly in French, and a Rust/Cargo discipline cluster -- so the entries it carries are not a pack for outside reuse. OPTIONAL_PACK considered: audit 3.10 classifies its security-guardian as \"optional security pack, if anything\", on the ground that it is domain content about Rust security. THAT ROW IS OVERRIDDEN HERE, on a reading of the 504-line body at the audited ref: it is scoped to rtk itself -- \"CLI security expert for RTK\", a threat model about rtk as a CLI proxy, worked rtk-rewrite.sh examples and an advisory about rtk v0.16.0 -- so it is tool-specific rather than portable domain content. Roadmap item D3, installing rtk through local/, remains open and is not proposed here."
       }
     ],
     "laterCandidateRecorded": {
@@ -144,8 +184,36 @@
       "alsoDeferred": [
         "issue-directed-repair (folded into adversarial-review instead)",
         "reconsideration-response (folded into bounded-context-handoff instead)",
-        "proof-by-intervention (subsumed by the candidate above)"
-      ]
+        "proof-by-intervention (subsumed by the candidate above)",
+        "oh-my-claudecode team's `Rejected` field -- what was considered and declined, distinct from ALREADY TRIED AND FAILED at bounded-context-handoff:137. Audit 4.2(a), recorded and not recommended; verified 2026-09-22 still not landed.",
+        "superpowers systematic-debugging's \"after three failed fixes, question the architecture\". Audit 4.2, recorded as available; verified 2026-09-22 still not landed.",
+        "oh-my-claudecode deep-interview's topology lock -- fix the component list before questioning. Audit 4.2 and 3.8, recorded as available; verified 2026-09-22 still not landed.",
+        "mattpocock grilling's \"never ask a person for what can be looked up\". Audit 4.2 and 3.3, recorded as available; verified 2026-09-22 still not landed."
+      ],
+      "deferredNote": "Every item in alsoDeferred has its home in skills/ or workflows/, which is the canonical layer Phase 2A closed. None of them was Phase 2B work, and none should be taken up without a new ask that reopens that layer deliberately. ATTRIBUTION CORRECTED before this landed: a draft of the last two entries credited both to obra/superpowers, which ships neither -- its 15 SKILL.md files at 5bf4e78011075bcfc0dc295f0724994cd123ee71 include systematic-debugging and not deep-interview or grilling. These three repositories carry different licences and different reuse constraints, so a wrong upstream here is a provenance defect and not a wording one."
+    },
+    "phase2bClassification": {
+      "$comment": "Phase 2B asked one question of each of the ten: what is its intended relationship to this toolkit. Thrasos named the five buckets; each repository's answer is on it above as phase2bRelationship. THE RESULT IS THAT NO REPOSITORY OF THE TEN BECOMES A PACK and no content is taken from any of them; what Phase 2B changed is this record, not the toolkit.",
+      "decidedOn": "2026-09-22",
+      "decidedBy": "Thrasos, who named the five buckets and accepted C1-C10 of the Phase 2B plan",
+      "terminalState": "COMPLETED",
+      "terminalStateNote": "COMPLETED, not EXHAUSTED, on his decision of 2026-09-22. The phase's question was asked of all ten and answered for all ten; the answer is that none of them earns a new pack or a capability addition. EXHAUSTED would mean the evidence or the limits did not suffice to answer, and that is not what happened here.",
+      "bucketRule": "The buckets are NOT disjoint -- several repositories satisfy the plain wording of two -- so they are applied as an ordered procedure, first match winning, and every placement above is derivable from it. (1) Is the repository's value to this toolkit a TOOL THAT RUNS -- a binary, a database, an MCP server, a hook -- rather than text that is read? Then LOCAL_PROFILE_CAPABILITY, whatever else is also true of it. (2) Otherwise, did anything from it land in the canonical layer in Phase 2A? Then IDEAS_ALREADY_ABSORBED. (3) Otherwise, does any record in this repository still cite it -- laterCandidateRecorded, its alsoDeferred list, or a roadmap item? Then REFERENCE_ONLY. (4) Otherwise REJECT. OPTIONAL_PACK is not a step in that order: it is a disposition of CONTENT, considered for every repository and granted to none of the ten, with the reason on each row that reached the question.",
+      "bucketRuleNotes": "Two consequences worth stating rather than leaving to be rediscovered. FIRST, step 1 is why superpowers is IDEAS_ALREADY_ABSORBED while claude-mem is LOCAL_PROFILE_CAPABILITY although both are installed plugins with a clause that landed: superpowers' value here was its procedural text, claude-mem's is a database and a server. SECOND, a citation from alsoDeferred counts at step 3 exactly as one from laterCandidateRecorded does -- both are recorded-not-approved -- which is why mattpocock is REFERENCE_ONLY on two citations and mukul975, multica-ai and shanraisshan are REJECT on none. An earlier draft of this rule tried to separate the two lists by calling one live and the other not; it could not, and that reading is withdrawn.",
+      "buckets": {
+        "REFERENCE_ONLY": "nothing from it landed, but a record here still cites it; nothing is copied",
+        "LOCAL_PROFILE_CAPABILITY": "its value is a tool that runs on a machine; belongs to profile/ or local/, and check.py's host invariant forbids the canonical layer from naming it",
+        "OPTIONAL_PACK": "a spec under packs/ and a built pack repository, attached per Project",
+        "IDEAS_ALREADY_ABSORBED": "something from it landed in the canonical layer in Phase 2A",
+        "REJECT": "nothing from it landed and no record here cites it; the row exists so nobody re-audits it"
+      },
+      "tally": {
+        "REFERENCE_ONLY": 2,
+        "LOCAL_PROFILE_CAPABILITY": 3,
+        "OPTIONAL_PACK": 0,
+        "IDEAS_ALREADY_ABSORBED": 2,
+        "REJECT": 3
+      }
     }
   },
   "multiAgentFanOut": {

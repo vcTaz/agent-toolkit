@@ -90,16 +90,17 @@
       "enabledInRepoSettings": false,
       "installedLocally": "1.10.0",
       "gitCommitShaLocal": "9523575721cba6285c95d688f08736017e0d2615",
-      "upstreamLatest": "2.2.1",
-      "note": "Local is pinned at 1.10.0, whose plugin.json declares an explicit 38-file `agents` list and therefore hides 9 agents it ships. Upstream 2.2.1 OMITS the `agents` key entirely, so Claude Code auto-discovers the whole agents/ directory - 68 agents, including all 9. Upgrading locally is a separate, user-owned decision; this manifest does not perform it.",
+      "upstreamLatest": "2.2.2",
+      "upstreamLatestObservedOn": "2026-09-22, read from .claude-plugin/plugin.json at HEAD bf70150eb2df8070024e5bdf08e4aa08959e2735, which declares version 2.2.2. THE PREVIOUS VALUE OF THIS FIELD read 2.2.1, taken 2026-09-19, while manifest/external-skills.json had recorded 2.2.2 from the 2026-09-21 audit, so the two files disagreed. Every field in this entry whose truth depends on the upstream version was re-checked against 2.2.2 -- not only the ones carrying the literal \"2.2.1\", because a sweep by literal would have missed shipsOwnMcp, which carries no version and did change: see its own note.",
+      "note": "Local is pinned at 1.10.0, whose plugin.json declares an explicit 38-file `agents` list while its tree holds 47, so it names 9 fewer than it ships. Upstream 2.2.2 OMITS the `agents` key entirely, and its tree holds 68, so nothing in the manifest narrows what a harness would discover. MEASURED 2026-09-22 against both trees: at 9523575721cba6285c95d688f08736017e0d2615 (1.10.0) the agents list has 38 entries and agents/ holds 47 .md files; at bf70150eb2df8070024e5bdf08e4aa08959e2735 (2.2.2) there is no agents key and agents/ holds 68. The 9 not named by 1.10.0 are code-architect, code-explorer, code-simplifier, comment-analyzer, conversation-analyzer, pr-test-analyzer, seo-specialist, silent-failure-hunter and type-design-analyzer, computed as the set difference rather than checked off a list, and all 9 are present at 2.2.2. Upgrading locally is a separate, user-owned decision; this manifest does not perform it.",
       "nineHiddenAgents": {
         "$comment": "The original claim bundled two separate things. They are now separated, because the 2026-09-20 fresh-startup test settled one of them and left the other exactly where it was.",
         "packageContent": {
           "status": "REVIEWED, NOT VERIFIED",
-          "claim": "Upstream 2.2.1 omits the `agents` key, so Claude Code auto-discovers the whole agents/ directory - 68 agents, including the 9 that the local 1.10.0 pin's explicit 38-file list hides.",
-          "restsOn": "Reading the two plugin.json files and comparing them. That is a real check of a real artifact, but it is a read of a manifest, not an observation of Claude Code resolving 68 agents from it.",
+          "claim": "Upstream 2.2.2 omits the `agents` key, so Claude Code auto-discovers the whole agents/ directory - 68 agents, including the 9 that the local 1.10.0 pin's explicit 38-file list does not name.",
+          "restsOn": "Reading the two plugin.json files and comparing them against their own trees. STRENGTHENED 2026-09-22: the counts are no longer carried -- 38 declared against 47 present at 1.10.0, no agents key against 68 present at 2.2.2, and all 9 unnamed ones matched by name at 2.2.2 -- each read from the tree at the sha named in note. The ARITHMETIC is now established against the trees. What is still only reviewed is the CONSEQUENCE: this remains a read of a manifest, not an observation of Claude Code resolving 68 agents from it, and that is why the status above has not moved.",
           "notSettledBy": "The fresh-startup test says nothing about this. It establishes that ECC was not installed, which is a fact about delivery, not about what the package contains.",
-          "toVerify": "Load 2.2.1 somewhere it actually installs, enumerate the agents Claude Code resolves, and check for the 9."
+          "toVerify": "Load 2.2.2 somewhere it actually installs, enumerate the agents Claude Code resolves, and check for the 9 named in note. Counting files in the tree does not do this and is not offered as doing it."
         },
         "cloudAvailability": {
           "status": "VERIFIED NEGATIVE for the tested environment, 2026-09-20",
@@ -109,7 +110,8 @@
         }
       },
       "shipsOwnMcp": true,
-      "shipsOwnHooks": "1.10.0 declares none; 2.2.1 adds hook userConfig"
+      "shipsOwnMcpNote": "TRUE AT BOTH VERSIONS, BUT NOT THE SAME SERVERS, re-read 2026-09-22. At 1.10.0 (9523575721cba6285c95d688f08736017e0d2615) plugin.json has no mcpServers key and .mcp.json declares six: context7, exa, github, memory, playwright, sequential-thinking. At 2.2.2 (bf70150eb2df8070024e5bdf08e4aa08959e2735) plugin.json carries an empty mcpServers object and .mcp.json declares one, chrome-devtools. The boolean is unchanged, which is exactly why this note exists: a version sweep that looked for the literal 2.2.1 would not have looked at this field at all.",
+      "shipsOwnHooks": "1.10.0 declares none; 2.2.2 carries a hooks_enabled and hook_profile userConfig, re-read 2026-09-22 at bf70150eb2df8070024e5bdf08e4aa08959e2735. The same statement was recorded of 2.2.1 and was not re-checked against that version."
     },
     "superpowers@claude-plugins-official": {
       "cloud": "declared-not-delivered",
