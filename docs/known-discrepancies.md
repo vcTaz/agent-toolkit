@@ -79,3 +79,27 @@ in the log establishes 1–4 and says nothing about 5.
 
 Until that session runs and reports, the honest status is `NOT ESTABLISHED` — not
 `INCONCLUSIVE`, and not an assumption carried over from the six.
+
+## 3. `checkable-findings`'s body size is accepted, not established as optimal
+
+The skill grew twice on 2026-09-21 while closing defects found by running it: from 188 lines
+and 1,530 words when it was introduced to 251 lines and 2,342 words, which makes it the
+largest skill body in this repository. That size is **accepted for Phase 2A and deliberately
+not compressed** — a compression pass before the delivery gate would change the artifact the
+gate is about, and the growth bought rules that observed failures required.
+
+What is *not* established is that the size is right. Nothing here has measured whether a
+shorter body produces the same behaviour. The two claims should stay apart:
+
+- **Measured:** the discovery-time cost did not move. Name plus description is 557 characters
+  for this skill and 3,458 across the seven, 43.2% of the 8,000-character fallback that
+  `docs/platforms/codex.md` documents. The skill-list budget is what the admission criteria
+  are about, and it is unchanged.
+- **Not established:** that the body's per-invocation cost is justified at this length. Body
+  text is paid on every invocation and no measurement here bounds it.
+
+**Post-merge dogfooding item.** After several real invocations — not fixture runs — compare
+this skill's behaviour against a behaviour-preserving compression of it, on the same inputs,
+and keep the shorter one only if the findings it produces carry the same identities, statuses,
+locators, evidence and boundaries. A compression that loses a rule is not behaviour-preserving,
+and "it reads tighter" is not the measurement.
