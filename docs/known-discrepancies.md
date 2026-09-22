@@ -46,39 +46,43 @@ That leaves a three-way split which this repository should keep intact:
 The habit this section is really about survives the result. The caution was right, the
 correction that replaced it was wrong, and the thing that settled it was neither — it was a run.
 
-## 2. The seventh skill's cloud delivery is not established, and the gate is written
+## 2. The seventh skill's cloud delivery, established 2026-09-22 in a validation repository
 
-`checkable-findings` was added on 2026-09-21, making seven canonical skills. **No fresh cloud
-session has run since.** Everything this repository says about skills being discovered in a
-cloud session was measured when it carried six, and it has been scoped rather than updated:
+`checkable-findings` was added on 2026-09-21, making seven canonical skills, and for a day
+everything this repository said about cloud skill discovery had been measured when it carried
+six. That gap is now closed by a run, and the run's scope is the point of this section.
 
-- `docs/platforms/claude-code.md` reads "all six skills **this repository carried at the
-  time** are discovered — verified, cloud session 2026-09-20", with a separate row marking
-  the seventh **not established**.
-- `docs/host-integration.md`'s "33 skills loaded in the smoke test" is likewise scoped to
-  when this repository carried 33, and is history rather than a current-state claim.
+**What was measured**
 
-Editing either into a seven-skill claim would be the exact failure section 1 is about: a
-correction asserted from expectation rather than from a run. The measurement is cheap and it
-has not been taken.
+- Claude Code **2.1.278**, on **2026-09-22**.
+- A **fresh cloud session** — not a mid-session checkout, which cannot establish fresh-start
+  discovery.
+- A **temporary validation repository** whose `main` was exactly
+  `2f68916d21c21ced2a88d18a5f6f17349a2e1eb2`, the commit object itself rather than a
+  recreated tree.
+- **Seven** canonical skills discovered by the harness.
+- All **seven** `.claude/skills/` entries resolved.
+- `checkable-findings` invoked successfully **through the Skill mechanism**.
+- Its **body injected as active instructions**, demonstrated by three body-only answers with
+  **no file read** in the tool log: 7 contract rows with `Identity` first; `SETTLES IT` then
+  `BOUNDARY` after `EVIDENCE`; `Smuggled conditional` as the last failure-mode row.
 
-**What the gate has to establish**, and the fifth item is the one that is easy to fake:
+That last item is the one worth keeping separate, because points one to four above are all
+satisfied by a session that simply read the file. The discriminator asks questions whose
+answers exist **only in the skill's body and nowhere in its description**, forbids
+file-reading tools, and requires the tool log to show the path was never opened. A pass on
+the questions *with* a read in the log would have established the first four and said nothing
+about the fifth.
 
-1. all seven canonical skills are discovered by the harness;
-2. all seven `.claude/skills/` entries resolve;
-3. `checkable-findings` appears under its intended name and description;
-4. it can be invoked through the harness's skill mechanism;
-5. **invocation loads the body as active instructions** — not merely that the file is
-   readable.
+**What it does not cover.** The run measured that tree at that commit. Delivery from this
+repository's own `main` carries the same shape but is a separate checkout and was not the
+thing measured; Codex discovery through `.agents/skills` remains documentation-derived; and
+none of it is a claim about whether the skill improves output.
 
-Point 5 needs a discriminator, because points 1–4 are all satisfied by a session that simply
-read the file. The one written for this asks questions whose answers exist **only in the
-skill's body and nowhere in its description**, with file-reading tools forbidden, and
-requires the tool log to show the path was never opened. A pass on the questions with a read
-in the log establishes 1–4 and says nothing about 5.
+`docs/host-integration.md`'s "33 skills loaded in the smoke test" is untouched by this. It is
+scoped to when this repository carried 33 and is history, not a current-state claim.
 
-Until that session runs and reports, the honest status is `NOT ESTABLISHED` — not
-`INCONCLUSIVE`, and not an assumption carried over from the six.
+### The attempt that did not execute, and why the validation repository existed
 
 **A first attempt on 2026-09-22 did not execute the gate**, and the reason was the checkout,
 not the packaging. The fresh session started on `main` at `8b2b797` — naming the branch and
@@ -89,15 +93,19 @@ from the harness enumeration, invoking it failed closed with *"Unknown skill"*, 
 body-injection questions were void because no body existed to inject.
 
 That is a **target-checkout failure and a gate not executed**. It is not evidence about the
-seventh skill, whose commit the session never had. Two things it does support, both about the
-six-skill tree it did get: discovery and entry resolution work in a fresh cloud session, and
-an absent skill fails closed rather than silently resolving to something else.
+seventh skill, whose commit the session never had, and it was not repaired by checking the
+ref out mid-session. Two things it does support, both about the six-skill tree it did get:
+discovery and entry resolution work in a fresh cloud session, and an absent skill fails
+closed rather than silently resolving to something else.
 
-What the commit itself carries, checked here at the object level rather than inferred: at
-`2f68916` there are seven `SKILL.md` files under `skills/`, seven `.claude/skills/` entries
-all stored with git mode `120000` and targets `../../skills/<name>`, and `.agents/skills`
-stored as a symlink to `../skills`. The packaging is right in the object; what has not been
-established is that a harness discovers it from a fresh clone.
+The fix was to give the commit its own repository, where it **is** `main`, so the checkout
+could not land anywhere else — which is also why the passing run above names a validation
+repository rather than this one.
+
+What the commit itself carries was checked here at the object level rather than inferred:
+at `2f68916` there are seven `SKILL.md` files under `skills/`, seven `.claude/skills/`
+entries all stored with git mode `120000` and targets `../../skills/<name>`, and
+`.agents/skills` stored as a symlink to `../skills`.
 
 ## 3. `checkable-findings`'s body size is accepted, not established as optimal
 

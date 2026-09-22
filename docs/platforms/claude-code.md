@@ -41,10 +41,17 @@ entries do the linking, and `tools/check.py` fails if either drifts:
 ```
 
 Measured 2026-09-20 in a cloud session: the entry symlinks are followed, and every skill this
-repository carries appeared in the session's skill list. The same shape was confirmed twice
-more that day against the optional pack repositories, in fresh sessions with this repository
-absent — see `packs/README.md`. Third-party skills are no longer in this directory; they are
-attached per Project instead, which is what that open question resolved to.
+repository carried then — six — appeared in the session's skill list. The same shape was
+confirmed twice more that day against the optional pack repositories, in fresh sessions with
+this repository absent — see `packs/README.md`. Third-party skills are no longer in this
+directory; they are attached per Project instead, which is what that open question resolved to.
+
+Measured again 2026-09-22, at 2.1.278, once the seventh skill existed: a fresh cloud session
+given a temporary validation repository whose `main` was commit
+`2f68916d21c21ced2a88d18a5f6f17349a2e1eb2` discovered all **seven**, resolved all seven
+entries, and invoked `checkable-findings` through the Skill mechanism. That run is scoped to
+that tree at that commit; delivery from this repository's own `main` carries the same shape
+but is a separate checkout and was not the thing measured.
 
 `.agents/skills` **is** a container symlink to `skills/`, for Codex and the other clients that
 implement the Agent Skills convention. That asymmetry is deliberate: the Agent Skills
@@ -290,7 +297,7 @@ date given — a primary source, but not a run.
 | `.claude/agents/*.md` is discovered and all eight adapters are offered | **verified** — 2.1.278, 2026-09-21 |
 | `tools:` is applied — Synthesizer is offered as `Read, Grep, Glob`, with no `Bash` | **verified** — 2.1.278, 2026-09-21 |
 | The `.claude/skills/` entry symlinks are followed and all six skills **this repository carried at the time** are discovered | **verified** — cloud session 2026-09-20, re-run at 2.1.278 on 2026-09-21, when there were six |
-| The same holds for the seventh, `checkable-findings`, added 2026-09-21 | **not established** — no fresh-session measurement has been taken since it was added. The row above is scoped to the six that existed when it was measured and is not evidence about the seventh |
+| The same holds for the seventh, `checkable-findings`, added 2026-09-21 | **verified** — 2.1.278, fresh cloud session 2026-09-22, against a temporary validation repository whose `main` was exactly `2f68916d21c21ced2a88d18a5f6f17349a2e1eb2`. Seven skills discovered, seven entries resolved, invoked through the Skill mechanism, and the body established as active instructions by three body-only answers with no file read in the tool log |
 | Discovery scans every `.claude/agents/` between the working directory and the repository root | **verified** — 2.1.278, 2026-09-21, nested fixture |
 | On a name clash the definition closest to the working directory wins | **verified** — 2.1.278, 2026-09-21, same fixture |
 | `--agents` outranks a project definition of the same name | **verified** — 2.1.278, 2026-09-21, against an unflagged control run |
