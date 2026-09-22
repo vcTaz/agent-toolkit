@@ -80,6 +80,25 @@ in the log establishes 1–4 and says nothing about 5.
 Until that session runs and reports, the honest status is `NOT ESTABLISHED` — not
 `INCONCLUSIVE`, and not an assumption carried over from the six.
 
+**A first attempt on 2026-09-22 did not execute the gate**, and the reason was the checkout,
+not the packaging. The fresh session started on `main` at `8b2b797` — naming the branch and
+the commit in the project metadata did not cause that ref to be checked out. On the tree it
+actually got, all six skills that commit carries were discovered and all six
+`.claude/skills/` entries resolved; `checkable-findings` was absent from the filesystem and
+from the harness enumeration, invoking it failed closed with *"Unknown skill"*, and the
+body-injection questions were void because no body existed to inject.
+
+That is a **target-checkout failure and a gate not executed**. It is not evidence about the
+seventh skill, whose commit the session never had. Two things it does support, both about the
+six-skill tree it did get: discovery and entry resolution work in a fresh cloud session, and
+an absent skill fails closed rather than silently resolving to something else.
+
+What the commit itself carries, checked here at the object level rather than inferred: at
+`2f68916` there are seven `SKILL.md` files under `skills/`, seven `.claude/skills/` entries
+all stored with git mode `120000` and targets `../../skills/<name>`, and `.agents/skills`
+stored as a symlink to `../skills`. The packaging is right in the object; what has not been
+established is that a harness discovers it from a fresh clone.
+
 ## 3. `checkable-findings`'s body size is accepted, not established as optimal
 
 The skill grew twice on 2026-09-21 while closing defects found by running it: from 188 lines
