@@ -20,9 +20,9 @@ That is not the same as "nothing to install", which this sentence used to say wh
 same file listed `local/` as "install this toolkit into a local Claude Code config" and
 pointed at `local/README.md` under "install it on a machine". The `HOST` layer is
 genuinely installable and genuinely optional; see `docs/host-integration.md`. Everything here is Markdown, apart from one TOML adapter per role, the JSON of
-`agents/registry.json` and of the host layer, and `tools/`, which holds stdlib-only Python
-maintenance scripts — structural checks, adapter sync, and building a skill pack from its
-pin. Nothing reads the scripts at use time; you run them by hand when you change something.
+`agents/registry.json`, of the eval suite and of the host layer, and `tools/`, which holds
+stdlib-only Python scripts — structural checks, adapter sync, building a skill pack from its
+pin, and running the eval suite. Nothing reads the scripts at use time; you run them by hand.
 
 ## Repository map
 
@@ -46,7 +46,9 @@ manifest/         HOST       what is composed from elsewhere — data, never con
 profile/          HOST       one machine's own composition — never required
 local/            HOST       install this toolkit into a local Claude Code config
 cloud/            HOST       install it into a cloud Claude Code environment
+evals/            TOOLING    the Chief of Staff eval suite — run by hand, never in CI
 tools/check.py               structural checks and adapter sync
+tools/eval.py                builds, runs and grades the eval suite; needs the claude CLI
 .github/          CI         runs tools/check.py and tools/test.sh on a PR to main
 ```
 
@@ -178,7 +180,7 @@ holds. It fails closed on anything it cannot classify.
   is theatre.
 - **Do not add** a runtime, an orchestration engine, a plugin framework, a workflow DSL, a
   prompt compiler, a dependency, or CI configuration, without a concrete need.
-  Two exceptions are recorded. The `HOST` layer's concrete need is stated in
+  Three exceptions are recorded. The `HOST` layer's concrete need is stated in
   `docs/host-integration.md`, and it remains bounded: shell and JSON only, no new language
   dependency, no runtime the canonical layer can observe, and nothing in `roles/`,
   `agents/`, `skills/` or `workflows/` may reference it. That last clause is enforced by
@@ -186,7 +188,14 @@ holds. It fails closed on anything it cannot classify.
   `.github/workflows/checks.yml`, whose need is that `check.py` and `test.sh` were only
   ever run by hand, so a pull request could be read and merged without either having been
   run against what it contains. It is bounded to exactly those two commands: no linting,
-  no formatting, no release automation, no secrets, no network, no writes.
+  no formatting, no release automation, no secrets, no network, no writes. The third is
+  `tools/eval.py` with `evals/`, whose need is that most of the Chief of Staff's rules are
+  held by instruction alone, so running it is the only check that it follows them. It is
+  bounded too: run by hand and never in CI, the runner writes only under its own `mktemp`
+  directory and reaches no network itself; the sessions it starts get a minimal
+  environment whose variables carry no credential beyond the operator's own `claude` login,
+  though they run as the operator and can read the operator's home directory; and it adds
+  one dependency, that CLI, recorded as a `feature` binary in `manifest/binaries.json`.
 - **Do not add legacy instruction files** — `.cursorrules`, `.windsurfrules`, `AGENT.md`,
   `.rules` and similar. Some harnesses resolve project instructions by first match and would
   never reach this file.

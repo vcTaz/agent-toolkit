@@ -28,8 +28,8 @@
         "opensPullRequests": false,
         "merges": false
       },
-      "evalSuite": null,
-      "evalStatus": "NONE"
+      "evalSuite": "evals/chief-of-staff.json",
+      "evalStatus": "DEFINED_NOT_RUN"
     },
     "critic": {
       "kind": "role",

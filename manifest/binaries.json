@@ -36,6 +36,13 @@
       "neededFor": "tools/check.py and tools/vendor-sync.py. Requires 3.9+, stdlib only.",
       "cloudPreinstalled": true
     },
+    "claude": {
+      "scope": "both",
+      "tier": "feature",
+      "neededFor": "tools/eval.py only, which runs the Chief of Staff eval suite by hand and never in CI. Nothing else in this toolkit invokes it. Absent, the evals cannot run and everything else works.",
+      "cloudPreinstalled": true,
+      "note": "MEASURED 2026-09-24 in a cloud session: `command -v claude` returned /opt/node22/bin/claude, version 2.1.281. The eval runner passes --model explicitly, because a nested claude in that session ran the environment's default model, not the outer session's, when no model was named."
+    },
     "rg": {
       "scope": "both",
       "tier": "reference",
