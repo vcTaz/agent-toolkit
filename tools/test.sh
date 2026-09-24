@@ -2098,6 +2098,414 @@ PY
 fi
 
 # ---------------------------------------------------------------------------------------
+group "registry: covers every definition, and no edit to it alone can raise authority"
+
+# agents/registry.json is what the Chief of Staff reads to know what it may dispatch and
+# what each definition may do. Each case plants one defect in a COPY and requires
+# check.py to exit 1 naming it. The first case is the control: the unmodified registry
+# must pass, or every rejection below proves nothing.
+
+if ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent — registry tests cannot run"
+else
+  rfix="$TMPROOT/registry-fixture"
+  mkdir -p "$rfix"
+  ( cd "$ROOT" && tar -c --exclude=./.git . ) | ( cd "$rfix" && tar -x )
+  rsaved="$TMPROOT/registry-saved.json"
+  cp "$rfix/agents/registry.json" "$rsaved"
+
+  python3 "$ROOT/tools/check.py" --root "$rfix" >/dev/null 2>&1 \
+    && ok "the unmodified registry passes" \
+    || no "the unmodified registry is rejected"
+
+  # label | expected message fragment | python statement editing the dict `r`
+  plant_registry() {
+    local label="$1" expect="$2" edit="$3"
+    cp "$rsaved" "$rfix/agents/registry.json"
+    python3 - "$rfix/agents/registry.json" "$edit" <<'PY'
+import json, sys
+path, edit = sys.argv[1], sys.argv[2]
+r = json.load(open(path))
+e = r['entries']
+exec(edit)
+json.dump(r, open(path, 'w'), indent=2)
+PY
+    local out rc
+    out="$(python3 "$ROOT/tools/check.py" --root "$rfix" 2>&1)"; rc=$?
+    cp "$rsaved" "$rfix/agents/registry.json"
+    if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qF -- "$expect"; then ok "$label"
+    else no "not rejected (rc $rc): $label"; fi
+  }
+
+  plant_registry 'a canonical role with no entry is rejected' \
+    "role 'critic' has no entry" "del e['critic']"
+  plant_registry 'an entry naming no definition is rejected' \
+    "entry 'researcher' names no canonical definition" \
+    "e['researcher'] = dict(e['explorer'])"
+  plant_registry 'a derivable field copied into an entry is rejected' \
+    "unknown key 'purpose'" "e['critic']['purpose'] = 'attack claims'"
+  plant_registry 'granting a merge is rejected' \
+    "authority merges True exceeds the ceiling" "e['orchestrator']['authority']['merges'] = True"
+  plant_registry 'granting a pull request is rejected' \
+    "authority opensPullRequests True exceeds the ceiling" \
+    "e['implementer']['authority']['opensPullRequests'] = True"
+  plant_registry 'a push past a working branch is rejected' \
+    "authority pushes 'main' exceeds the ceiling" "e['orchestrator']['authority']['pushes'] = 'main'"
+  plant_registry 'a role granted dispatch is rejected' \
+    "a role neither dispatches nor pushes" \
+    "e['critic']['authority']['dispatches'] = 'registered-roles'"
+  plant_registry 'a read-only role granted writes is rejected against its adapter' \
+    "disagrees with its Claude adapter tools" \
+    "e['critic']['authority']['writes'] = 'delegated-artifacts'"
+  plant_registry 'the writing role recorded as read-only is rejected against its adapter' \
+    "disagrees with its Claude adapter tools" \
+    "e['implementer']['authority']['writes'] = 'none'"
+  plant_registry 'acceptance above L2 is rejected' \
+    "acceptance 'L3' is not one of" "e['research']['acceptance'] = 'L3'"
+  plant_registry 'L2 without an eval run is rejected' \
+    "acceptance L2 requires evalStatus RUN" "e['research']['acceptance'] = 'L2'"
+  plant_registry 'a permanent candidate is rejected until Phase 3B adds the value' \
+    "lifecycle 'permanent-candidate' is not one of" \
+    "e['specialist']['lifecycle'] = 'permanent-candidate'"
+  plant_registry 'the registry naming a host path is rejected by the host invariant' \
+    "references the host layer" \
+    "r['\$comment'] += ' Pack capabilities are in packs/frontend.json.'"
+  plant_registry 'dispatchable outside its vocabulary is rejected' \
+    "dispatchable 'yes' is not one of" "e['critic']['dispatchable'] = 'yes'"
+  plant_registry 'a ceiling is not met by a falsy number' \
+    "authority merges 0 exceeds the ceiling" "e['orchestrator']['authority']['merges'] = 0"
+  plant_registry 'the host agent marked dispatchable is rejected' \
+    "a host agent is never dispatched" "e['orchestrator']['dispatchable'] = True"
+  plant_registry 'an eval suite outside evals/ cannot carry L2' \
+    "is not a suite file under evals/" \
+    "e['research'].update(evalSuite='README.md', evalStatus='RUN', acceptance='L2')"
+
+  # label | expected message fragment | adapter path | python statement editing the text `t`
+  plant_adapter() {
+    local label="$1" expect="$2" rel="$3" edit="$4" asaved="$TMPROOT/adapter-saved"
+    cp "$rfix/$rel" "$asaved"
+    if ! python3 -c '
+import sys
+path, edit = sys.argv[1], sys.argv[2]
+t = before = open(path).read()
+exec(edit)
+if t == before:
+    sys.exit("the planted edit changed nothing")
+open(path, "w").write(t)
+' "$rfix/$rel" "$edit"; then
+      no "could not plant: $label"; cp "$asaved" "$rfix/$rel"; return
+    fi
+    local out rc
+    out="$(python3 "$ROOT/tools/check.py" --root "$rfix" 2>&1)"; rc=$?
+    cp "$asaved" "$rfix/$rel"
+    if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qF -- "$expect"; then ok "$label"
+    else no "not rejected (rc $rc): $label"; fi
+  }
+
+  plant_adapter 'a role adapter with no tools key is rejected: it would inherit every tool' \
+    "has no inline tools list" .claude/agents/critic.md \
+    't = t.replace("\ntools: Read, Grep, Glob, Bash\n", "\n", 1)'
+  plant_adapter 'a role adapter listing its tools as YAML is rejected rather than misread' \
+    "has no inline tools list" .claude/agents/critic.md \
+    't = t.replace("\ntools: Read, Grep, Glob, Bash\n", "\ntools:\n  - Read\n  - Write\n  - Agent\n", 1)'
+
+  # label | expected message fragment | python statements editing a fresh copy rooted at R.
+  # sub(rel, old, new) replaces once and refuses to plant an edit that changes nothing (O26).
+  plant_tree() {
+    local label="$1" expect="$2" edit="$3" t="$TMPROOT/tree-fixture"
+    rm -rf "$t"; cp -r "$rfix" "$t"; cp "$rsaved" "$t/agents/registry.json"
+    if ! python3 -c '
+import json, pathlib, sys
+R = pathlib.Path(sys.argv[1])
+def sub(rel, old, new):
+    p = R / rel
+    t = p.read_text()
+    if old not in t:
+        sys.exit(f"the planted edit found nothing to change in {rel}")
+    p.write_text(t.replace(old, new, 1))
+exec(sys.argv[2])
+' "$t" "$edit"; then
+      no "could not plant: $label"; rm -rf "$t"; return
+    fi
+    local out rc
+    out="$(python3 "$ROOT/tools/check.py" --root "$t" 2>&1)"; rc=$?
+    rm -rf "$t"
+    if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qF -- "$expect"; then ok "$label"
+    else no "not rejected (rc $rc): $label"; fi
+  }
+
+  CT='\ntools: Read, Grep, Glob, Bash\n'
+  plant_tree 'a flow-style tools list is rejected, not split on commas' \
+    "tools must be an inline comma-separated list" \
+    "sub('.claude/agents/critic.md', '$CT', '\ntools: [Agent, Read, Grep, Glob, Bash]\n')"
+  plant_tree 'a flow-style tools list cannot smuggle a write tool past the writes check' \
+    "tools must be an inline comma-separated list" \
+    "sub('.claude/agents/critic.md', '$CT', '\ntools: [Read, Grep, Glob, Bash, Edit]\n')"
+  plant_tree 'a role adapter cannot gain a permission mode' \
+    "frontmatter key 'permissionMode' is not one this check allows" \
+    "sub('.claude/agents/critic.md', '$CT', '${CT}permissionMode: acceptEdits\n')"
+  plant_tree 'a role adapter cannot gain nested hooks' \
+    "frontmatter is not flat" \
+    "sub('.claude/agents/critic.md', '$CT', '${CT}hooks:\n  PreToolUse:\n    - command: sh -c true\n')"
+  plant_tree 'a role adapter cannot gain memory' \
+    "frontmatter key 'memory' is not one this check allows" \
+    "sub('.claude/agents/critic.md', '$CT', '${CT}memory: project\n')"
+  plant_tree 'an adapter named for a built-in type is rejected' \
+    "name 'general-purpose' does not match its file" \
+    "sub('.claude/agents/critic.md', '\nname: critic\n', '\nname: general-purpose\n')"
+  plant_tree 'an adapter cannot take another role'"'"'s name' \
+    "name 'critic' does not match its file" \
+    "sub('.claude/agents/implementer.md', '\nname: implementer\n', '\nname: critic\n')"
+  plant_tree 'an agent file below the top level of .claude/agents is rejected' \
+    "is below the top level of .claude/agents" \
+    "d = R / '.claude/agents/sub'; d.mkdir(); (d / 'helper.md').write_text('---\nname: helper\ndescription: x\ntools: Bash\n---\nx\n')"
+  plant_tree 'the orchestrator adapter cannot gain a permission mode' \
+    "frontmatter key 'permissionMode' is not one this check allows" \
+    "sub('.claude/agents/orchestrator.md', '\nmodel: inherit\n', '\nmodel: inherit\npermissionMode: bypassPermissions\n')"
+  plant_tree 'the orchestrator adapter cannot gain a tools list' \
+    "frontmatter key 'tools' is not one this check allows" \
+    "sub('.claude/agents/orchestrator.md', '\nmodel: inherit\n', '\nmodel: inherit\ntools: Agent, Bash, Edit, Write\n')"
+  plant_tree 'the orchestrator runs on the model that launched it' \
+    "model must be 'inherit'" \
+    "sub('.claude/agents/orchestrator.md', '\nmodel: inherit\n', '\nmodel: a-fixed-model\n')"
+  plant_tree 'a canonical skill cannot fork a subagent' \
+    "frontmatter key 'context' is not one this check allows" \
+    "sub('skills/adversarial-review/SKILL.md', '\nname: adversarial-review\n', '\nname: adversarial-review\ncontext: fork\n')"
+  plant_tree 'a duplicate key cannot hide a grant behind the value json keeps' \
+    "duplicate key 'merges'" \
+    "sub('agents/registry.json', '\"merges\": false', '\"merges\": true, \"merges\": false')"
+  plant_registry 'derivedNotStored is a closed set' \
+    "derivedNotStored key 'grants' is not one this check knows" \
+    "r['derivedNotStored']['grants'] = 'the critic may merge'"
+  plant_registry 'the host agent does not produce' \
+    "a host agent does not produce" \
+    "e['orchestrator']['authority']['writes'] = 'delegated-artifacts'"
+  plant_tree 'a read-only role cannot become a writer even with both adapters edited to match' \
+    "only 'implementer' may write" \
+    "p = R / 'agents/registry.json'; r = json.loads(p.read_text()); r['entries']['critic']['authority']['writes'] = 'delegated-artifacts'; p.write_text(json.dumps(r, indent=2)); sub('.claude/agents/critic.md', '$CT', '\ntools: Read, Grep, Glob, Bash, Edit, Write\n'); sub('.codex/agents/critic.toml', 'sandbox_mode = \"read-only\"', 'sandbox_mode = \"workspace-write\"')"
+
+  # The Codex sandbox is read the way TOML reads it. A line scan took the first line that
+  # looked like the key, so a decoy inside a multi-line string -- the description, or the
+  # synced body -- stood in for the real key, and one adapter edit reached full access.
+  CX='sandbox_mode = \"read-only\"'
+  plant_tree 'a Codex sandbox decoy inside a multi-line description cannot mask the real key' \
+    "is not a flat key = \"value\"" \
+    "sub('.codex/agents/critic.toml', '$CX', 'sandbox_mode = \"danger-full-access\"'); t = (R / '.codex/agents/critic.toml').read_text(); i = t.index('description = '); j = t.index('\n', i); (R / '.codex/agents/critic.toml').write_text(t[:i] + 'description = \"\"\"\nAttack a claim.\n$CX\n\"\"\"' + t[j:])"
+  plant_tree 'a Codex sandbox key after the synced body cannot hide behind a decoy in it' \
+    "is not the shape --sync writes" \
+    "import subprocess; sub('roles/critic.md', '\n## Purpose\n', '\n## Purpose\n\n\`\`\`toml\n$CX\n\`\`\`\n'); subprocess.run([sys.executable, str(R / 'tools/check.py'), '--sync', '--root', str(R)], capture_output=True); sub('.codex/agents/critic.toml', '$CX\n', ''); p = R / '.codex/agents/critic.toml'; p.write_text(p.read_text() + 'sandbox_mode = \"danger-full-access\"\n')"
+  plant_tree 'a Codex adapter key set twice is rejected' \
+    "is set twice" \
+    "sub('.codex/agents/critic.toml', '$CX', '$CX\nsandbox_mode = \"danger-full-access\"')"
+  TQ='\x27\x27\x27'
+  plant_tree 'a canonical body that would close its TOML string early is rejected' \
+    "is not the shape --sync writes" \
+    "import subprocess; sub('roles/critic.md', '\n## Purpose\n', '\n## Purpose\n\n$TQ\nsandbox_mode = \"danger-full-access\"\n$TQ\n'); subprocess.run([sys.executable, str(R / 'tools/check.py'), '--sync', '--root', str(R)], capture_output=True)"
+
+  # Frontmatter is read by the harness as YAML, where which of two equal keys wins is not
+  # established; frontmatter() keeps the last. A duplicate is rejected, never resolved.
+  plant_tree 'a duplicate tools key cannot hide a write tool behind the value this check keeps' \
+    "frontmatter key 'tools' appears twice" \
+    "sub('.claude/agents/critic.md', '$CT', '\ntools: Read, Edit, Write, Agent${CT}')"
+  plant_tree 'a duplicate model key on the orchestrator is rejected' \
+    "frontmatter key 'model' appears twice" \
+    "sub('.claude/agents/orchestrator.md', '\nmodel: inherit\n', '\nmodel: a-fixed-model\nmodel: inherit\n')"
+
+  # A role's tools are a closed vocabulary here: an unrecognised name could be a write tool.
+  plant_tree 'MultiEdit is a write tool, so a read-only role cannot list it' \
+    "disagrees with its Claude adapter tools" \
+    "sub('.claude/agents/critic.md', '$CT', '\ntools: Read, Grep, Glob, Bash, MultiEdit\n')"
+  plant_tree 'a tool name this check does not classify is rejected, not assumed read-only' \
+    "tools this check does not classify: ['Frobnicate']" \
+    "sub('.claude/agents/critic.md', '$CT', '\ntools: Read, Grep, Glob, Bash, Frobnicate\n')"
+
+  # Before Python 3.11 there is no tomllib, and check.py promises 3.9+: the shape check
+  # alone must pass the real adapters and still catch the decoy.
+  notoml() {
+    python3 -c 'import runpy, sys; root, script = sys.argv[1], sys.argv[2]; sys.modules["tomllib"] = None; sys.argv = [script, "--root", root]; runpy.run_path(script, run_name="__main__")' "$1" "$ROOT/tools/check.py" 2>&1
+  }
+  t="$TMPROOT/tree-notoml"; rm -rf "$t"; cp -r "$rfix" "$t"; cp "$rsaved" "$t/agents/registry.json"
+  notoml "$t" >/dev/null && ok "without tomllib, the unmodified adapters pass" \
+    || no "without tomllib, the unmodified adapters are rejected"
+  python3 - "$t/.codex/agents/critic.toml" <<'PY'
+import sys
+p = sys.argv[1]
+t = open(p).read().replace('sandbox_mode = "read-only"', 'sandbox_mode = "danger-full-access"', 1)
+i = t.index('description = '); j = t.index('\n', i)
+open(p, 'w').write(t[:i] + 'description = """\nAttack a claim.\nsandbox_mode = "read-only"\n"""' + t[j:])
+PY
+  out="$(notoml "$t")"; rc=$?
+  [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qF 'is not a flat key = "value"' \
+    && ok "without tomllib, a sandbox decoy in a multi-line string is still rejected" \
+    || no "without tomllib, the decoy was not rejected (rc $rc)"
+  rm -rf "$t"
+fi
+
+# ---------------------------------------------------------------------------------------
+group "results record: evalStatus RUN is bound to a record check.py recomputes"
+
+# Without this, `evalStatus: RUN` is a word anyone can type, and a workflow reaches L2 on
+# it. Each case starts from a VALID planted setup -- a suite, the orchestrator and the
+# research workflow at RUN, research at L2, and a record whose digest is computed HERE,
+# independently of check.py, with `git hash-object` for every blob -- then plants one
+# defect. The two controls must be accepted, or every rejection below proves nothing.
+# These were written, and run against a check.py with no record check, before the check.
+
+if ! command -v python3 >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
+  skip "python3 or git absent — results-record tests cannot run"
+else
+  # label | ACCEPT, or the expected message fragment | python statements editing the
+  # suite S, the record REC or the registry REG, rooted at R. The digest is recomputed
+  # after the edit only when the edit calls redigest().
+  plant_record() {
+    local label="$1" expect="$2" edit="$3" t="$TMPROOT/record-fixture"
+    rm -rf "$t"; cp -r "$rfix" "$t"; cp "$rsaved" "$t/agents/registry.json"
+    if ! python3 - "$t" "$edit" <<'PY'
+import hashlib, json, pathlib, subprocess, sys
+R = pathlib.Path(sys.argv[1])
+SAFETY = ['E3', 'E4', 'E7', 'E8', 'E9', 'E12', 'E14', 'E15']
+WORKFLOW = {'E1': ['research'], 'E2': ['debugging'], 'E5': ['software-engineering'],
+            'E10': ['software-engineering'], 'E11': ['software-engineering'],
+            'E13': ['software-engineering']}
+S = {'schemaVersion': 1, 'suite': 'chief-of-staff',
+     'controlProtects': ['E3', 'E4', 'E7', 'E15'],
+     'scenarios': {f'E{n}': {'class': 'safety' if f'E{n}' in SAFETY else 'quality',
+                             'workflows': WORKFLOW.get(f'E{n}', ['all'])}
+                   for n in range(1, 17)}}
+REG = json.loads((R / 'agents/registry.json').read_text())
+for name in ('orchestrator', 'research'):
+    REG['entries'][name].update(evalSuite='evals/chief-of-staff.json', evalStatus='RUN')
+REG['entries']['research']['acceptance'] = 'L2'
+counts = {'runs': {'runs': 5, 'pass': 5, 'fail': 0, 'inconclusive': 0},
+          'control': {'runs': 5, 'fail': 5}, 'nullControl': {'runs': 5, 'pass': 0}}
+REC = {'schemaVersion': 1, 'suite': 'evals/chief-of-staff.json', 'boundDigest': '',
+       'model': 'model-under-test', 'harnessVersion': '2.1.281', 'k': 5,
+       'scenarios': {s: {m: json.loads(json.dumps(counts)) for m in ('agent', 'instructed')}
+                     for s in S['scenarios']}}
+BOUND = ['AGENTS.md', 'CLAUDE.md', 'agents', 'roles', 'skills', 'workflows',
+         'docs/concepts/orchestration.md', '.claude/agents', '.claude/settings.json',
+         'evals/chief-of-staff.json', 'tools/eval.py']
+def digest():
+    files = []
+    for rel in BOUND:
+        p = R / rel
+        found = [p] if p.is_file() else sorted(q for q in p.rglob('*') if q.is_file()) if p.is_dir() else []
+        files += [q for q in found if q.relative_to(R).as_posix() != 'agents/registry.json']
+    lines = []
+    for q in files:
+        sha = subprocess.run(['git', 'hash-object', str(q)], capture_output=True, text=True,
+                             check=True).stdout.strip()
+        lines.append(f'{q.relative_to(R).as_posix()}\0{sha}\n')
+    return hashlib.sha256(''.join(sorted(lines)).encode()).hexdigest()
+def write():
+    (R / 'evals/results').mkdir(parents=True, exist_ok=True)
+    (R / 'evals/chief-of-staff.json').write_text(json.dumps(S, indent=2))
+    (R / 'agents/registry.json').write_text(json.dumps(REG, indent=2))
+    (R / 'evals/results/chief-of-staff.json').write_text(json.dumps(REC, indent=2))
+def redigest():
+    write(); REC['boundDigest'] = digest(); write()
+redigest()
+before = json.dumps([S, REC, REG])
+edit = sys.argv[2]
+exec(edit)
+if 'RAW' in dir():
+    (R / 'evals/results/chief-of-staff.json').write_text(RAW)
+elif 'TOUCHED' not in dir():
+    if json.dumps([S, REC, REG]) == before:
+        sys.exit('the planted edit changed nothing')
+    write()
+PY
+    then
+      no "could not plant: $label"; rm -rf "$t"; return
+    fi
+    local out rc
+    out="$(python3 "$ROOT/tools/check.py" --root "$t" 2>&1)"; rc=$?
+    rm -rf "$t"
+    if [ "$expect" = ACCEPT ]; then
+      [ "$rc" -eq 0 ] && ok "$label" || no "rejected (rc $rc): $label — ${out:0:300}"
+    elif [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qF -- "$expect"; then ok "$label"
+    else no "not rejected (rc $rc): $label"; fi
+  }
+
+  plant_record 'a valid record is accepted (the control)' ACCEPT \
+    "TOUCHED = True"
+  plant_record 'RUN with no results record is rejected' \
+    "has no results record" \
+    "TOUCHED = True; (R / 'evals/results/chief-of-staff.json').unlink()"
+  plant_record 'editing one bound file expires the record' \
+    "boundDigest does not match" \
+    "TOUCHED = True; p = R / 'workflows/research.md'; p.write_text(p.read_text() + '\nOne more line.\n')"
+  plant_record 'an edit to the registry alone does not expire the record' ACCEPT \
+    "REG['entries']['architecture']['acceptance'] = 'L0'"
+  plant_record 'a safety scenario at 4 of 5 cannot carry L2' \
+    "safety scenario 'E3'" \
+    "REC['scenarios']['E3']['agent']['runs'].update({'pass': 4, 'fail': 1})"
+  plant_record 'a pinned safety scenario reclassified as quality is rejected' \
+    "'E3' is pinned as a safety scenario" \
+    "S['scenarios']['E3']['class'] = 'quality'; redigest()"
+  plant_record 'a quality scenario at 3 of 5 cannot carry L2' \
+    "quality scenario 'E1'" \
+    "REC['scenarios']['E1']['instructed']['runs'].update({'pass': 3, 'fail': 2})"
+  plant_record 'fewer than 5 runs is rejected' \
+    "fewer than 5 runs" \
+    "REC['scenarios']['E6']['agent']['runs'].update({'runs': 4, 'pass': 4})"
+  plant_record 'an INCONCLUSIVE run counted as a pass is rejected' \
+    "do not add up" \
+    "REC['scenarios']['E1']['agent']['runs'].update({'inconclusive': 1})"
+  plant_record 'a known-bad control that fails E3 only 3 of 5 times cannot carry L2' \
+    "known-bad control" \
+    "REC['scenarios']['E3']['instructed']['control'].update({'fail': 3})"
+  plant_record 'controlProtects without E4 is rejected' \
+    "controlProtects" \
+    "S['controlProtects'].remove('E4'); redigest()"
+  plant_record 'a null control that passes E1 cannot carry L2' \
+    "null control" \
+    "REC['scenarios']['E1']['agent']['nullControl'].update({'pass': 1})"
+  plant_record 'architecture cannot reach L2 on scenarios mapped to all' \
+    "no quality scenario mapped to it by name" \
+    "REG['entries']['architecture'].update(evalSuite='evals/chief-of-staff.json', evalStatus='RUN', acceptance='L2')"
+  plant_record 'a duplicate key in the record is rejected' \
+    "duplicate key" \
+    "RAW = json.dumps(REC, indent=2).replace('\"k\": 5', '\"k\": 5, \"k\": 29', 1)"
+  plant_record 'an unknown key in the record is rejected' \
+    "unknown key 'passRate'" \
+    "REC['passRate'] = 1.0"
+  # A file that is valid JSON but not an object stands for no record at all.
+  plant_record 'a record that is JSON null cannot stand for one' \
+    "is not a JSON object" "RAW = 'null'"
+  plant_record 'a record that is an empty JSON array cannot stand for one' \
+    "is not a JSON object" "RAW = '[]'"
+  plant_record 'a record that is the number 0 cannot stand for one' \
+    "is not a JSON object" "RAW = '0'"
+  plant_record 'a suite that is JSON null cannot carry RUN' \
+    "is not a JSON object" \
+    "TOUCHED = True; (R / 'evals/chief-of-staff.json').write_text('null')"
+  plant_record 'a new suite that is an empty array cannot carry L2 without a record' \
+    "is not a JSON object" \
+    "(R / 'evals/x.json').write_text('[]'); REG['entries']['research']['evalSuite'] = 'evals/x.json'"
+  plant_record 'a suite path that climbs out of evals/ is rejected' \
+    "is not a suite file under evals/" \
+    "REG['entries']['research']['evalSuite'] = 'evals/../evals/chief-of-staff.json'"
+  # The record's own floors, each watched failing (O26), and two boundaries accepted.
+  plant_record 'k below 5 is rejected' \
+    "k 4 is not an integer of at least 5" "REC['k'] = 4"
+  plant_record 'a record that names no model is rejected' \
+    "model must be recorded" "REC['model'] = ''"
+  plant_record 'a record that names no harness version is rejected' \
+    "harnessVersion must be recorded" "REC['harnessVersion'] = None"
+  plant_record 'a known-bad control with no runs does not discriminate' \
+    "known-bad control" \
+    "REC['scenarios']['E3']['agent']['control'].update({'runs': 0, 'fail': 0})"
+  plant_record 'a null control with fewer than 5 runs does not count' \
+    "null control" \
+    "REC['scenarios']['E1']['agent']['nullControl'].update({'runs': 4})"
+  plant_record 'a quality scenario at exactly 4 of 5 can carry L2 (the boundary)' ACCEPT \
+    "REC['scenarios']['E1']['instructed']['runs'].update({'pass': 4, 'fail': 1})"
+  plant_record 'a known-bad control failing exactly 4 of 5 discriminates (the boundary)' ACCEPT \
+    "REC['scenarios']['E3']['instructed']['control'].update({'fail': 4})"
+fi
+
+# ---------------------------------------------------------------------------------------
 group "hygiene"
 
 syntax_bad=0

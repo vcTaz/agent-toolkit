@@ -2,9 +2,17 @@
 
 **This is where a new agent goes.** One file here, then `python3 tools/check.py --sync`.
 
-Currently one lives here: `agents/orchestrator.md`, the host agent that holds a run. Every
-principle in `docs/concepts/orchestration.md` is addressed to it, and five of the seven roles
-defer to it, so it was referenced throughout the canonical layer long before it was defined.
+Currently one agent lives here: `agents/orchestrator.md`, the host agent that holds a run.
+Every principle in `docs/concepts/orchestration.md` is addressed to it, and five of the seven
+roles defer to it, so it was referenced throughout the canonical layer long before it was
+defined.
+
+Beside it is its registry, `agents/registry.json`: what each canonical definition — every
+role, skill, workflow and this agent — **may do** in this organisation. It is **not a
+definition** and is not loaded as one: `tools/check.py` reads only `*.md` here as agents. It
+holds values from closed vocabularies and nothing a definition already says, and its ceilings
+are written in `tools/check.py` rather than in the file, so that no edit to the registry alone
+can widen what anything may do. The reasoning is in `docs/concepts/autonomy.md`.
 
 ## Canonical is not the same claim as portable
 
@@ -81,7 +89,7 @@ answer is "nothing, the work just moves", it is a persona.
 |---|---|
 | **A** | The run is held by one identity for its whole duration. That is a lifecycle, not a brief. |
 | **B** | The principles it enforces are orchestration; the identity that enforces them is not a rule and cannot be one. No role, skill or workflow owns dispatch. |
-| **C** | `O1` to `O30` must mean the same thing on every harness, while dispatching can only be described in one harness's terms — subagent or teammate, team size, tool surface. |
+| **C** | `O1` to `O34` must mean the same thing on every harness, while dispatching can only be described in one harness's terms — subagent or teammate, team size, tool surface. |
 | **D** | Before it existed, the orchestration principles were addressed to an identity this repository never defined. Delete the file and that hole returns. |
 
 ## Why Codex adapters are not generated here

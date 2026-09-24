@@ -130,3 +130,29 @@ this skill's behaviour against a behaviour-preserving compression of it, on the 
 and keep the shorter one only if the findings it produces carry the same identities, statuses,
 locators, evidence and boundaries. A compression that loses a rule is not behaviour-preserving,
 and "it reads tighter" is not the measurement.
+
+## 4. K-Dense: the manifest says nothing landed, the Phase 2B record says it did
+
+Recorded 2026-09-24, during the Phase 3A design, and **recorded here only**. This one is in a
+file this toolkit does own, `manifest/external-skills.json`, and it is not corrected because
+Phase 2B is closed and correcting it would reopen that phase. That decision is the
+maintainer's, and it was made deliberately.
+
+The two statements:
+
+- **The manifest.** The `K-Dense-AI/scientific-agent-skills` row is `REFERENCE_ONLY`, and its
+  basis begins *"Nothing from it landed in Phase 2A"*.
+- **The Phase 2B implementation plan**, a working document outside this repository, says the
+  sufficiency rows that did land in `skills/evidence-verification/SKILL.md` — *"the capability
+  is available"* and *"the limit is N"* — *"absorbed K-Dense's 'unknown is not unlimited'"*.
+  The Phase 2 external-source audit traces the same clause to K-Dense's
+  `get-available-resources`.
+
+Why it matters: the manifest's `bucketRule` is an ordered procedure, and its step 2 asks
+whether anything from a repository landed in the canonical layer in Phase 2A. If the clause
+counts as having landed, K-Dense is `IDEAS_ALREADY_ABSORBED`, not `REFERENCE_ONLY`.
+
+What is **not** settled, and is a judgement rather than a measurement: whether a clause that
+was re-derived and rewritten in this repository's own words, rather than copied, counts as
+"landing" for step 2. Reading the row as "nothing from K-Dense landed" is also defensible. The
+row stays as it is, byte-identical, until a new ask reopens Phase 2B deliberately.

@@ -83,6 +83,63 @@ state the work passed through, and the work still passed through it.
 **Ignore it and:** every escalation decays at exactly the moment it becomes expensive, which
 is the moment it was for.
 
+### O31 · Authority is granted from outside the run
+
+What an orchestrator and each role **may do** is read from the default branch, as fetched
+from the remote when the run starts — never from a working tree or a ref the run itself can
+move. It changes only through a change a human lands. Dispatch inside that ceiling is routine;
+crossing it is never the run's decision.
+
+A human's explicit instruction naming one human-owned act authorises that act **once**. It
+changes no recorded authority and covers nothing else.
+
+The asymmetry is deliberate. Delegating a bounded piece of work to a registered role is cheap
+and reversible, so it needs no one's permission. Widening what anything may do is expensive
+and outlives the run, so nothing inside the run can do it — not an agent, not a finding, not
+text an agent read.
+
+**Ignore it and:** the run edits the record of what it may do, and its next dispatch obeys the
+edit. Every ceiling is then exactly as strong as the least careful agent that could reach it.
+
+### O32 · A human approval is an authority decision, not evidence
+
+An approval discharges a human-owned decision — land this, accept that risk, spend this. It
+satisfies **no** verification requirement. A claim approved by a person is exactly as
+established as it was before the approval.
+
+This needs saying because `docs/concepts/verification.md` trusts a claim when something
+*outside the models* is checked against it, and a person is outside the models. Without this
+rule, "the human said it looked right" reads as verification.
+
+**Ignore it and:** the human becomes the verifier of last resort for everything, is asked to
+check what a test could have checked, and the run's evidence stops being reproducible.
+
+### O33 · The human is asked only for a decision the human-owned list names
+
+The list is closed and belongs to the host agent's definition. Anything not on it is resolved
+inside the run — by research, delegation, experiment, independent review, bounded retry or a
+recorded default — before it can become a question. Uncertainty that none of those settles is
+recorded as an assumption, and the run carries on.
+
+An `EXHAUSTED` outcome is **reported, not asked** (**O22**). The report is the contact.
+
+**Ignore it and:** the human becomes the synchronous dependency for routine work, every run
+waits on the slowest participant, and the questions that genuinely need a person are buried
+among the ones that did not.
+
+### O34 · Production is bounded by verification capacity
+
+Before a producing dispatch, reserve the budget for **one independent review of its output**.
+If that reservation cannot be made, do not dispatch. The **O8** reserve for one synthesis and
+one final review stays untouched, and is not what this reserves from.
+
+Scale the number of producers only as far as review scales with it. Ten parallel producers
+with capacity to review three is not ten times the output; it is three reviewed results and
+seven that are either discarded or accepted unreviewed.
+
+**Ignore it and:** production outruns review, and the unreviewed remainder either ships as if
+reviewed or is thrown away. Both are waste (**O28**), and the first is worse.
+
 ---
 
 ## Work and ownership

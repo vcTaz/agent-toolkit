@@ -6,10 +6,10 @@ Which file wins when two disagree.
 
 ```text
 1.  AGENTS.md                           project invariants and contribution rules
-    docs/concepts/orchestration.md      the invariants' full catalogue, O1-O30
+    docs/concepts/orchestration.md      the invariants' full catalogue, O1-O34
             ↓  may constrain, never redefine
 2.  roles/  skills/  workflows/         CANONICAL and portable
-    agents/                             CANONICAL and host-specific
+    agents/                             CANONICAL and host-specific; registry.json is policy
     docs/concepts/*                     the reasoning behind them
             ↓  may add platform mechanics, never redefine
 3.  .claude/agents/  .codex/agents/     ADAPTERS — mechanics only
@@ -76,22 +76,31 @@ the word "vendor" to state the portability rule itself.
 | `docs/concepts/` | why the canonical layer is shaped this way | a second, competing definition |
 | `.claude/` `.codex/` | identifiers, tool limits, model/effort, permissions, a few operating notes, a marked verbatim copy | a reworded version of a role's responsibilities |
 | `docs/platforms/` | how to use the above on one harness, with its limitations | any definition |
+| `agents/registry.json` | what each canonical definition **may do** here, as values from closed vocabularies whose ceilings are written in `tools/check.py` | what a definition **is**; a value past a ceiling; a host path |
 
 ## A worked case: the orchestrator
 
 The host agent is the case where every layer has something to say, so it is worth spelling
-out. Five things could disagree about what the orchestrator is:
+out. Six things could disagree about what the orchestrator is, or may do:
 
 | # | Source | Authoritative for | May never |
 |---|---|---|---|
-| 1 | `docs/concepts/orchestration.md` | what the rules of a run **are** — O1 to O30 | be contradicted by anything below |
+| 1 | `docs/concepts/orchestration.md` | what the rules of a run **are** — O1 to O34 | be contradicted by anything below |
 | 2 | `agents/orchestrator.md` | what the orchestrator **is**: its decisions, its state, its exclusions | contradict a principle it cites |
 | 3 | `.claude/agents/orchestrator.md`, outside the markers | this harness's `name`, `description`, `tools`, `model` and operating notes | restate a responsibility in its own words |
 | 4 | `.claude/agents/orchestrator.md`, between the markers | nothing — it is a mechanical copy | differ from its source by one byte |
 | 5 | `docs/platforms/claude-code.md` | how to drive it here, and what this harness cannot do | define any of the above |
+| 6 | `agents/registry.json` | what it and every other definition **may do**: dispatch, write, push, open a pull request, merge, and each workflow's acceptance level | say what any of them **is**, or grant past a ceiling in `tools/check.py` |
 
 Read downwards. **1 beats 2 beats 3 beats 5, and 4 is not a party to the argument** — a
 difference there is drift, which `tools/check.py` reports and `--sync` repairs.
+
+**6 answers a different question from 1 to 5.** They say what the orchestrator is; the registry
+says what it may do, and only within ceilings that are code rather than data. So it can narrow
+what 2 allows and never widen it, and it can never be the reason a definition means something
+else. A registry value that contradicts 1 or 2 is a defective registry. Because it is read as
+authority, it is read the way **O31** says: from the default branch as fetched from the
+remote, never from a working tree the run can edit.
 
 Two consequences worth stating plainly:
 
@@ -104,6 +113,28 @@ Two consequences worth stating plainly:
   is canonical and host-specific: authoritative about the agent, and making no claim that it
   survives a move to another harness. That is why no Codex adapter is generated from it — see
   `agents/README.md`.
+
+## The governing paths
+
+A run is governed by more than its orchestrator's definition. These paths decide what a run
+is, what it may do, how it is checked, or how it is delivered, and changing one **in the
+working tree a run is using** can change that run while it is in progress — the harness is
+documented to reload agent definitions and settings in a running session. So changing any of
+them in the live tree is a human-owned decision (H1 in `agents/orchestrator.md`):
+
+```text
+.claude/  .codex/  .agents/            adapters, harness settings, skill links
+agents/  roles/  skills/  workflows/   the canonical layer, and the registry
+evals/  tools/                          what checks the above
+docs/concepts/  docs/authority.md       the principles and this chain
+AGENTS.md  CLAUDE.md                    the instructions every session reads
+.github/                                CI
+cloud/  local/  profile/  packs/  manifest/   the host layer
+```
+
+Preparing a change to any of them in a separate scratch copy or worktree is routine. Landing
+it is a human decision too (H2), and it is the one this list most often reaches: the change
+is prepared, reviewed and verified by the run, and a person lands it.
 
 ## The source-of-truth rule
 

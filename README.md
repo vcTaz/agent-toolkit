@@ -89,9 +89,10 @@ because most real tasks should use a reduced form.
 [roles vs skills vs workflows](docs/concepts/roles-skills-workflows.md) ·
 [independence](docs/concepts/independence.md) ·
 [verification](docs/concepts/verification.md) ·
-[orchestration](docs/concepts/orchestration.md)
+[orchestration](docs/concepts/orchestration.md) ·
+[autonomy](docs/concepts/autonomy.md)
 
-Thirty numbered orchestration principles, each with what it is, why it exists, and what
+Thirty-four numbered orchestration principles, each with what it is, why it exists, and what
 breaks when you ignore it.
 
 ### 5 · Platform adapters

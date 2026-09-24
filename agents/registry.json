@@ -1,0 +1,221 @@
+{
+  "$comment": "What each canonical definition MAY DO in this organisation, never what it IS. What it is lives in its own file and is read from there: nothing in this file copies a definition, and derivedNotStored says where each such field is read from. Every value comes from a closed vocabulary that tools/check.py enforces, together with ceilings written into check.py itself, so no edit to this file alone can raise authority past them. Changing any value here changes authority, which is a human decision.",
+  "schemaVersion": 1,
+  "derivedNotStored": {
+    "$comment": "Registry fields the master plan names that are already defined elsewhere. Read them from the source named; copying one into an entry is a second definition and is rejected as an unknown key.",
+    "purpose": "frontmatter summary; for a role, also its Purpose section",
+    "antiJobs": "a role's 'Do not use this role when' and 'Prohibited' sections",
+    "inputs": "a role's Inputs section",
+    "outputs": "a role's Outputs section and Decision vocabulary",
+    "independence": "a role's Independence section; the rule is docs/concepts/independence.md",
+    "requiredSkills": "the 'Canonical procedure' line in a role's Verification expectations",
+    "tools": "the adapter frontmatter in .claude/agents/<id>.md and sandbox_mode in .codex/agents/<id>.toml",
+    "costProfile": "the model field in .claude/agents/<id>.md",
+    "environments": "which adapters exist for the id",
+    "knownFailureModes": "a role's Completion conditions, and its characteristic failure in docs/concepts/independence.md",
+    "escalationConditions": "the human-owned decisions in agents/orchestrator.md, which bind every entry"
+  },
+  "entries": {
+    "orchestrator": {
+      "kind": "agent",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "dispatchable": false,
+      "authority": {
+        "writes": "run-record",
+        "dispatches": "registered-roles",
+        "pushes": "working-branch",
+        "opensPullRequests": false,
+        "merges": false
+      },
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "critic": {
+      "kind": "role",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "dispatchable": true,
+      "authority": {
+        "writes": "none",
+        "dispatches": "none",
+        "pushes": "none",
+        "opensPullRequests": false,
+        "merges": false
+      },
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "explorer": {
+      "kind": "role",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "dispatchable": true,
+      "authority": {
+        "writes": "none",
+        "dispatches": "none",
+        "pushes": "none",
+        "opensPullRequests": false,
+        "merges": false
+      },
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "final-reviewer": {
+      "kind": "role",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "dispatchable": true,
+      "authority": {
+        "writes": "none",
+        "dispatches": "none",
+        "pushes": "none",
+        "opensPullRequests": false,
+        "merges": false
+      },
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "implementer": {
+      "kind": "role",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "dispatchable": true,
+      "authority": {
+        "writes": "delegated-artifacts",
+        "dispatches": "none",
+        "pushes": "none",
+        "opensPullRequests": false,
+        "merges": false
+      },
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "specialist": {
+      "kind": "role",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "dispatchable": true,
+      "authority": {
+        "writes": "none",
+        "dispatches": "none",
+        "pushes": "none",
+        "opensPullRequests": false,
+        "merges": false
+      },
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "synthesizer": {
+      "kind": "role",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "dispatchable": true,
+      "authority": {
+        "writes": "none",
+        "dispatches": "none",
+        "pushes": "none",
+        "opensPullRequests": false,
+        "merges": false
+      },
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "validator": {
+      "kind": "role",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "dispatchable": true,
+      "authority": {
+        "writes": "none",
+        "dispatches": "none",
+        "pushes": "none",
+        "opensPullRequests": false,
+        "merges": false
+      },
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "adversarial-review": {
+      "kind": "skill",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "bounded-context-handoff": {
+      "kind": "skill",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "checkable-findings": {
+      "kind": "skill",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "evidence-backed-synthesis": {
+      "kind": "skill",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "evidence-verification": {
+      "kind": "skill",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "final-verification": {
+      "kind": "skill",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "independent-validation": {
+      "kind": "skill",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "architecture": {
+      "kind": "workflow",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "acceptance": "L1",
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "debugging": {
+      "kind": "workflow",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "acceptance": "L1",
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "research": {
+      "kind": "workflow",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "acceptance": "L1",
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    },
+    "software-engineering": {
+      "kind": "workflow",
+      "lifecycle": "permanent",
+      "origin": "hand-authored",
+      "acceptance": "L1",
+      "evalSuite": null,
+      "evalStatus": "NONE"
+    }
+  }
+}

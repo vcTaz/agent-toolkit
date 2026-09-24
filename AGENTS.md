@@ -19,15 +19,17 @@ way, which is the point.
 That is not the same as "nothing to install", which this sentence used to say while the
 same file listed `local/` as "install this toolkit into a local Claude Code config" and
 pointed at `local/README.md` under "install it on a machine". The `HOST` layer is
-genuinely installable and genuinely optional; see `docs/host-integration.md`. Everything here is Markdown, apart from one TOML adapter per role and `tools/`,
-which holds stdlib-only Python maintenance scripts — structural checks, adapter sync, and
-building a skill pack from its pin. Nothing reads them at use time; you run them by hand when you change something.
+genuinely installable and genuinely optional; see `docs/host-integration.md`. Everything here is Markdown, apart from one TOML adapter per role, the JSON of
+`agents/registry.json` and of the host layer, and `tools/`, which holds stdlib-only Python
+maintenance scripts — structural checks, adapter sync, and building a skill pack from its
+pin. Nothing reads the scripts at use time; you run them by hand when you change something.
 
 ## Repository map
 
 ```text
 roles/            CANONICAL  seven agent roles, platform-neutral
 agents/           CANONICAL  free-form agents; where a new agent is added
+agents/registry.json         what each definition MAY DO; its ceilings are in tools/check.py
 skills/           CANONICAL  seven reusable procedures, Agent Skills format
 workflows/        CANONICAL  four ways roles and skills cooperate
 docs/concepts/               why the canonical layer is shaped this way
@@ -129,6 +131,12 @@ Standing constraints, not suggestions.
 - **Progress is measured from what changed, not from what was claimed.**
 - **Prefer a deterministic decision to a model call.**
 - **One artifact, one owner.** Parallelise only genuinely independent work.
+- **Authority is granted from outside the run** (O31). What anything may do is read from the
+  default branch as fetched from the remote, and changes only through a change a human lands.
+  Delegating inside that ceiling is routine; widening it is never a run's decision, and
+  `tools/check.py` holds the ceilings so that no edit to `agents/registry.json` alone can.
+- **A human approval is an authority decision, not evidence** (O32). It discharges a
+  human-owned decision and satisfies no verification requirement.
 
 Full catalogue: `docs/concepts/orchestration.md`.
 
@@ -149,7 +157,8 @@ against. Anything not verified against official documentation must say so.
 
 **Run `python3 tools/check.py` before finishing.** It requires Python 3.9+ and no
 dependencies, and checks role structure, Agent Skills conformance, adapter coverage and
-drift, symlink targets and link resolution. It fails closed on anything it cannot classify.
+drift, symlink targets, link resolution, and `agents/registry.json` against the ceilings it
+holds. It fails closed on anything it cannot classify.
 
 - **Editing a role:** edit `roles/<id>.md`, then `python3 tools/check.py --sync`, then
   `python3 tools/check.py`. Never edit inside a `canonical:begin` block or a TOML
