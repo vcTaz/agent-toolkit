@@ -9,6 +9,12 @@ and date, because running a mechanism and reading about it are not the same evid
 Mechanisms change; if something here disagrees with the official documentation, the official
 documentation is right and this file is stale.
 
+The Chief of Staff rows added on 2026-09-24 — *Running the Chief of Staff* below, and the rows
+dated that day in the table at the foot — were measured on **2.1.281**, which is what this
+container reported then. They are scoped to that version, to `claude -p` sessions launched
+from a shell in this container, and to the model those sessions ran on; the rest of the file
+was not re-verified at 2.1.281.
+
 ## What this repository provides
 
 | Layer | Path | Mechanism |
@@ -98,6 +104,13 @@ model: opus
 
 followed by a short block of Claude-specific operating notes, then the canonical role body,
 synchronised verbatim between `<!-- canonical:begin -->` markers.
+
+"Four of them and nothing else" is enforced, not only described. `tools/check.py` requires the
+frontmatter to be flat `key: value` lines and allows `name`, `description`, `tools` and `model`
+for a role adapter, and `name`, `description` and `model` for the orchestrator. A nested block
+is refused rather than skipped, because the harness would apply it. An adapter's `name` must
+equal its file name, since the harness identifies an agent by `name` alone, and no file may
+sit in a subdirectory of `.claude/agents/`, which the harness scans recursively.
 
 ### Why the bodies are copied rather than referenced
 
@@ -254,6 +267,57 @@ For most of this toolkit's workflows, **subagents are sufficient**. Reach for a 
 teammates need to challenge each other — competing hypotheses, or a parallel review where the
 reviewers should argue.
 
+## Running the Chief of Staff
+
+The orchestrator, holding the human relationship, is the Chief of Staff
+(`agents/orchestrator.md`). Two ways to run it:
+
+```bash
+claude --agent orchestrator                  # the definition is the system prompt
+claude -p "Act as the orchestrator defined in agents/orchestrator.md. <goal>"
+```
+
+In a cloud thread session only the second form is available, as an instruction in the brief.
+That session's own harness instructions still apply beside it, and they may tell it to open a
+draft pull request after any push. The definition says opening a pull request is always the
+human's decision; that is the rule that holds, and it is stated in the definition because no
+local run reproduces a cloud thread's instructions.
+
+**What the harness enforces for it, and what it does not.** Measured on 2.1.281, 2026-09-24,
+in `claude -p` sessions launched from this container:
+
+- **Nesting.** A subagent *can* dispatch its own subagent: at
+  `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=3` the nested call appeared in the stream with its
+  parent's id and returned. **This environment sets the variable to 1**, and at 1 a dispatched
+  subagent is given no Agent tool. That is a setting — the documented default is 3 — so the
+  orchestrator dispatches flat by design, not because nesting is impossible.
+- **A spawn allowlist works under `--agent`.** `tools: Agent(critic)` on a main-thread agent
+  refused an `explorer` spawn with *"Agent type 'explorer' not found. Available agents:
+  critic"*; a bare `Agent` spawned it. It is not used (see the adapter's notes).
+- **A deny rule on a type works.** `"deny": ["Agent(explorer)"]` in project settings refused
+  the spawn, naming the rule.
+- **An agent definition written during a session was not loaded by that session.** Twice: once
+  spawned 1.3 seconds after the file was written, once after 16 seconds, both refused as not
+  found, while a control with the same file present at launch spawned and answered. **This
+  contradicts the documentation**, which says new files are picked up within a few seconds, and
+  it was measured in `-p` sessions only. Outside `-p`, assume the documentation.
+- **A nested `claude -p` does not run on the outer session's model.** Every probe's `init` event
+  named a model other than the outer session's. Pin `--model` in any run whose
+  result depends on the model.
+- **Anything that can run Bash can start a new session** with whatever definitions its working
+  tree holds. Every probe above was one. Nothing in the harness prevents a worker from doing
+  the same, which is why the definition forbids it and the eval suite looks for it.
+
+**Self-report only:** run with `--agent`, the pre-3A orchestrator listed 14 subagent types it
+could spawn, six of them outside this toolkit (`claude`, `claude-code-guide`, `Explore`,
+`general-purpose`, `Plan`, `statusline-setup`). That fits the documented rule that an omitted
+`tools` inherits every tool. It was not a spawn, and it is not a measurement.
+
+Two settings are deliberately **not** used. Setting `agent` in the repository's shared
+settings would make every session on this repository run as the orchestrator — measured in
+`-p` — including a cloud Project's own thread sessions, where it has not been measured. And a
+shared deny list of built-in types would change every session here too.
+
 ## Enforcing independence
 
 Independence is a property of history (see `docs/concepts/independence.md`), and Claude Code
@@ -311,6 +375,15 @@ date given — a primary source, but not a run.
 | `skills:` is not applied to teammates | **documented** — `agent-teams`, 2026-09-21 |
 | Agent Teams is experimental, env-gated and interactive-only | **documented** — `agent-teams`, 2026-09-21 |
 | No project-level team config file is read | **documented** — `agent-teams`, 2026-09-21 |
+| `claude --version` reports 2.1.281 | **verified** — run 2026-09-24, in this cloud container |
+| `claude --agent orchestrator` makes the definition the main thread's system prompt | **verified** — 2.1.281, 2026-09-24, against a control without the flag |
+| The pre-3A orchestrator is offered six subagent types outside this toolkit | **self-report** — 2.1.281, 2026-09-24; no spawn was attempted |
+| `tools: Agent(<type>)` on a main-thread agent is an enforced spawn allowlist | **verified** — 2.1.281, 2026-09-24, against a bare `Agent` control |
+| A subagent can dispatch a subagent at depth 3; this environment sets depth 1 | **verified** — 2.1.281, 2026-09-24, at 3, at 1 and at the inherited value, which is 1 here |
+| An agent file written mid-session is not loaded by that session, in `-p` | **verified**, n = 2 — 2.1.281, 2026-09-24, with a positive control; **contradicts** the `sub-agents` documentation |
+| The `agent` key in project settings behaves like `--agent` | **verified** in `-p` only — 2.1.281, 2026-09-24; not in a cloud Project session |
+| `permissions.deny: ["Agent(explorer)"]` blocks that type | **verified** — 2.1.281, 2026-09-24, in `-p` |
+| A nested `claude -p` runs on the environment's default model, not the outer model | **verified** — 2.1.281, 2026-09-24, read from every probe's `init` event |
 | The Windows `core.symlinks` caveat | **unchecked** — see below |
 
 Three limits on this table. The **documented** rows describe intent; only the verified rows

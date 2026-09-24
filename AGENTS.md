@@ -202,6 +202,7 @@ holds. It fails closed on anything it cannot classify.
 | use this with Codex | `docs/platforms/codex.md` |
 | use this with anything else | `docs/platforms/generic-harness.md` |
 | add an agent | `agents/README.md` |
+| run the Chief of Staff | `agents/orchestrator.md`, then *Running the Chief of Staff* in `docs/platforms/claude-code.md` |
 | install it on a machine | `local/README.md` |
 | see what is machine-specific | `profile/README.md` |
 | use it with cloud Claude Code | `cloud/README.md` |
