@@ -18,7 +18,7 @@ Which file wins when two disagree.
 4.  docs/platforms/*.md                 USAGE — how to drive the above on one harness
 
     manifest/  packs/  profile/        HOST — delivery, alongside the chain and
-    local/  cloud/                            outside it; defines nothing.
+    local/  cloud/  .claude-plugin/           outside it; defines nothing.
     .claude/settings.json                     tools/check.py enforces this set
 ```
 
@@ -39,7 +39,7 @@ see why without reading the source. Two patterns, matched against the text of ev
 
 | | |
 |---|---|
-| directory prefixes | `local/` `cloud/` `manifest/` `packs/` `profile/` `vendor/` |
+| directory prefixes | `local/` `cloud/` `manifest/` `packs/` `profile/` `vendor/` `.claude-plugin/` |
 | bare filenames, wherever they appear | `settings.json` `settings.local.json` `settings.fragment.json` `bootstrap.sh` `doctor.sh` `setup.sh` |
 
 `vendor/` is in the set although this repository no longer has one: it is what stops a
@@ -73,6 +73,7 @@ the word "vendor" to state the portability rule itself.
 | `roles/` `skills/` `workflows/` | the definition of a concept | anything requiring a specific harness, vendor, model or language |
 | `agents/` | the definition of an agent that is not a role, including the harness mechanics it cannot be written without | a definition that would satisfy the three-part role bar; a reference to the `HOST` layer |
 | `manifest/` `packs/` `profile/` `local/` `cloud/` `.claude/settings.json` | delivery and installation — shell and JSON data | any definition, and anything the canonical layer is expected to read |
+| `.claude-plugin/` | delivery — the two JSON manifests that make the repository root a Claude Code plugin | any definition; any component that runs, which `tools/check.py` refuses |
 | `docs/concepts/` | why the canonical layer is shaped this way | a second, competing definition |
 | `.claude/` `.codex/` | identifiers, tool limits, model/effort, permissions, a few operating notes, a marked verbatim copy | a reworded version of a role's responsibilities |
 | `docs/platforms/` | how to use the above on one harness, with its limitations | any definition |

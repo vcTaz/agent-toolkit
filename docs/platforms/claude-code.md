@@ -58,6 +58,60 @@ implement the Agent Skills convention. That asymmetry is deliberate: the Agent S
 convention is generic about the container, and Claude Code's documentation is specific about
 the entry. Do not "tidy" the two into the same shape.
 
+## Installing it as a plugin
+
+Opening the repository serves that repository only. To use the toolkit from any other project
+without a checkout, install it as a plugin. The repository is its own marketplace:
+
+```text
+/plugin marketplace add vcTaz/agent-toolkit
+/plugin install agent-toolkit@agent-toolkit
+```
+
+From a shell the same two steps are `claude plugin marketplace add vcTaz/agent-toolkit` and
+`claude plugin install agent-toolkit@agent-toolkit`. To take a branch other than the default,
+append `@<branch>` to the marketplace source.
+
+`.claude-plugin/marketplace.json` lists one plugin whose source is `./`, so **the plugin root
+is the repository root**, and `.claude-plugin/plugin.json` says what it carries:
+
+| Delivered | From | Named in a session |
+|---|---|---|
+| the eight subagents | `.claude/agents/*.md`, listed one file at a time | `agent-toolkit:critic`, `agent-toolkit:orchestrator`, … |
+| the seven skills | `skills/`, Claude Code's default scan | `agent-toolkit:adversarial-review`, … |
+
+Three things at the repository root are deliberately not delivered:
+
+- **`AGENTS.md` and `CLAUDE.md`.** Claude Code does not load a `CLAUDE.md` from a plugin
+  root. The adapters carry their canonical bodies verbatim, so a plugin agent is fully
+  defined without either file; the contribution rules stay with the repository.
+- **`agents/`.** Listing agents in the manifest replaces Claude Code's default `agents/`
+  scan, so the orchestrator arrives through its adapter, with the same body, rather than as
+  the canonical file, which has no `description`. `claude plugin list` prints a note that the
+  default folder is ignored. That note is expected.
+- **`workflows/`.** It is also Claude Code's default location for workflow scripts. Here it
+  holds Markdown, which loads no workflow.
+
+Nothing that runs is delivered either: no hooks, MCP or LSP servers, commands, scripts or
+plugin settings. `tools/check.py` refuses them in both manifests and in the repository root's
+default plugin locations. It also fails when an adapter exists that `plugin.json` does not
+list, because Claude Code would deliver the others without it and say nothing.
+
+**No `version` is set**, so the installed version is the commit the marketplace was fetched
+at, and every commit to the default branch is an update. `claude plugin validate` warns about
+the missing field and passes; `--strict` fails on that warning alone. Setting a version would
+instead mean installed copies receive nothing until someone bumps it.
+
+**Inside this repository with the plugin installed**, a session is offered both sets, from the
+same files: the project's `critic` and the plugin's `agent-toolkit:critic`. The plugin's names
+are namespaced, so neither shadows the other.
+
+**Cloud is not a tested route.** A marketplace declared in a repository's settings was
+measured on 2026-09-20 to install nothing in a cloud session (`docs/host-integration.md`), and
+this repository declares none. **Project settings → Plugins** is the documented route into a
+thread and has not been tried with this marketplace. In cloud, attach the repository itself;
+see `cloud/README.md`.
+
 ## Subagents
 
 `.claude/agents/<role>.md` is the currently supported project-level mechanism. Files are
@@ -279,6 +333,7 @@ will not enforce it for you. In practice:
 | `.claude/skills/` project skills | stable |
 | Agent Teams | **experimental**, flag-gated, documented limitations around resumption and shutdown |
 | `.claude/commands/` | legacy — skills supersede it; this repository ships none |
+| The plugin in `.claude-plugin/` | documented; install verified locally at 2.1.282, not tried in cloud. `claude plugin details` under-counts its agents |
 
 Nothing canonical in this repository depends on Agent Teams. If it changed tomorrow, the roles,
 skills and workflows would be unaffected and only this file would need editing.
@@ -312,14 +367,23 @@ date given — a primary source, but not a run.
 | Agent Teams is experimental, env-gated and interactive-only | **documented** — `agent-teams`, 2026-09-21 |
 | No project-level team config file is read | **documented** — `agent-teams`, 2026-09-21 |
 | The Windows `core.symlinks` caveat | **unchecked** — see below |
+| `claude plugin validate .` passes on the marketplace with one warning, the missing `version` | **verified** — 2.1.282, 2026-09-24 |
+| A directory in the manifest's `agents` field is rejected (`agents: Invalid input`) | **verified** — 2.1.282, 2026-09-24 |
+| Once installed, a session's init record lists all eight `agent-toolkit:` subagents and all seven `agent-toolkit:` skills | **verified** — 2.1.282, 2026-09-24, nested `claude -p` with an isolated config directory: installed from a local-directory marketplace, and again from GitHub at the branch that added the manifests |
+| The eight agents load from `.claude/agents/`, the default `agents/` folder is skipped, and no plugin workflow loads | **verified** — 2.1.282, 2026-09-24, from the debug log of the local-directory run |
+| Inside this repository with the plugin installed, both `critic` and `agent-toolkit:critic` are offered | **verified** — 2.1.282, 2026-09-24, init record |
+| `tools:` carries over — `agent-toolkit:synthesizer` is offered as `Read, Grep, Glob` | **verified by read-back** — 2.1.282, 2026-09-24. The model quoted its Agent tool description, so this is the list offered, not a test of enforcement |
+| `claude plugin details` reports **Agents (0)** for this plugin | **verified** — 2.1.282, 2026-09-24. It does not count agents listed by path, while a session loads them; the init record is the evidence, not the inventory |
+| The plugin in a cloud session | **not tried** |
 
 Three limits on this table. The **documented** rows describe intent; only the verified rows
 establish that this repository's own layout is discovered. The Agent Teams page states its own
 baseline — *"This page describes agent teams as of v2.1.178"* — so agreeing with it is not
 evidence about 2.1.278 specifically. And exactly one step of the precedence order was run —
 `--agents` over a project definition of the same name. Managed settings, `~/.claude/agents/`
-and plugin agents were read rather than run; there is no managed installation, user directory
-or plugin here to test the rest against.
+and plugin agents were read rather than run; there is no managed installation or user
+directory here to test the rest against, and this repository's own plugin cannot test it
+either, because its agents are namespaced and never share a name with a project definition.
 
 The Windows row is unchecked in both senses. `core.symlinks` is a Git behaviour rather than a
 Claude Code one, the Claude Code documentation does not address it, and no Windows checkout

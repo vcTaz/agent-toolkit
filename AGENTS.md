@@ -44,6 +44,7 @@ manifest/         HOST       what is composed from elsewhere — data, never con
 profile/          HOST       one machine's own composition — never required
 local/            HOST       install this toolkit into a local Claude Code config
 cloud/            HOST       install it into a cloud Claude Code environment
+.claude-plugin/   HOST       makes the repository root a plugin and a marketplace
 tools/check.py               structural checks and adapter sync
 .github/          CI         runs tools/check.py and tools/test.sh on a PR to main
 ```
@@ -194,6 +195,7 @@ drift, symlink targets and link resolution. It fails closed on anything it canno
 | use this with anything else | `docs/platforms/generic-harness.md` |
 | add an agent | `agents/README.md` |
 | install it on a machine | `local/README.md` |
+| install it as a Claude Code plugin | `docs/platforms/claude-code.md` |
 | see what is machine-specific | `profile/README.md` |
 | use it with cloud Claude Code | `cloud/README.md` |
 | understand the host layer | `docs/host-integration.md` |

@@ -1,0 +1,17 @@
+{
+  "name": "agent-toolkit",
+  "owner": {
+    "name": "vcTaz",
+    "url": "https://github.com/vcTaz"
+  },
+  "metadata": {
+    "description": "One plugin: this repository's agent roles, orchestrator and reliability skills."
+  },
+  "plugins": [
+    {
+      "name": "agent-toolkit",
+      "source": "./",
+      "category": "development"
+    }
+  ]
+}

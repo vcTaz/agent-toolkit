@@ -382,9 +382,124 @@ def check_skill_links():
             fail(link, 'resolves, but the target has no SKILL.md')
 
 
+# --- plugin packaging ----------------------------------------------------------------
+
+PLUGIN_KEYS = {'name', 'description', 'version', 'author', 'homepage', 'repository',
+               'license', 'keywords', 'agents'}
+"""Metadata, plus `agents`. Every other plugin.json key is a component or a runtime."""
+
+ENTRY_KEYS = {'name', 'source', 'description', 'version', 'author', 'homepage',
+              'repository', 'license', 'keywords', 'category', 'tags'}
+"""A marketplace entry may carry components too; with the default `strict` it must not."""
+
+PLUGIN_DEFAULT_LOCATIONS = ('commands', 'hooks', 'output-styles', 'themes', 'monitors',
+                            'bin', 'settings.json', '.mcp.json', '.lsp.json')
+"""What Claude Code loads from a plugin root with no manifest key asking for it."""
+
+
+def check_plugin():
+    """The repository root is a Claude Code plugin, listed by a one-plugin marketplace.
+
+    The marketplace entry's source is `./`, so the plugin root IS the repository root.
+    Everything Claude Code loads from a plugin root by default is therefore read from
+    this tree, which is why the check looks at the tree and not only at the manifests.
+
+    SKILLS come from the default `skills/` scan, which is the canonical directory. A
+    `skills` key is refused: for an entry whose source is the marketplace root, listing
+    skill directories REPLACES that scan, so a key naming some skills would silently drop
+    the rest.
+
+    AGENTS are listed file by file. The key replaces the default `agents/` scan, which is
+    wanted -- `agents/` holds canonical definitions, and the adapters a session should
+    get are in `.claude/agents/`. It has to be files: `claude plugin validate` rejects a
+    directory there (2.1.282). So a new adapter is not delivered until it is listed, and
+    that is a failure here rather than something a plugin user notices first.
+
+    NOTHING THAT RUNS. Hooks, MCP and LSP servers, commands, workflow scripts,
+    executables and a root `settings.json` would put a runtime into every session that
+    installs the plugin, and AGENTS.md forbids adding one without a concrete need. The
+    key allowlists and the scan of default locations make adding one a decision rather
+    than an accident. `workflows/` is also the default location for workflow scripts,
+    and here it holds this toolkit's Markdown workflows, so it may hold Markdown only.
+    """
+    import json
+    base = ROOT / '.claude-plugin'
+    manifests = {}
+    for name in ('plugin.json', 'marketplace.json'):
+        path = base / name
+        if not path.is_file():
+            fail(path, 'missing. The repository is packaged as a plugin and a marketplace, '
+                       'and a clone without this file installs nothing.')
+            continue
+        try:
+            manifests[name] = json.loads(path.read_text(encoding='utf-8'))
+        except json.JSONDecodeError as exc:
+            fail(path, f'not valid JSON: {exc}')
+            continue
+        if not isinstance(manifests[name], dict):
+            fail(path, 'is not a JSON object')
+            manifests[name] = None
+
+    plugin, where = manifests.get('plugin.json'), base / 'plugin.json'
+    if plugin:
+        for key in sorted(set(plugin) - PLUGIN_KEYS):
+            fail(where, f'unexpected key {key!r}. Only metadata and `agents` are allowed; '
+                        'skills load from skills/ by default, and anything else is a '
+                        'component this toolkit does not ship.')
+        if not SKILL_NAME_RE.fullmatch(str(plugin.get('name', ''))):
+            fail(where, f'name {plugin.get("name")!r} is not a kebab-case plugin name')
+        adapters = sorted(f'./.claude/agents/{p.name}'
+                          for p in (ROOT / '.claude' / 'agents').glob('*.md'))
+        listed = plugin.get('agents')
+        if not isinstance(listed, list) or not all(isinstance(a, str) for a in listed):
+            fail(where, '`agents` must be a list of adapter files. A directory is '
+                        'rejected by claude plugin validate.')
+        else:
+            for duplicate in sorted({a for a in listed if listed.count(a) > 1}):
+                fail(where, f'`agents` lists {duplicate!r} more than once')
+            for missing in sorted(set(adapters) - set(listed)):
+                fail(where, f'`agents` does not list {missing!r}, so the plugin does not '
+                            'deliver that adapter')
+            for extra in sorted(set(listed) - set(adapters)):
+                fail(where, f'`agents` lists {extra!r}, which is not an adapter in '
+                            '.claude/agents/')
+
+    market, where = manifests.get('marketplace.json'), base / 'marketplace.json'
+    if market:
+        entries = market.get('plugins')
+        if not isinstance(entries, list) or len(entries) != 1 \
+                or not isinstance(entries[0], dict):
+            fail(where, '`plugins` must list exactly one plugin: this repository')
+        else:
+            entry = entries[0]
+            for key in sorted(set(entry) - ENTRY_KEYS):
+                fail(where, f'plugin entry has unexpected key {key!r}. Components are '
+                            'declared in plugin.json or loaded by default, never here.')
+            if entry.get('source') != './':
+                fail(where, f'plugin entry source is {entry.get("source")!r}, expected '
+                            "'./': the plugin is the repository root")
+            if plugin and entry.get('name') != plugin.get('name'):
+                fail(where, f'plugin entry name {entry.get("name")!r} does not match '
+                            f'plugin.json name {plugin.get("name")!r}')
+
+    for location in PLUGIN_DEFAULT_LOCATIONS:
+        path = ROOT / location
+        if path.exists() or path.is_symlink():
+            fail(path, 'Claude Code loads this from a plugin root, and the repository root '
+                       'is the plugin root (.claude-plugin/marketplace.json). It would '
+                       'reach every session that installs the plugin.')
+    workflows = ROOT / 'workflows'
+    if workflows.is_dir():
+        for path in sorted(p for p in workflows.rglob('*') if not p.is_dir()):
+            if path.suffix != '.md':
+                fail(path, 'workflows/ is also where Claude Code looks for plugin workflow '
+                           'scripts (.claude-plugin/), so it may hold Markdown only')
+
+
 CANONICAL_TREES = ('roles', 'agents', 'skills', 'workflows')
 
-HOST_DIR_RE = re.compile(r'(?<![\w.-])(local|cloud|manifest|packs|profile|vendor)/')
+HOST_DIR_RE = re.compile(
+    r'(?<![\w.-])(local|cloud|manifest|packs|profile|vendor|\.claude-plugin)/')
 HOST_FILE_RE = re.compile(
     r'(?<![\w-])(settings\.json|settings\.local\.json|settings\.fragment\.json'
     r'|bootstrap\.sh|doctor\.sh|setup\.sh)')
@@ -400,8 +515,8 @@ def check_host_invariant():
     Two things decide whether this check is worth having, and both are deliberate.
 
     WHAT COUNTS AS THE HOST LAYER is what the repository map says it is: `local/`,
-    `cloud/`, `manifest/`, `packs/`, `profile/`, `vendor/`, and the settings and install
-    scripts. It is NOT `.claude/agents/` or `.codex/agents/`, which are the ADAPTER tier,
+    `cloud/`, `manifest/`, `packs/`, `profile/`, `vendor/`, `.claude-plugin/`, and the
+    settings and install scripts. It is NOT `.claude/agents/` or `.codex/agents/`, which are the ADAPTER tier,
     and it is NOT `tools/`, which is maintenance tooling every contributor is told to
     run. Canonical READMEs name all three today and are right to: `roles/README.md`
     points at the adapters it generates, and tells a contributor to run `tools/check.py`.
@@ -471,6 +586,7 @@ def main():
     check_host_invariant()
     check_adapters(roles, agents, sync)
     check_skill_links()
+    check_plugin()
     check_links()
 
     if problems:

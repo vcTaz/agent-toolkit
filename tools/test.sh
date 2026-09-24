@@ -1656,6 +1656,9 @@ else
   plant_and_check skills/README.md \
     'Machine specifics live in `profile/plugins.json`.' \
     'skills/ naming profile/plugins.json is rejected' reject
+  plant_and_check workflows/README.md \
+    'Install the plugin from `.claude-plugin/marketplace.json` first.' \
+    'workflows/ naming .claude-plugin/marketplace.json is rejected' reject
 
   plant_and_check roles/README.md \
     'A local decision, made in the cloud, by a vendor, matching a profile and a manifest.' \
@@ -1796,6 +1799,77 @@ else
     printf '%s' "$out" | grep '^ADVISORY ' | head -6 | sed 's/^/          /'
   fi
   ok "the prose heuristic is advisory: it reports ${advn:-0} and gates nothing"
+fi
+
+# ---------------------------------------------------------------------------------------
+group "plugin packaging: every adapter is delivered, and nothing that runs is"
+
+# The repository root is the plugin root, so a manifest that forgets an adapter, or a
+# file that lands in one of Claude Code's default plugin locations, changes what every
+# installed session gets with no error from Claude Code at all. Each case plants one such
+# change in a copy and requires check.py to exit non-zero NAMING the plugin; an exit for
+# some unrelated reason would prove nothing.
+
+if ! command -v python3 >/dev/null 2>&1; then
+  skip "python3 absent — plugin packaging tests cannot run"
+else
+  plugfix="$TMPROOT/plugfix"
+  rm -rf "$plugfix"; mkdir -p "$plugfix"
+  ( cd "$ROOT" && tar -c --exclude=./.git . ) | ( cd "$plugfix" && tar -x )
+  pj="$plugfix/.claude-plugin/plugin.json"
+  mj="$plugfix/.claude-plugin/marketplace.json"
+
+  out="$(python3 "$ROOT/tools/check.py" --root "$plugfix" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q 'claude-plugin\|plugin root'; then
+    ok "the unmodified tree passes the plugin check"
+  else
+    no "the unmodified tree fails the plugin check (rc $rc)"
+  fi
+
+  # label | shell that plants the change, run inside the fixture
+  plugin_case() {
+    local label="$1" plant="$2"
+    cp "$pj" "$TMPROOT/pj.bak"; cp "$mj" "$TMPROOT/mj.bak"
+    ( cd "$plugfix" && eval "$plant" )
+    local out rc
+    out="$(python3 "$ROOT/tools/check.py" --root "$plugfix" 2>&1)"; rc=$?
+    cp "$TMPROOT/pj.bak" "$pj"; cp "$TMPROOT/mj.bak" "$mj"
+    rm -rf "$plugfix/hooks" "$plugfix/settings.json" "$plugfix/workflows/plant.js" \
+           "$plugfix/.claude/agents/planted.md"
+    if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'claude-plugin\|plugin root'; then
+      ok "rejected: $label"
+    else
+      no "not rejected: $label (rc $rc)"
+    fi
+  }
+  edit_json() {  # file | python statement over d
+    python3 -c "import json,sys;p=sys.argv[1];d=json.load(open(p));$2;json.dump(d,open(p,'w'))" "$1"
+  }
+
+  plugin_case "an adapter missing from agents" \
+    "edit_json '$pj' 'd[\"agents\"].remove(\"./.claude/agents/critic.md\")'"
+  plugin_case "an adapter file the manifest does not list" \
+    "cp .claude/agents/critic.md .claude/agents/planted.md"
+  plugin_case "agents given as a directory" \
+    "edit_json '$pj' 'd[\"agents\"]=\"./.claude/agents/\"'"
+  plugin_case "a skills key, which would replace the skills/ scan" \
+    "edit_json '$pj' 'd[\"skills\"]=[\"./skills/critic\"]'"
+  plugin_case "a hooks key in plugin.json" \
+    "edit_json '$pj' 'd[\"hooks\"]={}'"
+  plugin_case "a component in the marketplace entry" \
+    "edit_json '$mj' 'd[\"plugins\"][0][\"mcpServers\"]={}'"
+  plugin_case "strict: false in the marketplace entry" \
+    "edit_json '$mj' 'd[\"plugins\"][0][\"strict\"]=False'"
+  plugin_case "a marketplace source that is not the repository root" \
+    "edit_json '$mj' 'd[\"plugins\"][0][\"source\"]=\"./plugin\"'"
+  plugin_case "a marketplace entry named differently from the plugin" \
+    "edit_json '$mj' 'd[\"plugins\"][0][\"name\"]=\"other\"'"
+  plugin_case "hooks/hooks.json at the repository root" \
+    "mkdir -p hooks && printf '{}' > hooks/hooks.json"
+  plugin_case "a plugin settings.json at the repository root" \
+    "printf '{}' > settings.json"
+  plugin_case "a workflow script in workflows/" \
+    "printf 'export const meta = {}' > workflows/plant.js"
 fi
 
 # ---------------------------------------------------------------------------------------

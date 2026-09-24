@@ -17,8 +17,13 @@ one case well and two badly:
    hooks. A machine-side convention therefore cannot reach cloud by any route.
 
 Case 2 is solved by `local/` — symlinks from a single checkout into the user-level config,
-so there is exactly one copy of every definition on the machine. Case 3 is solved by
-`cloud/`, because the only channel that reaches a cloud session is a git checkout.
+so there is exactly one copy of every definition on the machine. Since 2026-09-24 it has a
+second route that needs no checkout: `.claude-plugin/` makes the repository root a Claude
+Code plugin and the repository a marketplace that lists it, so `/plugin install` delivers
+the agents and skills to every project. It does not deliver `AGENTS.md`, and it copies
+the definitions into Claude Code's plugin cache rather than linking them; see
+`docs/platforms/claude-code.md`. Case 3 is solved by `cloud/`, because the only channel
+measured to reach a cloud session is a git checkout. The plugin has not been tried there.
 
 ## The bounds
 
@@ -27,7 +32,10 @@ The host layer is deliberately the least powerful thing that solves those cases.
 - **Shell and JSON only.** No new language dependency: `tools/` stays stdlib-only Python and
   is added to only when a maintenance task genuinely needs it.
 - **No runtime the canonical layer can observe.** Nothing in `roles/`, `agents/`, `skills/`
-  or `workflows/` may reference `local/`, `cloud/`, `manifest/` or `.claude/settings.json`.
+  or `workflows/` may reference `local/`, `cloud/`, `manifest/`, `.claude-plugin/` or
+  `.claude/settings.json`. The plugin carries no hooks, servers, commands or scripts, and
+  `tools/check.py` refuses them, because a plugin component that runs would be a runtime in
+  every session that installs it.
   Remove the host layer and the canonical layer is unchanged and still correct.
 - **Data, not content.** `manifest/` records *what is composed from elsewhere* — upstream
   repositories, versions, commit SHAs, checksums. It vendors nothing. Four separate
@@ -190,7 +198,7 @@ verifiable offline against per-file hashes, and never hand-edited. Each pack car
 own detection reports none for either source.
 
 The gain is that this repository is now what it claims to be. It was 500 tracked files, of
-which 398 were content nobody here wrote; it is now 85, and every skill in `.claude/skills/`
+which 398 were content nobody here wrote; it is now 87, and every skill in `.claude/skills/`
 resolves into the canonical `skills/`. That count is asserted against `git ls-files` by
 `tools/test.sh`, because it read 78 and then 81 while the tree was neither.
 

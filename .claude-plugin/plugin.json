@@ -1,0 +1,21 @@
+{
+  "name": "agent-toolkit",
+  "description": "Agent roles, an orchestrator and reliability skills for agent teams whose answers are checked independently rather than agreed on.",
+  "author": {
+    "name": "vcTaz",
+    "url": "https://github.com/vcTaz"
+  },
+  "homepage": "https://github.com/vcTaz/agent-toolkit",
+  "repository": "https://github.com/vcTaz/agent-toolkit",
+  "keywords": ["agents", "subagents", "multi-agent", "review", "verification", "reliability"],
+  "agents": [
+    "./.claude/agents/critic.md",
+    "./.claude/agents/explorer.md",
+    "./.claude/agents/final-reviewer.md",
+    "./.claude/agents/implementer.md",
+    "./.claude/agents/orchestrator.md",
+    "./.claude/agents/specialist.md",
+    "./.claude/agents/synthesizer.md",
+    "./.claude/agents/validator.md"
+  ]
+}

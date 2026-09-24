@@ -121,6 +121,19 @@ polluted with duplicates:
 ./local/doctor.sh             # verify
 ```
 
+Or, with no checkout at all, install the repository as a Claude Code plugin. It is its own
+marketplace:
+
+```text
+/plugin marketplace add vcTaz/agent-toolkit
+/plugin install agent-toolkit@agent-toolkit
+```
+
+The plugin carries the same eight subagents and seven skills, namespaced as
+`agent-toolkit:critic` and so on, and nothing that runs. It does not carry `AGENTS.md`. See
+[docs/platforms/claude-code.md](docs/platforms/claude-code.md) for what it delivers and what
+has been verified.
+
 To use them in **Claude Projects or a cloud** Claude Code session, see
 [cloud/README.md](cloud/README.md). The short version: nothing in `~/.claude/` reaches
 cloud, so a repository is the only route — add this one to the project and every thread
