@@ -20,8 +20,8 @@ Case 2 is solved by `local/` — symlinks from a single checkout into the user-l
 so there is exactly one copy of every definition on the machine. Since 2026-09-24 it has a
 second route that needs no checkout: `.claude-plugin/` makes the repository root a Claude
 Code plugin and the repository a marketplace that lists it, so `/plugin install` delivers
-the agents and skills to every project. It does not deliver `AGENTS.md`, and it copies
-the definitions into Claude Code's plugin cache rather than linking them; see
+the agents and skills to every project. It does not load `AGENTS.md`, and it copies the
+whole repository into Claude Code's plugin cache rather than linking it; see
 `docs/platforms/claude-code.md`. Case 3 is solved by `cloud/`, because the only channel
 measured to reach a cloud session is a git checkout. The plugin has not been tried there.
 
@@ -33,9 +33,11 @@ The host layer is deliberately the least powerful thing that solves those cases.
   is added to only when a maintenance task genuinely needs it.
 - **No runtime the canonical layer can observe.** Nothing in `roles/`, `agents/`, `skills/`
   or `workflows/` may reference `local/`, `cloud/`, `manifest/`, `.claude-plugin/` or
-  `.claude/settings.json`. The plugin carries no hooks, servers, commands or scripts, and
-  `tools/check.py` refuses them, because a plugin component that runs would be a runtime in
-  every session that installs it.
+  `.claude/settings.json`. The plugin loads nothing that Claude Code runs by itself — no
+  hooks, servers, commands, inline skill shell or install-time packages — and
+  `tools/check.py` refuses each of them, because a plugin component that runs would be a
+  runtime in every session that installs it. The repository's own scripts are copied into
+  the plugin cache with everything else, and are never loaded.
   Remove the host layer and the canonical layer is unchanged and still correct.
 - **Data, not content.** `manifest/` records *what is composed from elsewhere* — upstream
   repositories, versions, commit SHAs, checksums. It vendors nothing. Four separate

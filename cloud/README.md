@@ -180,7 +180,7 @@ Every step is manual and account-side unless marked otherwise. Start: **New Clau
 
 ### Configure what repos cannot carry
 
-6. **Plugins** — **this repository declares none, and a repository cannot deliver them.**
+6. **Plugins** — **this repository declares none, and a repository's settings cannot deliver them.**
    It used to declare `ecc`, `superpowers` and `ui-ux-pro-max` with their marketplaces in
    `.claude/settings.json`; measured on 2026-09-20 in a fresh session, the file was read
    and its deny rules enforced while **zero** of those plugins installed. The two keys

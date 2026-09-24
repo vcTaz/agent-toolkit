@@ -189,6 +189,17 @@ def check_adapters(roles, agents, sync):
                     fail(path, f'canonical {identity!r} has no {kind} adapter'
                                + (' (run tools/check.py --sync)' if kind == 'claude' else ''))
                     continue
+            if kind == 'claude':
+                # Claude Code registers an agent under its frontmatter `name`, not its file
+                # name. Measured at 2.1.282: validator.md declaring `name: critic` left the
+                # installed plugin offering seven agents, with no error anywhere, and the
+                # same collision applies to the project directory.
+                declared = frontmatter(path)[0].get('name')
+                if declared != identity:
+                    fail(path, f'frontmatter name {declared!r} is not {identity!r}. Claude '
+                               'Code registers the agent under that name, so a mismatch '
+                               'renames it and a clash drops one, in this repository and '
+                               'in the plugin (.claude-plugin/) alike.')
             rebuild(path, identity, source, body, sync)
 
 
@@ -393,8 +404,17 @@ ENTRY_KEYS = {'name', 'source', 'description', 'version', 'author', 'homepage',
 """A marketplace entry may carry components too; with the default `strict` it must not."""
 
 PLUGIN_DEFAULT_LOCATIONS = ('commands', 'hooks', 'output-styles', 'themes', 'monitors',
-                            'bin', 'settings.json', '.mcp.json', '.lsp.json')
-"""What Claude Code loads from a plugin root with no manifest key asking for it."""
+                            'bin', 'settings.json', '.mcp.json', '.lsp.json', 'package.json')
+"""What Claude Code loads or acts on at a plugin root with no manifest key asking for it.
+`package.json` is here because, beside a lockfile, it makes every install run npm."""
+
+SKILL_KEYS = {'name', 'description', 'license', 'compatibility', 'metadata'}
+"""The Agent Skills fields, less `allowed-tools`. Claude Code honours more, and some of
+them act: `hooks` registers hooks for the rest of the session, `allowed-tools` grants
+tools without asking, and `context`, `agent`, `model` and `effort` change who runs."""
+
+INLINE_SHELL_RE = re.compile(r'(?:^|\s)!`|^[ \t]*(?:`{3,}|~{3,})!', re.M)
+"""Claude Code runs `` !`cmd` `` and ```! blocks in a SKILL.md before the model reads it."""
 
 
 def check_plugin():
@@ -415,12 +435,26 @@ def check_plugin():
     directory there (2.1.282). So a new adapter is not delivered until it is listed, and
     that is a failure here rather than something a plugin user notices first.
 
-    NOTHING THAT RUNS. Hooks, MCP and LSP servers, commands, workflow scripts,
-    executables and a root `settings.json` would put a runtime into every session that
-    installs the plugin, and AGENTS.md forbids adding one without a concrete need. The
-    key allowlists and the scan of default locations make adding one a decision rather
-    than an accident. `workflows/` is also the default location for workflow scripts,
-    and here it holds this toolkit's Markdown workflows, so it may hold Markdown only.
+    NOTHING CLAUDE CODE RUNS BY ITSELF. Hooks, MCP and LSP servers, commands, workflow
+    scripts, executables, a root `settings.json` and install-time package dependencies
+    would put a runtime into every session that installs the plugin, and AGENTS.md
+    forbids adding one without a concrete need. The key allowlists and the scan of
+    default locations make adding one a decision rather than an accident. The root is
+    compared without case, because a `Hooks/` passes a case-sensitive test and may not
+    pass a case-insensitive filesystem. `workflows/` is also the default location for
+    workflow scripts, and here it holds this toolkit's Markdown workflows, so it may hold
+    Markdown only.
+
+    The delivered SKILLS are in scope too, and the first version of this check missed
+    them. A skill's frontmatter can carry `hooks`, and its body can carry inline shell
+    that runs when the skill loads. Both were measured reaching an installed session at
+    2.1.282 with this check passing. A canonical skill has no business with either --
+    they are Claude Code mechanics, and skills/ is portable -- so the frontmatter is held
+    to the Agent Skills fields and inline shell is refused outright.
+
+    What is COPIED is wider than what is loaded: a plugin install copies the whole
+    repository, `local/` and `tools/` scripts included. They are never loaded or run by
+    Claude Code, and this check is about what is.
     """
     import json
     base = ROOT / '.claude-plugin'
@@ -482,12 +516,26 @@ def check_plugin():
                 fail(where, f'plugin entry name {entry.get("name")!r} does not match '
                             f'plugin.json name {plugin.get("name")!r}')
 
-    for location in PLUGIN_DEFAULT_LOCATIONS:
-        path = ROOT / location
-        if path.exists() or path.is_symlink():
-            fail(path, 'Claude Code loads this from a plugin root, and the repository root '
-                       'is the plugin root (.claude-plugin/marketplace.json). It would '
-                       'reach every session that installs the plugin.')
+    refused = {location.lower() for location in PLUGIN_DEFAULT_LOCATIONS}
+    for path in sorted(ROOT.iterdir()):
+        if path.name.lower() in refused:
+            fail(path, 'Claude Code loads or acts on this at a plugin root, and the '
+                       'repository root is the plugin root (.claude-plugin/'
+                       'marketplace.json). It would reach every session that installs '
+                       'the plugin.')
+    for path in sorted((ROOT / 'skills').glob('*/SKILL.md')):
+        text = path.read_text(encoding='utf-8')
+        head = re.match(r'^---\n(.*?)\n---\n', text, re.S)
+        keys = re.findall(r'^([^\s:#][^:]*):', head.group(1), re.M) if head else []
+        for key in sorted(set(keys) - SKILL_KEYS):
+            fail(path, f'frontmatter key {key!r} is not an Agent Skills field. Claude Code '
+                       'acts on several such keys, and skills/ is delivered by the plugin '
+                       '(.claude-plugin/) to every session that installs it.')
+        for found in INLINE_SHELL_RE.finditer(text):
+            line = text.count('\n', 0, found.start()) + 1
+            fail(f'{path}:{line}', 'inline shell, which Claude Code runs when the skill '
+                                   'loads. skills/ is delivered by the plugin '
+                                   '(.claude-plugin/) and must run nothing.')
     workflows = ROOT / 'workflows'
     if workflows.is_dir():
         for path in sorted(p for p in workflows.rglob('*') if not p.is_dir()):

@@ -73,18 +73,23 @@ From a shell the same two steps are `claude plugin marketplace add vcTaz/agent-t
 append `@<branch>` to the marketplace source.
 
 `.claude-plugin/marketplace.json` lists one plugin whose source is `./`, so **the plugin root
-is the repository root**, and `.claude-plugin/plugin.json` says what it carries:
+is the repository root**. An install copies the whole repository into Claude Code's plugin
+cache, the shell scripts in `local/` and `tools/` included; what follows is about what
+Claude Code **loads** from that copy, which is much less. `.claude-plugin/plugin.json` decides
+it:
 
-| Delivered | From | Named in a session |
+| Loaded | From | Named in a session |
 |---|---|---|
 | the eight subagents | `.claude/agents/*.md`, listed one file at a time | `agent-toolkit:critic`, `agent-toolkit:orchestrator`, … |
 | the seven skills | `skills/`, Claude Code's default scan | `agent-toolkit:adversarial-review`, … |
 
-Three things at the repository root are deliberately not delivered:
+Three things at the repository root are deliberately not loaded:
 
 - **`AGENTS.md` and `CLAUDE.md`.** Claude Code does not load a `CLAUDE.md` from a plugin
-  root. The adapters carry their canonical bodies verbatim, so a plugin agent is fully
-  defined without either file; the contribution rules stay with the repository.
+  root. Each adapter carries its canonical body verbatim, so a plugin agent has its whole
+  definition. What it lacks is the repository around it: the bodies cite paths such as
+  `docs/concepts/orchestration.md` and `roles/critic.md`, which do not resolve from another
+  project's working directory. That was already true of the `local/` route.
 - **`agents/`.** Listing agents in the manifest replaces Claude Code's default `agents/`
   scan, so the orchestrator arrives through its adapter, with the same body, rather than as
   the canonical file, which has no `description`. `claude plugin list` prints a note that the
@@ -92,25 +97,47 @@ Three things at the repository root are deliberately not delivered:
 - **`workflows/`.** It is also Claude Code's default location for workflow scripts. Here it
   holds Markdown, which loads no workflow.
 
-Nothing that runs is delivered either: no hooks, MCP or LSP servers, commands, scripts or
-plugin settings. `tools/check.py` refuses them in both manifests and in the repository root's
-default plugin locations. It also fails when an adapter exists that `plugin.json` does not
-list, because Claude Code would deliver the others without it and say nothing.
+Nothing that Claude Code runs by itself is loaded either, and `tools/check.py` computes that
+rather than this sentence asserting it. It refuses:
+
+- in either manifest, any key that is not metadata or `agents`: hooks, MCP and LSP servers,
+  commands, `strict: false`, a `skills` key;
+- at the repository root, compared without case, every default plugin location that loads
+  or runs something — `commands/`, `hooks/`, `output-styles/`, `themes/`, `monitors/`,
+  `bin/`, `settings.json`, `.mcp.json`, `.lsp.json` — and `package.json`, which beside a
+  lockfile makes every install run npm;
+- anything but Markdown in `workflows/`;
+- in a `SKILL.md`, a frontmatter key outside the Agent Skills fields (so `hooks`,
+  `allowed-tools`, `context` and the rest), and inline shell, `` !`…` `` or a ```` ```! ````
+  block. The first version of the check missed these: a hook in a skill's frontmatter and
+  inline shell in its body each ran in an installed session, measured at 2.1.282, with the
+  check passing.
+
+It also fails when an adapter exists that `plugin.json` does not list, and when an adapter's
+frontmatter `name` is not its file name. Claude Code registers an agent under that `name`, so
+`validator.md` declaring `name: critic` left an installed plugin offering seven agents, with
+no error anywhere.
 
 **No `version` is set**, so the installed version is the commit the marketplace was fetched
-at, and every commit to the default branch is an update. `claude plugin validate` warns about
-the missing field and passes; `--strict` fails on that warning alone. Setting a version would
-instead mean installed copies receive nothing until someone bumps it.
+at, and every commit to the default branch is a new version. Claude Code turns auto-update
+off by default for a third-party marketplace, so an installed copy moves when its user
+updates the marketplace and the plugin, or turns auto-update on. Setting a version would add
+a second gate: nothing would move until someone bumps it. `claude plugin validate` warns
+about the missing field and passes; `--strict` fails on that warning alone.
 
-**Inside this repository with the plugin installed**, a session is offered both sets, from the
-same files: the project's `critic` and the plugin's `agent-toolkit:critic`. The plugin's names
-are namespaced, so neither shadows the other.
+**Inside this repository with the plugin installed**, a session is offered both sets: the
+project's `critic` and the plugin's `agent-toolkit:critic`, the second from the installed
+plugin, which after a GitHub install is the cached copy at the installed commit. The plugin's
+names are namespaced, so neither shadows the other.
 
 **Cloud is not a tested route.** A marketplace declared in a repository's settings was
 measured on 2026-09-20 to install nothing in a cloud session (`docs/host-integration.md`), and
-this repository declares none. **Project settings → Plugins** is the documented route into a
-thread and has not been tried with this marketplace. In cloud, attach the repository itself;
-see `cloud/README.md`.
+this repository declares none. `cloud/README.md` records **Project settings → Plugins** as the
+route Anthropic documents into a thread; it has not been tried with this marketplace, and it
+was not re-read for this section. Distribution through claude.ai **Organization settings →
+Plugins** requires the marketplace repository to be private or internal on github.com
+(`plugin-marketplaces`, read 2026-09-24), so it does not apply while this repository is
+public. In cloud, attach the repository itself; see `cloud/README.md`.
 
 ## Subagents
 
@@ -367,13 +394,16 @@ date given — a primary source, but not a run.
 | Agent Teams is experimental, env-gated and interactive-only | **documented** — `agent-teams`, 2026-09-21 |
 | No project-level team config file is read | **documented** — `agent-teams`, 2026-09-21 |
 | The Windows `core.symlinks` caveat | **unchecked** — see below |
-| `claude plugin validate .` passes on the marketplace with one warning, the missing `version` | **verified** — 2.1.282, 2026-09-24 |
+| `claude plugin validate .` passes on the marketplace with one warning, the missing `version` | **verified** — 2.1.282, 2026-09-24. `claude plugin validate .claude-plugin/plugin.json` passes with four: the version, `CLAUDE.md` at the root, and two about files in `agents/`, which it scans although the manifest replaces that folder |
 | A directory in the manifest's `agents` field is rejected (`agents: Invalid input`) | **verified** — 2.1.282, 2026-09-24 |
-| Once installed, a session's init record lists all eight `agent-toolkit:` subagents and all seven `agent-toolkit:` skills | **verified** — 2.1.282, 2026-09-24, nested `claude -p` with an isolated config directory: installed from a local-directory marketplace, and again from GitHub at the branch that added the manifests |
+| Once installed, a session's init record lists all eight `agent-toolkit:` subagents and all seven `agent-toolkit:` skills | **verified** — 2.1.282, 2026-09-24, nested `claude -p` with an isolated config directory: installed from a local-directory marketplace, and again from GitHub, where the marketplace was fetched at `44fbd786ac60967e96fc4517ebba282e789b18b0` and the plugin copied into the plugin cache under that version |
+| From that GitHub install, a plugin skill and a plugin agent are usable, not only listed | **verified** — same run. `agent-toolkit:checkable-findings` was invoked through the Skill tool and its body injected with the plugin cache as its base directory; `agent-toolkit:synthesizer` was dispatched through the Agent tool and answered |
 | The eight agents load from `.claude/agents/`, the default `agents/` folder is skipped, and no plugin workflow loads | **verified** — 2.1.282, 2026-09-24, from the debug log of the local-directory run |
 | Inside this repository with the plugin installed, both `critic` and `agent-toolkit:critic` are offered | **verified** — 2.1.282, 2026-09-24, init record |
 | `tools:` carries over — `agent-toolkit:synthesizer` is offered as `Read, Grep, Glob` | **verified by read-back** — 2.1.282, 2026-09-24. The model quoted its Agent tool description, so this is the list offered, not a test of enforcement |
 | `claude plugin details` reports **Agents (0)** for this plugin | **verified** — 2.1.282, 2026-09-24. It does not count agents listed by path, while a session loads them; the init record is the evidence, not the inventory |
+| A hook in a skill's frontmatter, and inline shell in its body, each run in a session that installed the plugin | **verified** — 2.1.282, 2026-09-24, against the first version of the manifests at `44fbd786ac60967e96fc4517ebba282e789b18b0`, where `tools/check.py` passed both. It now refuses both |
+| An adapter whose frontmatter `name` clashes with another's costs the installed plugin that agent, silently | **verified** — 2.1.282, 2026-09-24, same commit: seven agents in the init record. `tools/check.py` now refuses the mismatch |
 | The plugin in a cloud session | **not tried** |
 
 Three limits on this table. The **documented** rows describe intent; only the verified rows

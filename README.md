@@ -3,7 +3,7 @@
 A portable library of agent roles, skills, workflows and reliability patterns for building
 effective AI agent teams across Claude Code, Codex and other agentic systems.
 
-**There is no runtime here.** Nothing to install, no framework, no language dependency. Clone
+**There is no runtime here.** Nothing needs installing, no framework, no language dependency. Clone
 it and the roles and skills are discovered natively by both supported harnesses; read it and
 the ideas transfer to any other.
 
@@ -129,8 +129,9 @@ marketplace:
 /plugin install agent-toolkit@agent-toolkit
 ```
 
-The plugin carries the same eight subagents and seven skills, namespaced as
-`agent-toolkit:critic` and so on, and nothing that runs. It does not carry `AGENTS.md`. See
+The plugin loads the same eight subagents and seven skills, namespaced as
+`agent-toolkit:critic` and so on, and nothing that Claude Code runs by itself. It does not
+load `AGENTS.md`. See
 [docs/platforms/claude-code.md](docs/platforms/claude-code.md) for what it delivers and what
 has been verified.
 

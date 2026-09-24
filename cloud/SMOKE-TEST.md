@@ -50,9 +50,11 @@ Answer each item. If something is absent, say "none" — do not guess or fill in
 5. PLUGINS
    - List every plugin loaded, with its version and marketplace, and for each say
      whether it came from the account, from Project settings, or from somewhere else.
-   - This repository declares NO plugins. Do not expect any from it. If a plugin does
-     appear that is attributable to a repository, say so: that would contradict the
-     2026-09-20 measurement and is the interesting result.
+   - This repository declares NO plugins in its settings. Do not expect any from it. It
+     is itself packaged as the plugin `agent-toolkit`; if that appears, say whether it came
+     from the account or from Project settings. A plugin that arrived because a
+     repository's settings declared it would contradict the 2026-09-20 measurement, and is
+     the interesting result.
 
 6. MCP
    - List every MCP tool available, and for each say whether it is a claude.ai connector

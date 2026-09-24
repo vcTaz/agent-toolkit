@@ -1802,74 +1802,104 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------
-group "plugin packaging: every adapter is delivered, and nothing that runs is"
+group "plugin packaging: every adapter is delivered, and nothing Claude Code runs is"
 
 # The repository root is the plugin root, so a manifest that forgets an adapter, or a
 # file that lands in one of Claude Code's default plugin locations, changes what every
 # installed session gets with no error from Claude Code at all. Each case plants one such
-# change in a copy and requires check.py to exit non-zero NAMING the plugin; an exit for
-# some unrelated reason would prove nothing.
+# change in a FRESH copy and requires check.py to exit non-zero NAMING the plugin; an
+# exit for some unrelated reason would prove nothing. The fixture path is stripped from
+# the output before matching, so a temporary directory whose name happens to contain
+# "claude-plugin" cannot satisfy a case.
+#
+# The skill and adapter-name cases were added after an independent critic defeated the
+# first version: a hook in a skill's frontmatter and inline shell in its body each ran
+# in an installed session, and validator.md renamed to `name: critic` silently cost the
+# plugin an agent -- all three with check.py at rc 0.
 
 if ! command -v python3 >/dev/null 2>&1; then
   skip "python3 absent — plugin packaging tests cannot run"
 else
+  plugbase="$TMPROOT/plugbase"
+  rm -rf "$plugbase"; mkdir -p "$plugbase"
+  ( cd "$ROOT" && tar -c --exclude=./.git . ) | ( cd "$plugbase" && tar -x )
   plugfix="$TMPROOT/plugfix"
-  rm -rf "$plugfix"; mkdir -p "$plugfix"
-  ( cd "$ROOT" && tar -c --exclude=./.git . ) | ( cd "$plugfix" && tar -x )
-  pj="$plugfix/.claude-plugin/plugin.json"
-  mj="$plugfix/.claude-plugin/marketplace.json"
 
-  out="$(python3 "$ROOT/tools/check.py" --root "$plugfix" 2>&1)"; rc=$?
-  if [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q 'claude-plugin\|plugin root'; then
+  # Not a command substitution: prc has to survive the call.
+  plugin_check() {  # sets prc, and pout to check.py's output with the fixture path removed
+    python3 "$ROOT/tools/check.py" --root "$plugfix" > "$TMPROOT/plugout" 2>&1; prc=$?
+    pout="$(sed "s|$plugfix||g" "$TMPROOT/plugout")"
+  }
+
+  rm -rf "$plugfix"; cp -a "$plugbase" "$plugfix"
+  plugin_check
+  if [ "$prc" -eq 0 ] && ! printf '%s' "$pout" | grep -q 'claude-plugin\|plugin root'; then
     ok "the unmodified tree passes the plugin check"
   else
-    no "the unmodified tree fails the plugin check (rc $rc)"
+    no "the unmodified tree fails the plugin check (rc $prc)"
   fi
 
-  # label | shell that plants the change, run inside the fixture
+  # label | shell that plants the change, run inside a fresh copy
   plugin_case() {
     local label="$1" plant="$2"
-    cp "$pj" "$TMPROOT/pj.bak"; cp "$mj" "$TMPROOT/mj.bak"
+    rm -rf "$plugfix"; cp -a "$plugbase" "$plugfix"
     ( cd "$plugfix" && eval "$plant" )
-    local out rc
-    out="$(python3 "$ROOT/tools/check.py" --root "$plugfix" 2>&1)"; rc=$?
-    cp "$TMPROOT/pj.bak" "$pj"; cp "$TMPROOT/mj.bak" "$mj"
-    rm -rf "$plugfix/hooks" "$plugfix/settings.json" "$plugfix/workflows/plant.js" \
-           "$plugfix/.claude/agents/planted.md"
-    if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'claude-plugin\|plugin root'; then
+    plugin_check
+    if [ "$prc" -ne 0 ] && printf '%s' "$pout" | grep -q 'claude-plugin\|plugin root'; then
       ok "rejected: $label"
     else
-      no "not rejected: $label (rc $rc)"
+      no "not rejected: $label (rc $prc)"
     fi
   }
   edit_json() {  # file | python statement over d
     python3 -c "import json,sys;p=sys.argv[1];d=json.load(open(p));$2;json.dump(d,open(p,'w'))" "$1"
   }
+  pj=.claude-plugin/plugin.json
+  mj=.claude-plugin/marketplace.json
+  skill=skills/checkable-findings/SKILL.md
 
   plugin_case "an adapter missing from agents" \
-    "edit_json '$pj' 'd[\"agents\"].remove(\"./.claude/agents/critic.md\")'"
+    "edit_json $pj 'd[\"agents\"].remove(\"./.claude/agents/critic.md\")'"
+  plugin_case "an adapter listed twice" \
+    "edit_json $pj 'd[\"agents\"].append(\"./.claude/agents/critic.md\")'"
   plugin_case "an adapter file the manifest does not list" \
     "cp .claude/agents/critic.md .claude/agents/planted.md"
+  plugin_case "an adapter whose frontmatter name clashes with another's" \
+    "sed -i '0,/^name: validator\$/s//name: critic/' .claude/agents/validator.md"
   plugin_case "agents given as a directory" \
-    "edit_json '$pj' 'd[\"agents\"]=\"./.claude/agents/\"'"
+    "edit_json $pj 'd[\"agents\"]=\"./.claude/agents/\"'"
+  plugin_case "a plugin name that is not kebab-case, in both manifests alike" \
+    "edit_json $pj 'd[\"name\"]=\"Agent Toolkit\"'; edit_json $mj 'd[\"plugins\"][0][\"name\"]=\"Agent Toolkit\"'"
   plugin_case "a skills key, which would replace the skills/ scan" \
-    "edit_json '$pj' 'd[\"skills\"]=[\"./skills/critic\"]'"
+    "edit_json $pj 'd[\"skills\"]=[\"./skills/critic\"]'"
   plugin_case "a hooks key in plugin.json" \
-    "edit_json '$pj' 'd[\"hooks\"]={}'"
+    "edit_json $pj 'd[\"hooks\"]={}'"
   plugin_case "a component in the marketplace entry" \
-    "edit_json '$mj' 'd[\"plugins\"][0][\"mcpServers\"]={}'"
+    "edit_json $mj 'd[\"plugins\"][0][\"mcpServers\"]={}'"
   plugin_case "strict: false in the marketplace entry" \
-    "edit_json '$mj' 'd[\"plugins\"][0][\"strict\"]=False'"
+    "edit_json $mj 'd[\"plugins\"][0][\"strict\"]=False'"
   plugin_case "a marketplace source that is not the repository root" \
-    "edit_json '$mj' 'd[\"plugins\"][0][\"source\"]=\"./plugin\"'"
+    "edit_json $mj 'd[\"plugins\"][0][\"source\"]=\"./plugin\"'"
   plugin_case "a marketplace entry named differently from the plugin" \
-    "edit_json '$mj' 'd[\"plugins\"][0][\"name\"]=\"other\"'"
-  plugin_case "hooks/hooks.json at the repository root" \
-    "mkdir -p hooks && printf '{}' > hooks/hooks.json"
-  plugin_case "a plugin settings.json at the repository root" \
-    "printf '{}' > settings.json"
+    "edit_json $mj 'd[\"plugins\"][0][\"name\"]=\"other\"'"
+  for location in commands hooks output-styles themes monitors bin; do
+    plugin_case "$location/ at the repository root" "mkdir -p $location && : > $location/x"
+  done
+  for location in settings.json .mcp.json .lsp.json package.json; do
+    plugin_case "$location at the repository root" "printf '{}' > $location"
+  done
+  plugin_case "Hooks/ at the root, which a case-insensitive filesystem reads as hooks/" \
+    "mkdir -p Hooks && printf '{}' > Hooks/hooks.json"
   plugin_case "a workflow script in workflows/" \
     "printf 'export const meta = {}' > workflows/plant.js"
+  plugin_case "hooks in a skill's frontmatter" \
+    "sed -i '0,/^name: /s//hooks: {}\nname: /' $skill"
+  plugin_case "allowed-tools in a skill's frontmatter" \
+    "sed -i '0,/^name: /s//allowed-tools: Bash\nname: /' $skill"
+  plugin_case "inline shell in a skill body" \
+    "printf '\nState: !\`touch planted\`\n' >> $skill"
+  plugin_case "a fenced shell block in a skill body" \
+    "printf '\n\`\`\`!\ntouch planted\n\`\`\`\n' >> $skill"
 fi
 
 # ---------------------------------------------------------------------------------------

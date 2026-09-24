@@ -19,7 +19,8 @@ Claude Code does not read it natively. Everything in it applies.
 - **The repository root is also a plugin.** `.claude-plugin/` makes it the plugin
   `agent-toolkit` and a marketplace that lists it. Its `agents` list names every file in
   `.claude/agents/` one by one, so a new adapter must be added there too; `tools/check.py`
-  fails until it is.
+  fails until it is. Because `skills/` is what the plugin delivers, the same check refuses
+  skill frontmatter beyond the Agent Skills fields and inline shell in a `SKILL.md`.
 - **`docs/platforms/claude-code.md`** has the team compositions, the subagent-versus-teammate
   decision, and the honest limitations — including that `Bash` is not read-only-enforceable,
   so the read-only roles rely on instruction rather than sandboxing.
