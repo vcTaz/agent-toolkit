@@ -21,8 +21,9 @@ Claude Code does not read it natively. Everything in it applies.
   `.claude/agents/` one by one, so a new adapter must be added there too; `tools/check.py`
   fails until it is. Because the plugin delivers `skills/` and the adapters, the same check
   reads every file under `skills/` and every adapter: frontmatter must be flat `key: value`
-  lines with a fixed set of keys, and a `!` beside a backtick (how Claude Code's inline shell
-  starts), a symlink, a `skills/SKILL.md` or a file over 256 KiB fails it.
+  lines with a fixed set of keys and no typed values, and a `!` beside a backtick (how Claude
+  Code's inline shell starts), a `$` that could start a substitution, a symlink, a
+  `skills/SKILL.md` or a file over 256 KiB fails it.
 - **`docs/platforms/claude-code.md`** has the team compositions, the subagent-versus-teammate
   decision, and the honest limitations — including that `Bash` is not read-only-enforceable,
   so the read-only roles rely on instruction rather than sandboxing.

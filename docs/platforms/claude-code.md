@@ -99,7 +99,7 @@ Three things at the repository root are deliberately not loaded:
 
 Nothing that Claude Code runs by itself is loaded either. `tools/check.py` computes that
 rather than this sentence asserting it, against what Claude Code 2.1.282 reads from a plugin
-root as read from its binary. Three review rounds each found something the check did not yet
+root as read from its binary. Four review rounds each found something the check did not yet
 refuse, so read it as the widest check so far, not as a proof. It refuses:
 
 - in either manifest, any key that is not metadata or `agents`: hooks, MCP and LSP servers,
@@ -111,11 +111,16 @@ refuse, so read it as the widest check so far, not as a proof. It refuses:
   install run npm;
 - anything but Markdown in `workflows/`;
 - in a `SKILL.md`, a frontmatter key outside the Agent Skills fields (so `hooks`,
-  `allowed-tools`, `context` and the rest), and in an adapter, a key outside the four the
-  adapters use: `name`, `description`, `tools` and `model`;
+  `allowed-tools`, `context` and the rest), a `name` other than its directory's, or no
+  `description`, read with Claude Code's delimiter; and in an adapter, a key outside the four
+  the adapters use: `name`, `description`, `tools` and `model`;
 - in any file under `skills/`, at any depth, and in any adapter, a `!` directly beside a
   backtick. That covers inline shell, `` !`…` ``, and a ```` ```! ```` block, wherever they
   sit;
+- in the same files, a `$` before a letter, digit, underscore or brace. Every substitution
+  Claude Code makes in a skill before running its shell starts that way — `$ARGUMENTS`, `$0`,
+  `${CLAUDE_SKILL_DIR}` and the rest — so with none of them, the text the shell step sees is
+  the file's own;
 - a `SKILL.md` directly in `skills/`, in any case. Claude Code loads that file as the plugin's
   only skill, in place of the seven;
 - any symlink under `skills/`, and a symlinked adapter. Claude Code follows them, and loads a
@@ -135,8 +140,8 @@ mode is no backstop. So the rules are now **wider than Claude Code's parsing** r
 it. Claude Code reads frontmatter as YAML and this script has no YAML parser, so it does not
 try to agree with one: every frontmatter line must be an unindented `key: value`, with no block
 scalar, no nesting, no key twice and no value that YAML would read as more than its text, such
-as one holding `: ` or starting with a quote. In that shape both see the same keys, and a name
-the script accepts is the name YAML reads. And any `!` beside a backtick is refused, whatever
+as one holding `: `, starting with a quote, or a word such as `null`, `true` or a number. In
+that shape both see the same keys, and a name the script accepts is the name YAML reads. And any `!` beside a backtick is refused, whatever
 Claude Code would make of it. Both were set against the patterns in the 2.1.282 binary — its
 frontmatter delimiter, which ends the block at the first `---` even mid-line, its YAML parser's
 retry after turning leading tabs into spaces, and its two shell patterns. A later version that
@@ -149,6 +154,15 @@ leaving seven agents. The check now reads every file under `skills/` rather than
 `SKILL.md` files, refuses the file layouts Claude Code's loader treats specially, and bounds
 the size of what it delivers. The set was read from the loader in the 2.1.282 binary, and the
 same caveat applies to it as to the rules.
+
+A third validator found two more gaps. Claude Code substitutes `$ARGUMENTS` before it looks for
+shell, so `!$ARGUMENTS` followed by a backtick span, which the scan saw as apart, ran once the
+empty argument joined them: a read-only command in the default mode, a write in accept-edits
+mode. And `description: null` passed and cost the plugin that skill, because Claude Code keeps
+a plugin skill only if its description is text; a `---` mid-line that ended the block before
+the description did the same. The check now refuses every `$` that could start a substitution,
+every value YAML may read as null, a boolean or a number, and a skill without a description as
+Claude Code delimits it.
 
 In an **adapter**, the first validator found frontmatter hooks ignored for a plugin agent, and
 inline shell in the body did not run in one probe, both at 2.1.282. The check refuses
@@ -457,6 +471,8 @@ date given — a primary source, but not a run.
 | At `993f6e8872fdf27f8c48f97f7d29bd8f0d4e765a` a `skills/SKILL.md` passed the check and loaded as the plugin's only skill; its inline shell ran a read-only command in the default permission mode with no prompt, and a `hooks:` block in it fired once the skill was allowed | **verified** — 2.1.282, 2026-09-25, by a second independent validator against a local-directory marketplace. Now refused |
 | At that commit an adapter padded past 1 MiB passed the check and was skipped, leaving seven agents and one line in the debug log | **verified** — same round. Delivered files are now bounded at 256 KiB |
 | A plugin skill over 1 MiB is skipped the same way, and a file reached twice through symlinks loads once | **read, not run** — the loader in the 2.1.282 binary. Both are refused |
+| At `540539e406dd5d48fd07c096bf73fd916063a561` inline shell assembled by an empty `$ARGUMENTS`, inline and as a fence, passed the check and ran: a read-only command in the default permission mode with no prompt, a write in accept-edits mode | **verified** — 2.1.282, 2026-09-25, by a third independent validator against a local-directory marketplace. Now refused |
+| At that commit `description: null`, and a `---` mid-line ending the block before the description, each passed the check and left six skills | **verified** — same round. Now refused. `description: null` on an adapter left eight agents |
 | The plugin in a cloud session | **not tried** |
 
 Three limits on this table. The **documented** rows describe intent; only the verified rows

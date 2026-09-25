@@ -461,6 +461,22 @@ which is a name here. One with them can read differently or fail to parse, and a
 frontmatter that fails to parse is one Claude Code falls back on in ways this script
 cannot see."""
 
+SUBSTITUTION_RE = re.compile(rb'\$[A-Za-z0-9_{]')
+"""Every substitution Claude Code 2.1.282 makes in a plugin skill before running its inline
+shell starts with `$`, read from its binary: `$ARGUMENTS`, `$ARGUMENTS[0]`, `$0`, a named
+`$argument`, and `${CLAUDE_SKILL_DIR}`, `${CLAUDE_PROJECT_DIR}`, `${CLAUDE_SESSION_ID}`,
+`${CLAUDE_EFFORT}`, `${CLAUDE_PLUGIN_ROOT}` and the rest. An independent validator ran shell
+from `!$ARGUMENTS` followed by a backtick span: the empty argument joined them after the
+scan below had seen them apart. With every `$` that could start a substitution refused, a
+delivered file's own text reaches Claude Code's shell step unchanged. What it adds around
+that text -- a line naming the skill's directory, and arguments appended when the skill
+names none -- comes from the session, not from this repository."""
+
+TYPED_SCALAR_RE = re.compile(r'(?i)~|null|true|false|yes|no|on|off|y|n|[-+]?\.?(inf|nan|\d.*)')
+"""A one-line value YAML may read as null, a boolean or a number rather than as text.
+`description: null` passed an earlier version of this check and cost the installed plugin
+the skill: Claude Code 2.1.282 keeps a plugin skill only if its description is text."""
+
 SHELL_MARKS = ('!`', '`!')
 """Claude Code 2.1.282 runs two forms of shell in a SKILL.md, read from its binary: an
 inline `(?<=^|\\s)!` span, and a fence opened with three backticks and `!`. Refusing any
@@ -501,11 +517,13 @@ def flat_frontmatter(path):
                                      'here and in every session that installs the plugin '
                                      '(.claude-plugin/); only the flat shape reads the same '
                                      'way in this script.')
-        elif YAML_MEANING_RE.search(flat.group(2)) or not flat.group(2).isprintable():
+        elif YAML_MEANING_RE.search(flat.group(2)) or not flat.group(2).isprintable() \
+                or TYPED_SCALAR_RE.fullmatch(flat.group(2).strip()):
             fail(f'{path}:{number}', f'frontmatter value for {flat.group(1)!r} carries a '
                                      'character YAML gives meaning to (a leading indicator, '
-                                     '": ", " #", a trailing colon or anything '
-                                     'unprintable). Claude Code reads this block as YAML, '
+                                     '": ", " #", a trailing colon, anything unprintable, '
+                                     'or a word YAML reads as null, a boolean or a number). '
+                                     'Claude Code reads this block as YAML, '
                                      'here and in every session that installs the plugin '
                                      '(.claude-plugin/); reword the value as plain text.')
         elif flat.group(1) in fields:
@@ -640,10 +658,18 @@ def check_plugin():
                        '(.claude-plugin/), in place of every skill directory beside it.')
     for path in under_skills:
         if path.is_file() and path.name.lower() == 'skill.md':
-            for key in sorted(set(flat_frontmatter(path)) - SKILL_KEYS):
+            fields = flat_frontmatter(path)
+            for key in sorted(set(fields) - SKILL_KEYS):
                 fail(path, f'frontmatter key {key!r} is not an Agent Skills field. Claude '
                            'Code acts on several such keys, and skills/ is delivered by the '
                            'plugin (.claude-plugin/) to every session that installs it.')
+            # check_skills() reads the same fields with a stricter delimiter of its own; this
+            # is Claude Code's, where a --- mid-line can end the block before description.
+            if fields.get('name') != path.parent.name or not fields.get('description'):
+                fail(path, f'Claude Code reads name {fields.get("name")!r} and '
+                           f'{"a" if fields.get("description") else "no"} description here. '
+                           'It drops a plugin skill with no description, and the plugin '
+                           '(.claude-plugin/) delivers skills/.')
     adapters = sorted((ROOT / '.claude' / 'agents').glob('*.md'))
     for path in adapters:
         if path.is_symlink():
@@ -657,6 +683,14 @@ def check_plugin():
                        'agent or skill over 1048576 bytes with only a debug-log line, and '
                        'the plugin (.claude-plugin/) delivers this file.')
         data = path.read_bytes()
+        found = SUBSTITUTION_RE.search(data)
+        if found:
+            fail(f'{path}:{data.count(bytes([10]), 0, found.start()) + 1}',
+                 f'{found.group().decode(errors="replace")!r}: Claude Code substitutes '
+                 '$ARGUMENTS, $0 and ${...} in a plugin skill before it runs inline shell, '
+                 'so a substitution can join what the shell scan saw apart. The plugin '
+                 '(.claude-plugin/) delivers this file; any $ before a letter, digit, '
+                 'underscore or brace is refused.')
         for mark in SHELL_MARKS:
             at = data.find(mark.encode())
             if at >= 0:

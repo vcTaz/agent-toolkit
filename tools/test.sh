@@ -1836,7 +1836,7 @@ else
 
   rm -rf "$plugfix"; cp -a "$plugbase" "$plugfix"
   plugin_check
-  if [ "$prc" -eq 0 ] && ! printf '%s' "$pout" | grep -q 'claude-plugin\|plugin root'; then
+  if [ "$prc" -eq 0 ] && ! grep -q 'claude-plugin\|plugin root' <<<"$pout"; then
     ok "the unmodified tree passes the plugin check"
   else
     no "the unmodified tree fails the plugin check (rc $prc)"
@@ -1848,7 +1848,7 @@ else
     rm -rf "$plugfix"; cp -a "$plugbase" "$plugfix"
     ( cd "$plugfix" && eval "$plant" )
     plugin_check
-    if [ "$prc" -ne 0 ] && printf '%s' "$pout" | grep -q 'claude-plugin\|plugin root'; then
+    if [ "$prc" -ne 0 ] && grep -q 'claude-plugin\|plugin root' <<<"$pout"; then
       ok "rejected: $label"
     else
       no "not rejected: $label (rc $prc)"
@@ -1962,10 +1962,11 @@ PY
   # skills/SKILL.md, which Claude Code loads as the plugin's only skill and whose inline
   # shell ran in the default permission mode, and an adapter padded past 1 MiB, which it
   # skipped. The check now reads every file under skills/ and bounds delivered files.
+  # Named after the directory it sits in, so only the rule about where it sits refuses it.
   plugin_case "a skills/SKILL.md, which replaces every skill" \
-    "printf -- '---\nname: planted\ndescription: planted\n---\n\nbody\n' > skills/SKILL.md"
+    "printf -- '---\nname: skills\ndescription: planted\n---\n\nbody\n' > skills/SKILL.md"
   plugin_case "a skills/skill.md, the same file on a case-insensitive filesystem" \
-    "printf -- '---\nname: planted\ndescription: planted\n---\n\nbody\n' > skills/skill.md"
+    "printf -- '---\nname: skills\ndescription: planted\n---\n\nbody\n' > skills/skill.md"
   plugin_case "inline shell in a supporting file under a skill" \
     "mkdir -p skills/checkable-findings/references && append skills/checkable-findings/references/notes.md 'State: !\\x60touch planted\\x60\n'"
   plugin_case "a skill directory reached through a symlink" \
@@ -1979,13 +1980,27 @@ PY
   plugin_case "a skill padded past the size bound" \
     "python3 -c 'import sys; open(sys.argv[1], \"a\").write(\"x\" * 300000)' $skill"
 
+  # A third validator got past 540539e twice more: an empty $ARGUMENTS between a ! and a
+  # backtick ran as shell once Claude Code substituted it, and `description: null` cost the
+  # plugin a skill, as did a --- mid-line that ended the block before the description.
+  plugin_case "inline shell assembled by an empty \$ARGUMENTS" \
+    "append $skill '\nContext: !\$ARGUMENTS\\x60touch planted\\x60\n'"
+  plugin_case "a shell fence assembled by an empty \$ARGUMENTS" \
+    "append $skill '\n\\x60\\x60\\x60\$ARGUMENTS!\ntouch planted\n\\x60\\x60\\x60\n'"
+  plugin_case "a \${CLAUDE_...} substitution in a skill" \
+    "append $skill '\nEffort: \${CLAUDE_EFFORT}\n'"
+  plugin_case "a skill whose description YAML reads as null" \
+    "sed -i '0,/^description: .*/s//description: null/' $skill"
+  plugin_case "a skill whose frontmatter a mid-line --- ends before its description" \
+    "sed -i '0,/^name: \(.*\)$/s//name: \1 ---\nname: \1/' $skill"
+
   # Not a plugin case: the plugin lists its files, but the project directory loads a
   # subdirectory's agents too, and no check looked inside one.
   rm -rf "$plugfix"; cp -a "$plugbase" "$plugfix"
   mkdir "$plugfix/.claude/agents/drafts"
   cp "$plugfix/.claude/agents/critic.md" "$plugfix/.claude/agents/drafts/draft.md"
   plugin_check
-  if [ "$prc" -ne 0 ] && printf '%s' "$pout" | grep -q 'a directory among the claude adapters'; then
+  if [ "$prc" -ne 0 ] && grep -q 'a directory among the claude adapters' <<<"$pout"; then
     ok "rejected: an agent file in a subdirectory of .claude/agents/"
   else
     no "not rejected: an agent file in a subdirectory of .claude/agents/ (rc $prc)"
