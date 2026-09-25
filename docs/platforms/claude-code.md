@@ -108,15 +108,41 @@ rather than this sentence asserting it. It refuses:
   lockfile makes every install run npm;
 - anything but Markdown in `workflows/`;
 - in a `SKILL.md`, a frontmatter key outside the Agent Skills fields (so `hooks`,
-  `allowed-tools`, `context` and the rest), and inline shell, `` !`…` `` or a ```` ```! ````
-  block. The first version of the check missed these: a hook in a skill's frontmatter and
-  inline shell in its body each ran in an installed session, measured at 2.1.282, with the
-  check passing.
+  `allowed-tools`, `context` and the rest), and in an adapter, a key outside the four the
+  adapters use: `name`, `description`, `tools` and `model`;
+- in either, any `!` directly beside a backtick. That covers inline shell, `` !`…` ``, and
+  a ```` ```! ```` block, wherever they sit.
+
+The first version of the check missed skills entirely: a hook in a skill's frontmatter and
+inline shell in its body each ran in an installed session, measured at 2.1.282, with the check
+passing. The second copied Claude Code's own patterns, and an independent validator got past it
+with variations that still ran in an installed session: frontmatter indented as a whole, whose
+hooks fired in the default permission mode, and a fence opened mid-line or inside a list item,
+or a byte-order mark before the `!`, which ran in accept-edits mode. In the default mode Claude
+Code still took each of those for shell and stopped at the permission prompt, as it did for the
+original plant. So the rules are now **wider than Claude Code's parsing** rather than copies of
+it. Claude Code reads frontmatter as YAML and this script has no YAML parser, so it does not
+try to agree with one: every frontmatter line must be an unindented `key: value`, with no block
+scalar, no nesting, no key twice and no value that YAML would read as more than its text, such
+as one holding `: ` or starting with a quote. In that shape both see the same keys, and a name
+the script accepts is the name YAML reads. And any `!` beside a backtick is refused, whatever
+Claude Code would make of it. Both were set against the patterns in the 2.1.282 binary — its
+frontmatter delimiter, which ends the block at the first `---` even mid-line, its YAML parser's
+retry after turning leading tabs into spaces, and its two shell patterns. A later version that
+parses more loosely could need them widened, and nothing here would notice.
+
+In an **adapter**, the same validator found frontmatter hooks ignored for a plugin agent, and
+inline shell in the body did not run in one probe, both at 2.1.282. The check refuses
+both there anyway, so nothing rests on either observation. It also refuses a directory inside
+`.claude/agents/`, which the plugin never reads, because the validator found that an agent
+file there loads in this repository under its bare name, where nothing checked it.
 
 It also fails when an adapter exists that `plugin.json` does not list, and when an adapter's
 frontmatter `name` is not its file name. Claude Code registers an agent under that `name`, so
 `validator.md` declaring `name: critic` left an installed plugin offering seven agents, with
-no error anywhere.
+no error anywhere. The flat shape is what makes that comparison mean something: the validator
+also hid a second `name` under a nested key, inside a block scalar, and past a `---` that ends
+the block mid-line, and each is now refused by shape before any name is compared.
 
 **No `version` is set**, so the installed version is the commit the marketplace was fetched
 at, and every commit to the default branch is a new version. Claude Code turns auto-update
@@ -404,6 +430,11 @@ date given — a primary source, but not a run.
 | `claude plugin details` reports **Agents (0)** for this plugin | **verified** — 2.1.282, 2026-09-24. It does not count agents listed by path, while a session loads them; the init record is the evidence, not the inventory |
 | A hook in a skill's frontmatter, and inline shell in its body, each run in a session that installed the plugin | **verified** — 2.1.282, 2026-09-24, against the first version of the manifests at `44fbd786ac60967e96fc4517ebba282e789b18b0`, where `tools/check.py` passed both. It now refuses both |
 | An adapter whose frontmatter `name` clashes with another's costs the installed plugin that agent, silently | **verified** — 2.1.282, 2026-09-24, same commit: seven agents in the init record. `tools/check.py` now refuses the mismatch |
+| Variations of both got past the repaired check at `ce8796bd61fc9b32e6775440dbdc6818892aaab7` and still ran: frontmatter indented by spaces or by tabs, whose hooks fired in the default permission mode; a shell fence opened mid-line or in a list item, and a U+FEFF before inline shell, which ran in accept-edits mode and stopped at the permission prompt in the default one | **verified** — 2.1.282, 2026-09-24, by an independent validator against an installed plugin. `tools/check.py` now refuses each by shape, and `tools/test.sh` plants each |
+| At that commit a second `name` under a nested key, inside a block scalar, or past a `---` that ends the block mid-line cost the installed plugin an agent; a duplicate top-level `name` did not | **verified** — same round, seven agents against eight. All four are now refused by shape |
+| Hooks in an adapter's frontmatter are ignored for a plugin agent | **verified** — same round. Refused anyway |
+| Inline shell in a plugin agent's body does not run | **observed once** — 2.1.282, 2026-09-24, one probe in accept-edits mode; not established. Refused anyway |
+| An agent file in a subdirectory of `.claude/agents/` loads in the project under its bare name | **verified** — same round. A directory there is now refused |
 | The plugin in a cloud session | **not tried** |
 
 Three limits on this table. The **documented** rows describe intent; only the verified rows

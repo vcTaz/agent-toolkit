@@ -1815,7 +1815,10 @@ group "plugin packaging: every adapter is delivered, and nothing Claude Code run
 # The skill and adapter-name cases were added after an independent critic defeated the
 # first version: a hook in a skill's frontmatter and inline shell in its body each ran
 # in an installed session, and validator.md renamed to `name: critic` silently cost the
-# plugin an agent -- all three with check.py at rc 0.
+# plugin an agent -- all three with check.py at rc 0. The next version copied Claude
+# Code's patterns, and an independent validator got past it with variations that still
+# ran or still cost an agent; those are the cases below the rename_validator helper.
+# The check now refuses a superset of what Claude Code parses rather than a copy of it.
 
 if ! command -v python3 >/dev/null 2>&1; then
   skip "python3 absent — plugin packaging tests cannot run"
@@ -1900,6 +1903,72 @@ else
     "printf '\nState: !\`touch planted\`\n' >> $skill"
   plugin_case "a fenced shell block in a skill body" \
     "printf '\n\`\`\`!\ntouch planted\n\`\`\`\n' >> $skill"
+
+  # The variants an independent validator used to defeat the second version, each of
+  # which Claude Code 2.1.282 ran, or read a different name from, with check.py at rc 0.
+  # Every one is refused now because the check demands a shape it cannot misread, not
+  # because it recognises these particular spellings.
+  reindent() {  # file | prefix: indent the whole frontmatter, then add a hooks block
+    python3 - "$1" "$2" <<'PY'
+import sys
+p, pre = sys.argv[1], sys.argv[2]
+s = open(p, encoding='utf-8').read()
+head, rest = s[4:].split('\n---\n', 1)
+lines = [pre + l for l in head.split('\n')]
+lines += [pre + 'hooks:', pre + '  Stop:', pre + '    - hooks:',
+          pre + '        - type: command', pre + '          command: "true"']
+open(p, 'w', encoding='utf-8').write('---\n' + '\n'.join(lines) + '\n---\n' + rest)
+PY
+  }
+  append() {  # file | text, with \n and \t escapes
+    python3 -c 'import sys; open(sys.argv[1], "a", encoding="utf-8").write(sys.argv[2].encode().decode("unicode_escape"))' "$1" "$2"
+  }
+  rename_validator() {  # python statement over s, the text of validator.md
+    python3 -c "import sys;p=sys.argv[1];s=open(p,encoding='utf-8').read();$1;open(p,'w',encoding='utf-8').write(s)" \
+      .claude/agents/validator.md
+  }
+  plugin_case "a skill's whole frontmatter indented by spaces, carrying hooks" \
+    "reindent $skill '  '"
+  plugin_case "a skill's whole frontmatter indented by tabs, carrying hooks" \
+    "reindent $skill \"\$(printf '\t')\""
+  plugin_case "a shell fence opened mid-line in a skill" \
+    "append $skill '\nSee also: \`\`\`!touch planted\`\`\`\n'"
+  plugin_case "a shell fence inside a list item in a skill" \
+    "append $skill '\n- Environment: \`\`\`!\n  touch planted\n  \`\`\`\n'"
+  plugin_case "inline shell after a U+FEFF in a skill" \
+    "append $skill '\nState:﻿!\`touch planted\`\n'"
+  plugin_case "an adapter named critic at the top with a nested name: validator" \
+    "rename_validator 's=s.replace(\"name: validator\n\",\"name: critic\nmetadata:\n  name: validator\n\",1)'"
+  plugin_case "an adapter named critic with name: validator inside a block scalar" \
+    "rename_validator 's=s.replace(\"name: validator\n\",\"name: critic\nnotes: |\n  name: validator\n\",1)'"
+  plugin_case "an adapter whose only name: validator is nested under model" \
+    "rename_validator 's=s.replace(\"name: validator\n\",\"\",1).replace(\"model: inherit\n\",\"model: \n  name: validator\n\",1)'"
+  plugin_case "an adapter whose frontmatter a mid-line --- ends at name: critic" \
+    "rename_validator 's=s.replace(\"name: validator\n\",\"name: critic ---\nname: validator\n\",1)'"
+  plugin_case "an adapter declaring name twice" \
+    "rename_validator 's=s.replace(\"name: validator\n\",\"name: critic\nname: validator\n\",1)'"
+  plugin_case "an adapter whose opening --- Python sees and Claude Code does not" \
+    "rename_validator 's=chr(45)*3+chr(28)+s[3:]'"
+  plugin_case "an adapter description that YAML does not read as plain text" \
+    "rename_validator 's=s.replace(\"description: \",\"description: Note: \",1)'"
+  plugin_case "an adapter description holding a U+2028, a line break to YAML 1.1" \
+    "rename_validator 's=s.replace(\"description: \",\"description: A\"+chr(0x2028)+\"B \",1)'"
+  plugin_case "an adapter carrying a frontmatter key the adapters do not use" \
+    "rename_validator 's=s.replace(\"name: validator\n\",\"name: validator\npermissionMode: bypassPermissions\n\",1)'"
+  plugin_case "inline shell in an adapter's operating notes" \
+    "rename_validator 's=s.replace(\"# Claude Code operating notes\n\",\"# Claude Code operating notes\n\nState: !\"+chr(96)+\"touch planted\"+chr(96)+\"\n\",1)'"
+
+  # Not a plugin case: the plugin lists its files, but the project directory loads a
+  # subdirectory's agents too, and no check looked inside one.
+  rm -rf "$plugfix"; cp -a "$plugbase" "$plugfix"
+  mkdir "$plugfix/.claude/agents/drafts"
+  cp "$plugfix/.claude/agents/critic.md" "$plugfix/.claude/agents/drafts/draft.md"
+  plugin_check
+  if [ "$prc" -ne 0 ] && printf '%s' "$pout" | grep -q 'a directory among the claude adapters'; then
+    ok "rejected: an agent file in a subdirectory of .claude/agents/"
+  else
+    no "not rejected: an agent file in a subdirectory of .claude/agents/ (rc $prc)"
+  fi
 fi
 
 # ---------------------------------------------------------------------------------------

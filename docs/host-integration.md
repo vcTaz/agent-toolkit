@@ -34,7 +34,7 @@ The host layer is deliberately the least powerful thing that solves those cases.
 - **No runtime the canonical layer can observe.** Nothing in `roles/`, `agents/`, `skills/`
   or `workflows/` may reference `local/`, `cloud/`, `manifest/`, `.claude-plugin/` or
   `.claude/settings.json`. The plugin loads nothing that Claude Code runs by itself — no
-  hooks, servers, commands, inline skill shell or install-time packages — and
+  hooks, servers, commands, inline shell or install-time packages — and
   `tools/check.py` refuses each of them, because a plugin component that runs would be a
   runtime in every session that installs it. The repository's own scripts are copied into
   the plugin cache with everything else, and are never loaded.

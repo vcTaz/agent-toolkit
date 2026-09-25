@@ -180,6 +180,13 @@ def check_adapters(roles, agents, sync):
         present = {p.stem for p in directory.iterdir() if p.is_file()}
         for orphan in sorted(present - set(covered)):
             fail(directory / orphan, f'{kind} adapter names no canonical role or agent')
+        for nested in sorted(p for p in directory.iterdir() if p.is_dir()):
+            # Measured at 2.1.282 by an independent validator: an agent file in a
+            # subdirectory of .claude/agents/ loads in the project under its bare name,
+            # and nothing below looks inside a subdirectory.
+            fail(nested, f'a directory among the {kind} adapters. Nothing here checks '
+                         'inside it, and Claude Code loads agents from a subdirectory '
+                         'of .claude/agents/.')
         for identity, (source, body, summary) in covered.items():
             path = resolve(identity)
             if not path.is_file():
@@ -192,14 +199,20 @@ def check_adapters(roles, agents, sync):
             if kind == 'claude':
                 # Claude Code registers an agent under its frontmatter `name`, not its file
                 # name. Measured at 2.1.282: validator.md declaring `name: critic` left the
-                # installed plugin offering seven agents, with no error anywhere, and the
-                # same collision applies to the project directory.
-                declared = frontmatter(path)[0].get('name')
+                # installed plugin offering seven agents, with no error anywhere. The same
+                # mismatch renames the agent in the project directory too.
+                fields = flat_frontmatter(path)
+                declared = fields.get('name')
                 if declared != identity:
                     fail(path, f'frontmatter name {declared!r} is not {identity!r}. Claude '
                                'Code registers the agent under that name, so a mismatch '
                                'renames it and a clash drops one, in this repository and '
                                'in the plugin (.claude-plugin/) alike.')
+                for key in sorted(set(fields) - AGENT_KEYS):
+                    fail(path, f'frontmatter key {key!r} is not one the adapters carry. '
+                               'Claude Code acts on several subagent keys, and the plugin '
+                               '(.claude-plugin/) delivers every adapter; add the key to '
+                               'AGENT_KEYS if it is meant.')
             rebuild(path, identity, source, body, sync)
 
 
@@ -413,8 +426,82 @@ SKILL_KEYS = {'name', 'description', 'license', 'compatibility', 'metadata'}
 them act: `hooks` registers hooks for the rest of the session, `allowed-tools` grants
 tools without asking, and `context`, `agent`, `model` and `effort` change who runs."""
 
-INLINE_SHELL_RE = re.compile(r'(?:^|\s)!`|^[ \t]*(?:`{3,}|~{3,})!', re.M)
-"""Claude Code runs `` !`cmd` `` and ```! blocks in a SKILL.md before the model reads it."""
+AGENT_KEYS = {'name', 'description', 'tools', 'model'}
+"""The fields the Claude adapters carry. Claude Code honours more in a subagent's
+frontmatter, and the plugin delivers every adapter, so adding one is a decision made by
+editing this set rather than by editing an adapter."""
+
+CLAUDE_FRONTMATTER_RE = re.compile(r'---[ \t\r]*\n([\s\S]*?)---')
+"""Claude Code 2.1.282's delimiter, read from its binary as `^---\\s*\\n([\\s\\S]*?)---`:
+the block ends at the first `---` anywhere, mid-line included. Its opening `\\s*` is
+narrowed here, because Python's `\\s` and JavaScript's are different sets -- a `---`
+followed by U+001C opens a block here and none there -- and a narrower opening means a
+block found here is one Claude Code finds too. `match` anchors it, as its `^` does."""
+
+FLAT_LINE_RE = re.compile(r'([A-Za-z][A-Za-z0-9_-]*): (?![|>])(\S.*)')
+"""An unindented `key: value` whose value is on its own line and is not a block scalar."""
+
+YAML_MEANING_RE = re.compile(r'^[-|>\'"\[\]{}&*!%@#,?:`]|: | #|:$')
+"""What gives a one-line YAML value a meaning beyond its text: a leading indicator, a
+`: ` or ` #` inside it, a trailing colon. The value must also be printable, which rules
+out tabs, a CR and the separators some YAML treats as line breaks. A value free of these
+is a plain scalar, and YAML reads it as the text this script reads, give or take
+surrounding whitespace. One with them can read differently or fail to parse, and a
+frontmatter that fails to parse is one Claude Code falls back on in ways this script
+cannot see."""
+
+SHELL_MARKS = ('!`', '`!')
+"""Claude Code 2.1.282 runs two forms of shell in a SKILL.md, read from its binary: an
+inline `(?<=^|\\s)!` span, and a fence opened with three backticks and `!`. Refusing any
+`!` beside a backtick covers both, whatever counts as whitespace and wherever a fence
+sits. Adapters are held to it as well: inline shell in a plugin agent's body did not run
+in one probe at 2.1.282, and one probe is not a reason to leave a runtime unguarded."""
+
+
+def flat_frontmatter(path):
+    """Frontmatter as Claude Code delimits it, readable ONLY if flat. Returns {key: value}.
+
+    Claude Code parses this block as YAML. This script has no YAML parser and must not
+    grow one, so it does not try to agree with YAML; it requires a shape where there is
+    nothing to disagree about. Every non-blank line must be an unindented `key: value`,
+    with no block scalars, no nesting, no duplicate keys, no quoting of keys and no
+    value that YAML would read as more than its text. In that shape both see the same
+    keys, and a name this script accepts is the name YAML reads. A first version read
+    the block line by line, and an independent validator defeated it three ways at
+    2.1.282 -- a nested `name:`, a `name:` inside a block scalar, and a `---` ending the
+    block mid-line -- each with Claude Code reading a different name from this script's.
+    Anything outside the flat shape is now a failure, not a guess.
+    """
+    text = path.read_text(encoding='utf-8')
+    match = CLAUDE_FRONTMATTER_RE.match(text)
+    if match is None:
+        fail(path, 'no frontmatter where this script looks for it: a --- line at the very '
+                   'start. Claude Code finds frontmatter by a wider pattern, here and in the '
+                   'plugin (.claude-plugin/), so this script must find the same block.')
+        return {}
+    fields = {}
+    for number, line in enumerate(match.group(1).split('\n'), 2):
+        if not line.strip(' \t\r'):
+            continue
+        flat = FLAT_LINE_RE.fullmatch(line)
+        if flat is None:
+            fail(f'{path}:{number}', f'frontmatter line {line!r} is not an unindented '
+                                     '`key: value`. Claude Code reads this block as YAML, '
+                                     'here and in every session that installs the plugin '
+                                     '(.claude-plugin/); only the flat shape reads the same '
+                                     'way in this script.')
+        elif YAML_MEANING_RE.search(flat.group(2)) or not flat.group(2).isprintable():
+            fail(f'{path}:{number}', f'frontmatter value for {flat.group(1)!r} carries a '
+                                     'character YAML gives meaning to (a leading indicator, '
+                                     '": ", " #", a trailing colon or anything '
+                                     'unprintable). Claude Code reads this block as YAML, '
+                                     'here and in every session that installs the plugin '
+                                     '(.claude-plugin/); reword the value as plain text.')
+        elif flat.group(1) in fields:
+            fail(f'{path}:{number}', f'frontmatter key {flat.group(1)!r} appears twice')
+        else:
+            fields[flat.group(1)] = flat.group(2)
+    return fields
 
 
 def check_plugin():
@@ -450,7 +537,9 @@ def check_plugin():
     that runs when the skill loads. Both were measured reaching an installed session at
     2.1.282 with this check passing. A canonical skill has no business with either --
     they are Claude Code mechanics, and skills/ is portable -- so the frontmatter is held
-    to the Agent Skills fields and inline shell is refused outright.
+    to the Agent Skills fields and inline shell is refused outright. The delivered
+    adapters get the same shell rule, and their keys are held to AGENT_KEYS in
+    check_adapters, which reads their frontmatter already.
 
     What is COPIED is wider than what is loaded: a plugin install copies the whole
     repository, `local/` and `tools/` scripts included. They are never loaded or run by
@@ -524,18 +613,22 @@ def check_plugin():
                        'marketplace.json). It would reach every session that installs '
                        'the plugin.')
     for path in sorted((ROOT / 'skills').glob('*/SKILL.md')):
-        text = path.read_text(encoding='utf-8')
-        head = re.match(r'^---\n(.*?)\n---\n', text, re.S)
-        keys = re.findall(r'^([^\s:#][^:]*):', head.group(1), re.M) if head else []
-        for key in sorted(set(keys) - SKILL_KEYS):
+        for key in sorted(set(flat_frontmatter(path)) - SKILL_KEYS):
             fail(path, f'frontmatter key {key!r} is not an Agent Skills field. Claude Code '
                        'acts on several such keys, and skills/ is delivered by the plugin '
                        '(.claude-plugin/) to every session that installs it.')
-        for found in INLINE_SHELL_RE.finditer(text):
-            line = text.count('\n', 0, found.start()) + 1
-            fail(f'{path}:{line}', 'inline shell, which Claude Code runs when the skill '
-                                   'loads. skills/ is delivered by the plugin '
-                                   '(.claude-plugin/) and must run nothing.')
+    delivered = sorted((ROOT / 'skills').glob('*/SKILL.md')) \
+        + sorted((ROOT / '.claude' / 'agents').glob('*.md'))
+    for path in delivered:
+        text = path.read_text(encoding='utf-8')
+        for mark in SHELL_MARKS:
+            at = text.find(mark)
+            if at >= 0:
+                fail(f'{path}:{text.count(chr(10), 0, at) + 1}',
+                     f'{mark!r}: Claude Code runs inline shell in a SKILL.md when the skill '
+                     'loads, and the plugin (.claude-plugin/) delivers this file to every '
+                     'session that installs it. Any `!` beside a backtick is refused, as a '
+                     'superset of what it runs.')
     workflows = ROOT / 'workflows'
     if workflows.is_dir():
         for path in sorted(p for p in workflows.rglob('*') if not p.is_dir()):
