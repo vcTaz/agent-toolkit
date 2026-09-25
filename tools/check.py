@@ -416,6 +416,25 @@ ENTRY_KEYS = {'name', 'source', 'description', 'version', 'author', 'homepage',
               'repository', 'license', 'keywords', 'category', 'tags'}
 """A marketplace entry may carry components too; with the default `strict` it must not."""
 
+MARKET_KEYS = {'name', 'owner', 'metadata', 'plugins'}
+"""The marketplace's own top level. An unknown key there was ignored at 2.1.282, and adding
+one is still a decision rather than an accident."""
+
+MANIFEST_TEXT = ('name', 'description', 'version', 'homepage', 'repository', 'license',
+                 'category', 'source')
+MANIFEST_LISTS = ('keywords', 'tags')
+MANIFEST_PEOPLE = ('author', 'owner')
+"""Value shapes Claude Code 2.1.282 accepts. An independent validator found a string
+`author`, a string `keywords` and a `NaN` version each passing this check and failing the
+install, so the shapes are checked as well as the keys."""
+
+DELIVERY_PATHS = ('.claude-plugin', '.claude-plugin/plugin.json',
+                  '.claude-plugin/marketplace.json', '.claude', '.claude/agents', 'skills')
+"""Paths every delivered file sits under. Measured at 2.1.282 by an independent validator:
+`.claude/agents` as a symlink to a directory outside the tree left the installed plugin
+with no agents at all, each refused as escaping the plugin directory, and no error a user
+would see."""
+
 PLUGIN_DEFAULT_LOCATIONS = ('commands', 'hooks', 'output-styles', 'themes', 'monitors',
                             'bin', 'settings.json', '.mcp.json', '.lsp.json', 'package.json',
                             'SKILL.md')
@@ -475,7 +494,8 @@ names none -- comes from the session, not from this repository."""
 TYPED_SCALAR_RE = re.compile(r'(?i)~|null|true|false|yes|no|on|off|y|n|[-+]?\.?(inf|nan|\d.*)')
 """A one-line value YAML may read as null, a boolean or a number rather than as text.
 `description: null` passed an earlier version of this check and cost the installed plugin
-the skill: Claude Code 2.1.282 keeps a plugin skill only if its description is text."""
+the skill: Claude Code 2.1.282 drops a plugin skill whose description is null. A boolean or
+a number was kept, measured, and is refused anyway."""
 
 SHELL_MARKS = ('!`', '`!')
 """Claude Code 2.1.282 runs two forms of shell in a SKILL.md, read from its binary: an
@@ -575,6 +595,29 @@ def check_plugin():
     Claude Code, and this check is about what is.
     """
     import json
+
+    def refuse_constant(name):
+        raise ValueError(f'{name} is not JSON')
+
+    def shapes(where, obj, label):
+        for key in MANIFEST_TEXT:
+            if key in obj and not isinstance(obj[key], str):
+                fail(where, f'{label} {key!r} is {obj[key]!r}, not a string')
+        for key in MANIFEST_LISTS:
+            if key in obj and (not isinstance(obj[key], list)
+                               or not all(isinstance(v, str) for v in obj[key])):
+                fail(where, f'{label} {key!r} is not a list of strings')
+        for key in MANIFEST_PEOPLE:
+            if key in obj and (not isinstance(obj[key], dict)
+                               or not isinstance(obj[key].get('name'), str)
+                               or not all(isinstance(v, str) for v in obj[key].values())):
+                fail(where, f'{label} {key!r} is not an object with a string name')
+
+    for name in DELIVERY_PATHS:
+        if (ROOT / name).is_symlink():
+            fail(ROOT / name, 'a symlink. Claude Code refuses a plugin file that resolves '
+                              'outside the plugin directory (.claude-plugin/), and this '
+                              'one can; it was measured costing the plugin every agent.')
     base = ROOT / '.claude-plugin'
     manifests = {}
     for name in ('plugin.json', 'marketplace.json'):
@@ -584,8 +627,9 @@ def check_plugin():
                        'and a clone without this file installs nothing.')
             continue
         try:
-            manifests[name] = json.loads(path.read_text(encoding='utf-8'))
-        except json.JSONDecodeError as exc:
+            manifests[name] = json.loads(path.read_text(encoding='utf-8'),
+                                         parse_constant=refuse_constant)
+        except ValueError as exc:
             fail(path, f'not valid JSON: {exc}')
             continue
         if not isinstance(manifests[name], dict):
@@ -600,6 +644,7 @@ def check_plugin():
                         'component this toolkit does not ship.')
         if not SKILL_NAME_RE.fullmatch(str(plugin.get('name', ''))):
             fail(where, f'name {plugin.get("name")!r} is not a kebab-case plugin name')
+        shapes(where, plugin, 'plugin.json')
         adapters = sorted(f'./.claude/agents/{p.name}'
                           for p in (ROOT / '.claude' / 'agents').glob('*.md'))
         listed = plugin.get('agents')
@@ -618,12 +663,21 @@ def check_plugin():
 
     market, where = manifests.get('marketplace.json'), base / 'marketplace.json'
     if market:
+        for key in sorted(set(market) - MARKET_KEYS):
+            fail(where, f'unexpected top-level key {key!r} in the marketplace '
+                        '(.claude-plugin/)')
+        shapes(where, market, 'marketplace')
+        if plugin and market.get('name') != plugin.get('name'):
+            fail(where, f'marketplace name {market.get("name")!r} is not the plugin\'s '
+                        f'{plugin.get("name")!r}; the documented install is '
+                        'agent-toolkit@agent-toolkit (.claude-plugin/)')
         entries = market.get('plugins')
         if not isinstance(entries, list) or len(entries) != 1 \
                 or not isinstance(entries[0], dict):
             fail(where, '`plugins` must list exactly one plugin: this repository')
         else:
             entry = entries[0]
+            shapes(where, entry, 'plugin entry')
             for key in sorted(set(entry) - ENTRY_KEYS):
                 fail(where, f'plugin entry has unexpected key {key!r}. Components are '
                             'declared in plugin.json or loaded by default, never here.')

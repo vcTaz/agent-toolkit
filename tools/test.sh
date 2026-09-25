@@ -1871,8 +1871,8 @@ else
     "sed -i '0,/^name: validator\$/s//name: critic/' .claude/agents/validator.md"
   plugin_case "agents given as a directory" \
     "edit_json $pj 'd[\"agents\"]=\"./.claude/agents/\"'"
-  plugin_case "a plugin name that is not kebab-case, in both manifests alike" \
-    "edit_json $pj 'd[\"name\"]=\"Agent Toolkit\"'; edit_json $mj 'd[\"plugins\"][0][\"name\"]=\"Agent Toolkit\"'"
+  plugin_case "a plugin name that is not kebab-case, in every place it appears" \
+    "edit_json $pj 'd[\"name\"]=\"Agent Toolkit\"'; edit_json $mj 'd[\"name\"]=\"Agent Toolkit\"; d[\"plugins\"][0][\"name\"]=\"Agent Toolkit\"'"
   plugin_case "a skills key, which would replace the skills/ scan" \
     "edit_json $pj 'd[\"skills\"]=[\"./skills/critic\"]'"
   plugin_case "a hooks key in plugin.json" \
@@ -1993,6 +1993,27 @@ PY
     "sed -i '0,/^description: .*/s//description: null/' $skill"
   plugin_case "a skill whose frontmatter a mid-line --- ends before its description" \
     "sed -i '0,/^name: \(.*\)$/s//name: \1 ---\nname: \1/' $skill"
+
+  # A fourth validator found no way through B1 at d18ca50, and one through B2: with
+  # .claude/agents a symlink to a directory outside the tree, the check passed and the
+  # installed plugin had no agents. It also found manifest values that pass the key
+  # allowlists and fail the install, and an unchecked marketplace top level.
+  plugin_case ".claude/agents as a symlink to a directory outside the tree" \
+    "rm -rf $TMPROOT/outside-agents && mv .claude/agents $TMPROOT/outside-agents && ln -s $TMPROOT/outside-agents .claude/agents"
+  plugin_case "skills/ as a symlink to a directory outside the tree" \
+    "rm -rf $TMPROOT/outside-skills && mv skills $TMPROOT/outside-skills && ln -s $TMPROOT/outside-skills skills"
+  plugin_case "an unknown key at the marketplace's top level" \
+    "edit_json $mj 'd[\"hooks\"]={}'"
+  plugin_case "a marketplace named other than the plugin" \
+    "edit_json $mj 'd[\"name\"]=\"other\"'"
+  plugin_case "a NaN version, which Python reads and Claude Code does not" \
+    "edit_json $pj 'd[\"version\"]=float(\"nan\")'"
+  plugin_case "a NaN where no shape is checked, which only the JSON parse refuses" \
+    "edit_json $mj 'd[\"metadata\"][\"n\"]=float(\"nan\")'"
+  plugin_case "an author given as a string" \
+    "edit_json $pj 'd[\"author\"]=\"vcTaz\"'"
+  plugin_case "keywords given as a string" \
+    "edit_json $pj 'd[\"keywords\"]=\"agents\"'"
 
   # Not a plugin case: the plugin lists its files, but the project directory loads a
   # subdirectory's agents too, and no check looked inside one.

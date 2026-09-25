@@ -99,11 +99,15 @@ Three things at the repository root are deliberately not loaded:
 
 Nothing that Claude Code runs by itself is loaded either. `tools/check.py` computes that
 rather than this sentence asserting it, against what Claude Code 2.1.282 reads from a plugin
-root as read from its binary. Four review rounds each found something the check did not yet
-refuse, so read it as the widest check so far, not as a proof. It refuses:
+root as read from its binary. Five independent review rounds each found something the check did
+not yet refuse; the fifth found no way to run shell and one way to lose every agent. Read it as
+the widest check so far, not as a proof. It refuses:
 
-- in either manifest, any key that is not metadata or `agents`: hooks, MCP and LSP servers,
-  commands, `strict: false`, a `skills` key;
+- in either manifest, the marketplace's own top level included, any key that is not
+  metadata or `agents`: hooks, MCP and LSP servers, commands, `strict: false`, a `skills`
+  key; a value of the wrong shape, such as a string `author` or `keywords`, or a `NaN`,
+  each of which fails the install; and a marketplace named other than the plugin, which
+  breaks the documented `agent-toolkit@agent-toolkit`;
 - at the repository root, compared without case, every default plugin location that loads
   or runs something — `commands/`, `hooks/`, `output-styles/`, `themes/`, `monitors/`,
   `bin/`, `settings.json`, `.mcp.json`, `.lsp.json`, and a `SKILL.md`, which is the plugin's
@@ -119,14 +123,17 @@ refuse, so read it as the widest check so far, not as a proof. It refuses:
   sit;
 - in the same files, a `$` before a letter, digit, underscore or brace. Every substitution
   Claude Code makes in a skill before running its shell starts that way — `$ARGUMENTS`, `$0`,
-  `${CLAUDE_SKILL_DIR}` and the rest — so with none of them, the text the shell step sees is
-  the file's own;
+  `${CLAUDE_SKILL_DIR}` and the rest — so with none of them, the shell step sees the file's
+  own text, with a line naming the skill's directory before it and any arguments, escaped,
+  after it, neither of which comes from this repository;
 - a `SKILL.md` directly in `skills/`, in any case. Claude Code loads that file as the plugin's
   only skill, in place of the seven;
-- any symlink under `skills/`, and a symlinked adapter. Claude Code follows them, and loads a
-  file it reaches twice only once;
-- any delivered file over 256 KiB. Claude Code skips a plugin agent or skill over 1 MiB, or
-  one that is not a regular file, with nothing but a line in its debug log.
+- any symlink under `skills/`, a symlinked adapter, and a symlink at `.claude-plugin/`, its
+  two manifests, `.claude/`, `.claude/agents/` or `skills/`. Claude Code follows them, loads a
+  file it reaches twice only once, and refuses one that resolves outside the plugin;
+- any file under `skills/`, and any adapter, over 256 KiB. Claude Code skips a plugin agent or
+  skill over 1 MiB, or one that is not a regular file, with nothing but a line in its debug
+  log.
 
 The first version of the check missed skills entirely: a hook in a skill's frontmatter and
 inline shell in its body each ran in an installed session, measured at 2.1.282, with the check
@@ -158,11 +165,19 @@ same caveat applies to it as to the rules.
 A third validator found two more gaps. Claude Code substitutes `$ARGUMENTS` before it looks for
 shell, so `!$ARGUMENTS` followed by a backtick span, which the scan saw as apart, ran once the
 empty argument joined them: a read-only command in the default mode, a write in accept-edits
-mode. And `description: null` passed and cost the plugin that skill, because Claude Code keeps
-a plugin skill only if its description is text; a `---` mid-line that ended the block before
-the description did the same. The check now refuses every `$` that could start a substitution,
-every value YAML may read as null, a boolean or a number, and a skill without a description as
-Claude Code delimits it.
+mode. And `description: null` passed and cost the plugin that skill, because Claude Code drops
+a plugin skill whose description YAML reads as null; a `---` mid-line that ended the block
+before the description did the same. A later round found `true` and a number kept, and they are
+refused anyway. The check now refuses every `$` that could start a substitution, every value
+YAML may read as null, a boolean or a number, and a skill without a description as Claude Code
+delimits it.
+
+A fourth validator found no way to run shell. It did find that `.claude/agents/` as a symlink to
+a directory outside the tree passed the check and left the installed plugin with no agents,
+each refused as escaping the plugin directory; and that manifest values of the wrong shape, an
+unknown key at the marketplace's top level and a renamed marketplace all passed. The check now
+refuses a symlink at every path the delivered files sit under, and checks the manifests'
+shapes and the marketplace's name.
 
 In an **adapter**, the first validator found frontmatter hooks ignored for a plugin agent, and
 inline shell in the body did not run in one probe, both at 2.1.282. The check refuses
@@ -473,6 +488,9 @@ date given — a primary source, but not a run.
 | A plugin skill over 1 MiB is skipped the same way, and a file reached twice through symlinks loads once | **read, not run** — the loader in the 2.1.282 binary. Both are refused |
 | At `540539e406dd5d48fd07c096bf73fd916063a561` inline shell assembled by an empty `$ARGUMENTS`, inline and as a fence, passed the check and ran: a read-only command in the default permission mode with no prompt, a write in accept-edits mode | **verified** — 2.1.282, 2026-09-25, by a third independent validator against a local-directory marketplace. Now refused |
 | At that commit `description: null`, and a `---` mid-line ending the block before the description, each passed the check and left six skills | **verified** — same round. Now refused. `description: null` on an adapter left eight agents |
+| At `d18ca50619a867ac731608432a29c4838222d097` no plant ran shell: near-misses, the substitutions and an argument carrying inline shell, which arrived escaped | **verified** — 2.1.282, 2026-09-25, by a fourth independent validator, with a positive control that did run. Scoped to what it tried |
+| At that commit `.claude/agents/` symlinked to a directory outside the tree passed the check and left no agents; an in-tree link loaded all eight | **verified** — same round, local-directory marketplace. Now refused, in-tree or not |
+| At that commit a string `author`, a string `keywords`, a `NaN` version and a renamed marketplace each passed the check and failed the install or the documented command | **verified** — same round. Now refused. A `description` of `true` or a number kept its skill |
 | The plugin in a cloud session | **not tried** |
 
 Three limits on this table. The **documented** rows describe intent; only the verified rows
