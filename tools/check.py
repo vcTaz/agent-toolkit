@@ -417,9 +417,19 @@ ENTRY_KEYS = {'name', 'source', 'description', 'version', 'author', 'homepage',
 """A marketplace entry may carry components too; with the default `strict` it must not."""
 
 PLUGIN_DEFAULT_LOCATIONS = ('commands', 'hooks', 'output-styles', 'themes', 'monitors',
-                            'bin', 'settings.json', '.mcp.json', '.lsp.json', 'package.json')
+                            'bin', 'settings.json', '.mcp.json', '.lsp.json', 'package.json',
+                            'SKILL.md')
 """What Claude Code loads or acts on at a plugin root with no manifest key asking for it.
-`package.json` is here because, beside a lockfile, it makes every install run npm."""
+`package.json` is here because, beside a lockfile, it makes every install run npm. A root
+`SKILL.md` becomes the plugin's skill when there is no `skills/`, read from the 2.1.282
+binary; this repository has one, and the file is refused anyway."""
+
+DELIVERED_MAX_BYTES = 262144
+"""Claude Code 2.1.282 skips a plugin agent or skill that is over 1048576 bytes or is not
+a regular file, and says so only in its debug log -- read from its binary, and measured
+by an independent validator for an agent, which cost the plugin one. The largest file
+delivered here is about 14 KB, so a quarter of that limit leaves room without nearing
+it."""
 
 SKILL_KEYS = {'name', 'description', 'license', 'compatibility', 'metadata'}
 """The Agent Skills fields, less `allowed-tools`. Claude Code honours more, and some of
@@ -446,7 +456,8 @@ YAML_MEANING_RE = re.compile(r'^[-|>\'"\[\]{}&*!%@#,?:`]|: | #|:$')
 `: ` or ` #` inside it, a trailing colon. The value must also be printable, which rules
 out tabs, a CR and the separators some YAML treats as line breaks. A value free of these
 is a plain scalar, and YAML reads it as the text this script reads, give or take
-surrounding whitespace. One with them can read differently or fail to parse, and a
+surrounding whitespace and a type for words such as `true` or `null` or a number, none of
+which is a name here. One with them can read differently or fail to parse, and a
 frontmatter that fails to parse is one Claude Code falls back on in ways this script
 cannot see."""
 
@@ -612,19 +623,44 @@ def check_plugin():
                        'repository root is the plugin root (.claude-plugin/'
                        'marketplace.json). It would reach every session that installs '
                        'the plugin.')
-    for path in sorted((ROOT / 'skills').glob('*/SKILL.md')):
-        for key in sorted(set(flat_frontmatter(path)) - SKILL_KEYS):
-            fail(path, f'frontmatter key {key!r} is not an Agent Skills field. Claude Code '
-                       'acts on several such keys, and skills/ is delivered by the plugin '
-                       '(.claude-plugin/) to every session that installs it.')
-    delivered = sorted((ROOT / 'skills').glob('*/SKILL.md')) \
-        + sorted((ROOT / '.claude' / 'agents').glob('*.md'))
-    for path in delivered:
-        text = path.read_text(encoding='utf-8')
+    # What Claude Code 2.1.282 reads from skills/, from its binary: skills/SKILL.md, which
+    # if present is the plugin's ONLY skill; otherwise <entry>/SKILL.md for every entry
+    # that is a directory or a symlink, each loaded once by real path. The check reads a
+    # superset: every file under skills/ at any depth, every SKILL.md in any case.
+    skills = ROOT / 'skills'
+    under_skills = sorted(p for p in skills.rglob('*')) if skills.is_dir() else []
+    for path in under_skills:
+        if path.is_symlink():
+            fail(path, 'a symlink under skills/. Claude Code follows it and loads a file it '
+                       'reaches twice only once, so a skill can go missing from the plugin '
+                       '(.claude-plugin/) without an error.')
+    for path in sorted(skills.iterdir()) if skills.is_dir() else []:
+        if path.name.lower() == 'skill.md':
+            fail(path, 'Claude Code loads skills/SKILL.md as the plugin\'s only skill '
+                       '(.claude-plugin/), in place of every skill directory beside it.')
+    for path in under_skills:
+        if path.is_file() and path.name.lower() == 'skill.md':
+            for key in sorted(set(flat_frontmatter(path)) - SKILL_KEYS):
+                fail(path, f'frontmatter key {key!r} is not an Agent Skills field. Claude '
+                           'Code acts on several such keys, and skills/ is delivered by the '
+                           'plugin (.claude-plugin/) to every session that installs it.')
+    adapters = sorted((ROOT / '.claude' / 'agents').glob('*.md'))
+    for path in adapters:
+        if path.is_symlink():
+            fail(path, 'a symlinked adapter. Claude Code loads a file it reaches twice only '
+                       'once, so the plugin (.claude-plugin/) can lose an agent without an '
+                       'error.')
+    for path in [p for p in under_skills if p.is_file()] + adapters:
+        size = path.stat().st_size
+        if size > DELIVERED_MAX_BYTES:
+            fail(path, f'{size} bytes, over {DELIVERED_MAX_BYTES}. Claude Code skips a plugin '
+                       'agent or skill over 1048576 bytes with only a debug-log line, and '
+                       'the plugin (.claude-plugin/) delivers this file.')
+        data = path.read_bytes()
         for mark in SHELL_MARKS:
-            at = text.find(mark)
+            at = data.find(mark.encode())
             if at >= 0:
-                fail(f'{path}:{text.count(chr(10), 0, at) + 1}',
+                fail(f'{path}:{data.count(bytes([10]), 0, at) + 1}',
                      f'{mark!r}: Claude Code runs inline shell in a SKILL.md when the skill '
                      'loads, and the plugin (.claude-plugin/) delivers this file to every '
                      'session that installs it. Any `!` beside a backtick is refused, as a '

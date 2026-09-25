@@ -73,15 +73,15 @@ From a shell the same two steps are `claude plugin marketplace add vcTaz/agent-t
 append `@<branch>` to the marketplace source.
 
 `.claude-plugin/marketplace.json` lists one plugin whose source is `./`, so **the plugin root
-is the repository root**. An install copies the whole repository into Claude Code's plugin
-cache, the shell scripts in `local/` and `tools/` included; what follows is about what
-Claude Code **loads** from that copy, which is much less. `.claude-plugin/plugin.json` decides
-it:
+is the repository root**. An install from GitHub copies the whole repository into Claude
+Code's plugin cache, the shell scripts in `local/` and `tools/` included, and a marketplace
+added from a local directory is loaded in place. What follows is about what Claude Code
+**loads** from the plugin root, which is much less. `.claude-plugin/plugin.json` decides it:
 
 | Loaded | From | Named in a session |
 |---|---|---|
 | the eight subagents | `.claude/agents/*.md`, listed one file at a time | `agent-toolkit:critic`, `agent-toolkit:orchestrator`, … |
-| the seven skills | `skills/`, Claude Code's default scan | `agent-toolkit:adversarial-review`, … |
+| the seven skills | `skills/<name>/SKILL.md`, Claude Code's default scan | `agent-toolkit:adversarial-review`, … |
 
 Three things at the repository root are deliberately not loaded:
 
@@ -97,21 +97,31 @@ Three things at the repository root are deliberately not loaded:
 - **`workflows/`.** It is also Claude Code's default location for workflow scripts. Here it
   holds Markdown, which loads no workflow.
 
-Nothing that Claude Code runs by itself is loaded either, and `tools/check.py` computes that
-rather than this sentence asserting it. It refuses:
+Nothing that Claude Code runs by itself is loaded either. `tools/check.py` computes that
+rather than this sentence asserting it, against what Claude Code 2.1.282 reads from a plugin
+root as read from its binary. Three review rounds each found something the check did not yet
+refuse, so read it as the widest check so far, not as a proof. It refuses:
 
 - in either manifest, any key that is not metadata or `agents`: hooks, MCP and LSP servers,
   commands, `strict: false`, a `skills` key;
 - at the repository root, compared without case, every default plugin location that loads
   or runs something — `commands/`, `hooks/`, `output-styles/`, `themes/`, `monitors/`,
-  `bin/`, `settings.json`, `.mcp.json`, `.lsp.json` — and `package.json`, which beside a
-  lockfile makes every install run npm;
+  `bin/`, `settings.json`, `.mcp.json`, `.lsp.json`, and a `SKILL.md`, which is the plugin's
+  skill when there is no `skills/` — and `package.json`, which beside a lockfile makes every
+  install run npm;
 - anything but Markdown in `workflows/`;
 - in a `SKILL.md`, a frontmatter key outside the Agent Skills fields (so `hooks`,
   `allowed-tools`, `context` and the rest), and in an adapter, a key outside the four the
   adapters use: `name`, `description`, `tools` and `model`;
-- in either, any `!` directly beside a backtick. That covers inline shell, `` !`…` ``, and
-  a ```` ```! ```` block, wherever they sit.
+- in any file under `skills/`, at any depth, and in any adapter, a `!` directly beside a
+  backtick. That covers inline shell, `` !`…` ``, and a ```` ```! ```` block, wherever they
+  sit;
+- a `SKILL.md` directly in `skills/`, in any case. Claude Code loads that file as the plugin's
+  only skill, in place of the seven;
+- any symlink under `skills/`, and a symlinked adapter. Claude Code follows them, and loads a
+  file it reaches twice only once;
+- any delivered file over 256 KiB. Claude Code skips a plugin agent or skill over 1 MiB, or
+  one that is not a regular file, with nothing but a line in its debug log.
 
 The first version of the check missed skills entirely: a hook in a skill's frontmatter and
 inline shell in its body each ran in an installed session, measured at 2.1.282, with the check
@@ -119,8 +129,9 @@ passing. The second copied Claude Code's own patterns, and an independent valida
 with variations that still ran in an installed session: frontmatter indented as a whole, whose
 hooks fired in the default permission mode, and a fence opened mid-line or inside a list item,
 or a byte-order mark before the `!`, which ran in accept-edits mode. In the default mode Claude
-Code still took each of those for shell and stopped at the permission prompt, as it did for the
-original plant. So the rules are now **wider than Claude Code's parsing** rather than copies of
+Code took each of those for shell and stopped at the permission prompt, but they were writes: a
+read-only command in the same place ran in the default mode with no prompt, so the permission
+mode is no backstop. So the rules are now **wider than Claude Code's parsing** rather than copies of
 it. Claude Code reads frontmatter as YAML and this script has no YAML parser, so it does not
 try to agree with one: every frontmatter line must be an unindented `key: value`, with no block
 scalar, no nesting, no key twice and no value that YAML would read as more than its text, such
@@ -131,7 +142,15 @@ frontmatter delimiter, which ends the block at the first `---` even mid-line, it
 retry after turning leading tabs into spaces, and its two shell patterns. A later version that
 parses more loosely could need them widened, and nothing here would notice.
 
-In an **adapter**, the same validator found frontmatter hooks ignored for a plugin agent, and
+A second validator found those rules sound and the set of files they read too narrow. A
+`skills/SKILL.md` passed the check, replaced all seven skills in an installed session, and ran
+its inline shell in the default mode; an adapter padded past 1 MiB passed it and was skipped,
+leaving seven agents. The check now reads every file under `skills/` rather than the seven
+`SKILL.md` files, refuses the file layouts Claude Code's loader treats specially, and bounds
+the size of what it delivers. The set was read from the loader in the 2.1.282 binary, and the
+same caveat applies to it as to the rules.
+
+In an **adapter**, the first validator found frontmatter hooks ignored for a plugin agent, and
 inline shell in the body did not run in one probe, both at 2.1.282. The check refuses
 both there anyway, so nothing rests on either observation. It also refuses a directory inside
 `.claude/agents/`, which the plugin never reads, because the validator found that an agent
@@ -435,6 +454,9 @@ date given — a primary source, but not a run.
 | Hooks in an adapter's frontmatter are ignored for a plugin agent | **verified** — same round. Refused anyway |
 | Inline shell in a plugin agent's body does not run | **observed once** — 2.1.282, 2026-09-24, one probe in accept-edits mode; not established. Refused anyway |
 | An agent file in a subdirectory of `.claude/agents/` loads in the project under its bare name | **verified** — same round. A directory there is now refused |
+| At `993f6e8872fdf27f8c48f97f7d29bd8f0d4e765a` a `skills/SKILL.md` passed the check and loaded as the plugin's only skill; its inline shell ran a read-only command in the default permission mode with no prompt, and a `hooks:` block in it fired once the skill was allowed | **verified** — 2.1.282, 2026-09-25, by a second independent validator against a local-directory marketplace. Now refused |
+| At that commit an adapter padded past 1 MiB passed the check and was skipped, leaving seven agents and one line in the debug log | **verified** — same round. Delivered files are now bounded at 256 KiB |
+| A plugin skill over 1 MiB is skipped the same way, and a file reached twice through symlinks loads once | **read, not run** — the loader in the 2.1.282 binary. Both are refused |
 | The plugin in a cloud session | **not tried** |
 
 Three limits on this table. The **documented** rows describe intent; only the verified rows

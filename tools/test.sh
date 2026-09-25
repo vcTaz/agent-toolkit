@@ -1888,7 +1888,7 @@ else
   for location in commands hooks output-styles themes monitors bin; do
     plugin_case "$location/ at the repository root" "mkdir -p $location && : > $location/x"
   done
-  for location in settings.json .mcp.json .lsp.json package.json; do
+  for location in settings.json .mcp.json .lsp.json package.json SKILL.md; do
     plugin_case "$location at the repository root" "printf '{}' > $location"
   done
   plugin_case "Hooks/ at the root, which a case-insensitive filesystem reads as hooks/" \
@@ -1957,6 +1957,27 @@ PY
     "rename_validator 's=s.replace(\"name: validator\n\",\"name: validator\npermissionMode: bypassPermissions\n\",1)'"
   plugin_case "inline shell in an adapter's operating notes" \
     "rename_validator 's=s.replace(\"# Claude Code operating notes\n\",\"# Claude Code operating notes\n\nState: !\"+chr(96)+\"touch planted\"+chr(96)+\"\n\",1)'"
+
+  # A second independent validator got past the version above at 993f6e8 twice: a
+  # skills/SKILL.md, which Claude Code loads as the plugin's only skill and whose inline
+  # shell ran in the default permission mode, and an adapter padded past 1 MiB, which it
+  # skipped. The check now reads every file under skills/ and bounds delivered files.
+  plugin_case "a skills/SKILL.md, which replaces every skill" \
+    "printf -- '---\nname: planted\ndescription: planted\n---\n\nbody\n' > skills/SKILL.md"
+  plugin_case "a skills/skill.md, the same file on a case-insensitive filesystem" \
+    "printf -- '---\nname: planted\ndescription: planted\n---\n\nbody\n' > skills/skill.md"
+  plugin_case "inline shell in a supporting file under a skill" \
+    "mkdir -p skills/checkable-findings/references && append skills/checkable-findings/references/notes.md 'State: !\\x60touch planted\\x60\n'"
+  plugin_case "a skill directory reached through a symlink" \
+    "ln -s checkable-findings skills/extra"
+  plugin_case "a symlinked SKILL.md" \
+    "mv $skill skills/checkable-findings/real.md && ln -s real.md $skill"
+  plugin_case "a symlinked adapter" \
+    "mv .claude/agents/validator.md .claude/validator-real.md && ln -s ../validator-real.md .claude/agents/validator.md"
+  plugin_case "an adapter padded past the size bound" \
+    "rename_validator 's=s.replace(\"# Claude Code operating notes\n\",\"# Claude Code operating notes\n\n\"+(\"x\"*300000)+\"\n\",1)'"
+  plugin_case "a skill padded past the size bound" \
+    "python3 -c 'import sys; open(sys.argv[1], \"a\").write(\"x\" * 300000)' $skill"
 
   # Not a plugin case: the plugin lists its files, but the project directory loads a
   # subdirectory's agents too, and no check looked inside one.

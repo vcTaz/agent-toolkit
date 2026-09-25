@@ -130,8 +130,8 @@ marketplace:
 ```
 
 The plugin loads the same eight subagents and seven skills, namespaced as
-`agent-toolkit:critic` and so on, and nothing that Claude Code runs by itself. It does not
-load `AGENTS.md`. See
+`agent-toolkit:critic` and so on, and nothing that Claude Code runs by itself, which
+`tools/check.py` checks against Claude Code 2.1.282. It does not load `AGENTS.md`. See
 [docs/platforms/claude-code.md](docs/platforms/claude-code.md) for what it delivers and what
 has been verified.
 
